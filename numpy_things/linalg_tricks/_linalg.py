@@ -25,8 +25,8 @@ matmul
     Matrix multiplication with better type flexibility.
 """
 
-import numpy as np
 from typing import Tuple
+import numpy as np
 
 # =============================================================================
 # Reshaping for linear algebra
@@ -170,14 +170,11 @@ def matldiv(x: np.ndarray, y: np.ndarray,
     if a.dtype == np.object_ or b.dtype == np.object_:
         return NotImplemented
 
-    returntype = type(a)
-    if isinstance(x, returntype):
-        returntype = type(x)
-    if isinstance(y, returntype):
-        returntype = type(y)
+    returntype = _mostsub_type(x, y)
+    returndtype = np.result_type(x, y)
 
     if out[0] is None:
-        out = (np.empty(return_shape_mat(trnsp(a), b)).view(returntype),)
+        out = (np.empty(return_shape_mat(trnsp(a), b), dtype=returndtype),)
 
     if a.ndim == 0:
         out[0][...] = b / a
@@ -186,7 +183,7 @@ def matldiv(x: np.ndarray, y: np.ndarray,
     elif a.shape[-2] == a.shape[-1]:
         out[0][...] = np.linalg.solve(a, b)
     elif a.ndim == 2 and b.ndim <= 2:
-        out[0][...] = np.linalg.lstsq(a, b, rcond=-1)[0]
+        out[0][...] = np.linalg.lstsq(a, b, rcond=rcond)[0]
     elif a.shape[-2] < a.shape[-1]:
         out[0][...] = trnsp(a) @ np.linalg.solve(a @ trnsp(a), b)
     elif a.shape[-2] > a.shape[-1]:
@@ -194,7 +191,7 @@ def matldiv(x: np.ndarray, y: np.ndarray,
     else:
         return NotImplemented
 
-    return out[0]
+    return out[0].view(returntype)
 
 
 def matrdiv(a: np.ndarray, b: np.ndarray, *args, **kwargs) -> np.ndarray:
@@ -251,15 +248,24 @@ def matmul(x, y, out=(None,)):
     if a.dtype == np.object_ or b.dtype == np.object_:
         return NotImplemented
 
-    returntype = type(a)
-    if isinstance(x, returntype):
-        returntype = type(x)
-    if isinstance(y, returntype):
-        returntype = type(y)
+    returntype = _mostsub_type(x, y)
+    returndtype = np.result_type(x, y)
 
     if out[0] is None:
-        out = (np.empty(return_shape_mat(a, b)).view(returntype),)
+        out = (np.empty(return_shape_mat(a, b), dtype=returndtype),)
 
     np.matmul(a, b, out=out[0])
 
-    return out[0]
+    return out[0].view(returntype)
+
+
+def _mostsub_type(a, *args) -> type:
+    """Most derived type of arguments.
+
+    For a non-linear type hierachy, it takes the first branch, left to right.
+    """
+    returntype = type(a)
+    for b in args:
+        if isinstance(b, returntype):
+            returntype = type(b)
+    return returntype

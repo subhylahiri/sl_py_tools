@@ -33,11 +33,11 @@ invarray
     Provides interface for matrix division when it is matrix multiplied (@).
     Does not actually invert the matrix unless it has to: if you try to do
     anything other than matrix multiplication or multiplication by scalars.
+lnmatrix
+    Subclass of `lnarray` which swaps matrix/elementwise multiplication and
+    division from the right.
 ldarray
-    Subclass of `lnarray`, which is a subclass of `numpy.ndarray` with
-    properties such as `inv` for matrix division, `t` for transposing stacks of
-    matrices, `c`, `r` and `s` for dealing with stacks of vectors and scalars.
-    This class overloads bitshift operators to perform matrix division.
+    `lnarray` subclass which overloads bitshift operators for matrix division.
     One of several reasons why this is a bad idea is that bitshifting has lower
     operator priority than division, so you will have to use parentheses often.
 
