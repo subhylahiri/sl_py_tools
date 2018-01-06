@@ -4,7 +4,7 @@
 #
 # @author: Subhy
 #
-# Module: `sl_datetime`.
+# Module: `time_tricks`.
 # =============================================================================
 """
 Produce formatted strings for displaying objects from datetime module.
@@ -17,6 +17,12 @@ dt_format(d: Union[datetime.date, datetime.time]) -> str:
 td_format(d: datetime.timedelta, subsec: bool=False) -> str:
     Formatted string for timedelta objects,
     e.g. '10w, 5d, 4h, 39m, 50s'
+ampm_hr(d: datetime.time) -> (int, str):
+    converts 24 hr clock to 12 hr.
+time_expr(lambda_expr):
+    Time a lambda expression.
+time_wrap(func):
+    Decorate a function with a timer.
 
 Classes
 =======
@@ -36,10 +42,18 @@ Examples
 >>> dt.time()
 >>> time.sleep(100)
 >>> dt.time()
+
+>>> time_expr(lambda: execute_fn(param1, param2))
+
+>>> @time_wrap
+>>> def myfunc(param1, param2):
+>>>     smthng = do_something(param1, param2)
+>>>     return smthng
 """
 
 import datetime
 from typing import Union, Optional
+from functools import wraps
 
 DateTime = Union[datetime.date, datetime.time]
 
@@ -213,3 +227,56 @@ class timeit(object):
         obj = cls()
         obj.start(*args, **kwargs)
         return obj
+
+
+def time_expr(lambda_expr):
+    """Time a lambda expression.
+
+    Prints date & time before & after running `lambda_expr` and elapsed time.
+
+    Parameters
+    ----------
+    lambda_expr
+        a `lambda` function with no parameters
+
+    Returns
+    -------
+    whatever `lambda_expr` returns
+
+    Example
+    -------
+    >>> time_expr(lambda: execute_fn(param1, param2))
+    """
+    tm = timeit.now()
+    out = lambda_expr()
+    tm.time()
+    return out
+
+
+def time_wrap(func):
+    """Decorate a function with a timer
+
+    Prints date & time before & after running `func` and elapsed time.
+
+    Parameters
+    ----------
+    func
+        the function you want to time
+
+    Returns
+    -------
+    timed_func
+        wrapped version of `func`, with same paramaters and returns.
+
+    Example
+    -------
+    >>> @time_wrap
+    >>> def myfunc(param1, param2):
+    >>>     smthng = do_something(param1, param2)
+    >>>     return smthng
+    """
+    @wraps(func)
+    def timed_func(*args, **kwds):
+        """Wrapped function"""
+        return time_expr(lambda: func(*args, **kwds))
+    return timed_func
