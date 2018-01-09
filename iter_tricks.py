@@ -113,7 +113,51 @@ def zenumerate(*iterables: Tuple[Iterable, ...], start=0, step=1) -> zip:
 # =============================================================================
 
 
-class _DisplayMixin(object):
+class DisplayTemporary(object):
+    """Class for temporarily displaying a message"""
+    _state: Dict[str, Any]
+
+    # set output to False to suppress display
+    output: ClassVar[bool] = True
+
+    def __init__(self):
+        self._state = dict(clean=True, numchar=0)
+
+    def __del__(self):
+        """Clean up, if necessary"""
+        if not self._state['clean']:
+            self.end()
+
+    def begin(self, msg: str = ''):
+        """Display message."""
+        self._state['numchar'] = len(msg) + 1
+        self._print(' ' + msg)
+        self._state['clean'] = False
+
+    def end(self):
+        """Erase message."""
+        ndig = self._state['numchar']
+#        self._print('\b \b' * ndig)
+        # hack for jupyter's problem with multiple backspaces
+        for i in '\b \b' * ndig:
+            self._print(i)
+        self._state['numchar'] = 0
+        self._state['clean'] = True
+
+    def _print(self, text: str):
+        """Print with customisations: same line and immediate output"""
+        if self.output:
+            print(text, end='', flush=True)
+
+    @classmethod
+    def show(cls, msg: str):
+        """Show message and return object"""
+        obj = cls()
+        obj.begin(msg)
+        return obj
+
+
+class _DisplayMixin(DisplayTemporary):
     """Mixin providing machinery for DisplayCount etc.
 
     Does not define `__iter__` or `__next__` (or `__reversed__`)
@@ -125,31 +169,22 @@ class _DisplayMixin(object):
     stop: Optional[int]
     step: int
     offset: int
-    _state: Dict[str, Any]
-#    _clean: bool
-#    _prefix: str
-#    _frmt: str
-#   _nest_level: Optional[int]
 
-    # set output to False to suppress counter display
-    output: ClassVar[bool] = True
     # set debug to True to check that counter is in range and properly nested
     debug: ClassVar[bool] = False
     _nactive: ClassVar[int] = 0
 
     def __init__(self):
-        self._state = dict(clean=True, prefix=' ', frmt='', nestlevel=None)
+        super().__init__
+        self._state.update(prefix=' ', frmt='', nestlevel=None)
         self.counter = None
-
-    def __del__(self):
-        """Clean up, if necessary"""
-        if not self._state['clean']:
-            self.end()
 
     def begin(self):
         """Display initial counter with prefix."""
         self.counter = self.start - self.step
-        self._print(self._state['prefix'] + self._str(self.start))
+        dsp = self._str(self.start)
+        self._state['numchar'] = len(dsp)
+        self._print(self._state['prefix'] + dsp)
         self._state['clean'] = False
         if self.debug:
             self._nactive += 1
@@ -158,28 +193,24 @@ class _DisplayMixin(object):
 
     def disp(self):
         """Erase previous counter and display new one."""
-        dsp = self._str(self.counter)
-
-        if self.stop is None:
-            num_digits = len(self._str(self.counter - self.step))
-        else:
-            num_digits = len(dsp)
-
-#        self._print('\b' * num_digits)
+#        self._print('\b' * self._state['numchar'])
         # hack for jupyter's problem with multiple backspaces
-        for i in '\b' * num_digits:
+        for i in '\b' * self._state['numchar']:
             self._print(i)
+        dsp = self._str(self.counter)
+        self._state['numchar'] = len(dsp)
         self._print(dsp)
         if self.debug:
             self._check()
 
     def end(self):
         """Erase previous counter and prefix."""
-        ndig = len(self._state['prefix'] + self._str(self.counter - self.step))
+        ndig = len(self._state['prefix']) + self._state['numchar']
 #        self._print('\b \b' * ndig)
         # hack for jupyter's problem with multiple backspaces
         for i in '\b \b' * ndig:
             self._print(i)
+        self._state['numchar'] = 0
         self._state['clean'] = True
         if self.debug:
             self._nactive -= 1
@@ -188,11 +219,6 @@ class _DisplayMixin(object):
         """String for display of counter, e.g.' 7/12,'."""
 #        return self._frmt.format(ctr)
         return self._state['frmt'].format(ctr + self.offset)
-
-    def _print(self, text: str):
-        """Print with customisations: same line and immediate output"""
-        if self.output:
-            print(text, end='', flush=True)
 
     def _check(self):
         """Ensure that DisplayCount's are properly used"""
@@ -562,6 +588,11 @@ class DisplayZip(_AddDisplayToIterables):
 # %%* Function interface
 # - only saves ink
 # =============================================================================
+
+
+def dtemp(msg: str = ''):
+    """Temporarily displaying a message"""
+    return DisplayTemporary.show(msg)
 
 
 def dcount(name: Optional[str] = None,

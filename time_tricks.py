@@ -26,7 +26,7 @@ time_wrap(func):
 
 Classes
 =======
-timeit:
+timer:
     Class for displaying before/after time.
 
 Examples
@@ -37,7 +37,7 @@ Examples
 >>> d2 = datetime.datetime.now()
 >>> print(td_format(d2 - d1, True))
 
->>> dt timeit.now()
+>>> dt timer.now()
 >>> time.sleep(1000)
 >>> dt.time()
 >>> time.sleep(100)
@@ -152,7 +152,7 @@ def ampm_hr(d: datetime.time) -> (int, str):
     return d.hour % 12, ('AM', 'PM')[d.hour // 12]
 
 
-class timeit(object):
+class timer(object):
     """Class for displaying before/after time.
 
     Parameters
@@ -162,13 +162,13 @@ class timeit(object):
 
     Examples
     ========
-    >>> dt = timeit()
     >>> import time
+    >>> dt = timer()
     >>> dt.start()
     >>> time.sleep(1000)
     >>> dt.time()
 
-    >>> dt timeit.now()
+    >>> dt = timer.now()
     >>> time.sleep(1000)
     >>> dt.time()
     >>> time.sleep(100)
@@ -237,17 +237,19 @@ def time_expr(lambda_expr):
     Parameters
     ----------
     lambda_expr
-        a `lambda` function with no parameters
+        A `lambda` function with no parameters.
+        Note that only the `lambda` has no prarmeters. One can pass parameters
+        to the function executed in the `lambda`.
 
     Returns
     -------
-    whatever `lambda_expr` returns
+    Whatever `lambda_expr` returns.
 
     Example
     -------
     >>> time_expr(lambda: execute_fn(param1, param2))
     """
-    tm = timeit.now()
+    tm = timer.now()
     out = lambda_expr()
     tm.time()
     return out
