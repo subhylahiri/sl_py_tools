@@ -134,12 +134,20 @@ class DisplayTemporary(object):
         self._print(' ' + msg)
         self._state['clean'] = False
 
+    def update(self, msg: str = ''):
+        """Display message."""
+#        self._print('\b \b' * self._state['numchar'])
+        # hack for jupyter's problem with multiple backspaces
+        for i in '\b' * self._state['numchar']:
+            self._print(i)
+        self._state['numchar'] = len(msg) + 1
+        self._print(' ' + msg)
+
     def end(self):
         """Erase message."""
-        ndig = self._state['numchar']
-#        self._print('\b \b' * ndig)
+#        self._print('\b \b' * self._state['numchar'])
         # hack for jupyter's problem with multiple backspaces
-        for i in '\b \b' * ndig:
+        for i in '\b \b' * self._state['numchar']:
             self._print(i)
         self._state['numchar'] = 0
         self._state['clean'] = True
@@ -175,23 +183,24 @@ class _DisplayMixin(DisplayTemporary):
     _nactive: ClassVar[int] = 0
 
     def __init__(self):
-        super().__init__
-        self._state.update(prefix=' ', frmt='', nestlevel=None)
+        super().__init__()
+        self._state.update(prefix='', frmt='', nestlevel=None)
         self.counter = None
 
     def begin(self):
         """Display initial counter with prefix."""
+        self._print(self._state['prefix'])
         self.counter = self.start - self.step
         dsp = self._str(self.start)
         self._state['numchar'] = len(dsp)
-        self._print(self._state['prefix'] + dsp)
+        self._print(dsp)
         self._state['clean'] = False
         if self.debug:
             self._nactive += 1
             self._state['nest_level'] = self.nactive
             self._check()
 
-    def disp(self):
+    def update(self):
         """Erase previous counter and display new one."""
 #        self._print('\b' * self._state['numchar'])
         # hack for jupyter's problem with multiple backspaces
@@ -299,7 +308,7 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
 
     begin()
         to initialise counter and display.
-    disp()
+    update()
         to display current counter.
     end()
         to erase display after loops.
@@ -345,7 +354,7 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
             inds = slice(*sliceargs)
         elif isinstance(name, str):
             inds = slice(*sliceargs)
-            self._state['prefix'] += name + ': '
+            self._state['prefix'] += name + ':'
         else:
             inds = slice(name, *sliceargs)
 
@@ -391,7 +400,7 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
         """Increment counter, erase previous counter and display new one."""
         self.counter += self.step
         if (self.stop is None) or self.step*(self.stop - self.counter) > 0:
-            self.disp()
+            self.update()
             return self.counter
         else:
             self.end()
