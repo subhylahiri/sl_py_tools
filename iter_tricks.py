@@ -18,12 +18,16 @@ For convenience:
 
 zenumerate : function
     Combination of enumerate and unpacked zip.
+batch
+    Generator that yields `slice` objects covering batches of indices.
 dcount : function
     Creates a `DisplayCount`.
 denumerate : function
     Creates a `DisplayEnumerate`.
 dzip: function
     Creates a `DisplayZip`.
+dbatch
+    Like `batdch`, but uses `DisplayCount` to display counter.
 You can set `start` and `stop` in `zenumerate`, `denumerate` and `dzip`,
 but only via keyword arguments.
 
@@ -72,7 +76,8 @@ __all__ = [
            'DisplayCount',
            'DisplayEnumerate',
            'DisplayZip',
-           'zenumerate',
+           'batch',
+           'dbatch',
            'dcount',
            'denumerate',
            'dzip',
@@ -80,12 +85,15 @@ __all__ = [
 import itertools
 # All of these imports could be removed:
 from collections.abc import Iterator, Sized
-from typing import Optional, ClassVar, Iterable, Tuple, Dict, Any
+from typing import Optional, Iterable, Tuple
 import sys
+
+from display_tricks import DisplayTemporary
+
 assert sys.version_info.major >= 3
 
 # =============================================================================
-# %%* Convenience function
+# %%* Convenience functions
 # =============================================================================
 
 
@@ -108,61 +116,55 @@ def zenumerate(*iterables: Tuple[Iterable, ...], start=0, step=1) -> zip:
     """
     return zip(itertools.count(start, step), *iterables)
 
+
+def batch(*sliceargs, **kwargs):
+    """Iterate over batches
+
+    Similar to `range` object, except at each iteration it yields a `slice`
+    covering that step.
+
+    Parameters
+    ----------
+    start : int or None, optional, default=0
+        initial counter value (inclusive).
+    stop : int or None, optional, default=None
+        value of counter at, or above which, the loop terminates (exclusive).
+    step : int or None, optional, default=1
+        increment of counter after each loop.
+
+    `start`, `stop` and `step` behave like `slice` indices when omitted.
+    To specify `start/step` without setting `stop`, set `stop` to `None`.
+    To specify `step` without setting `start`, set `start` to 0 or `None`.
+    Or use keyword arguments.
+
+    Yields
+    ------
+    batch_slice
+        slice object that starts at current counter and stops at the next value
+        with step size 1.
+    """
+    inds = slice(*sliceargs)
+
+    start = kwargs.get('start', inds.start)
+    stop = kwargs.get('stop', inds.stop)
+    step = kwargs.get('step', inds.step)
+
+    if start is None:
+        start = 0
+    if step is None:
+        step = 1
+
+    if stop is None:
+        for i in itertools.count(start, step):
+            yield slice(i, i+step, 1)
+    else:
+        for i in range(start, stop, step):
+            yield slice(i, i+step, 1)
+
+
 # =============================================================================
 # %%* Main display counter class
 # =============================================================================
-
-
-class DisplayTemporary(object):
-    """Class for temporarily displaying a message"""
-    _state: Dict[str, Any]
-
-    # set output to False to suppress display
-    output: ClassVar[bool] = True
-
-    def __init__(self):
-        self._state = dict(clean=True, numchar=0)
-
-    def __del__(self):
-        """Clean up, if necessary"""
-        if not self._state['clean']:
-            self.end()
-
-    def begin(self, msg: str = ''):
-        """Display message."""
-        self._state['numchar'] = len(msg) + 1
-        self._print(' ' + msg)
-        self._state['clean'] = False
-
-    def update(self, msg: str = ''):
-        """Display message."""
-#        self._print('\b \b' * self._state['numchar'])
-        # hack for jupyter's problem with multiple backspaces
-        for i in '\b' * self._state['numchar']:
-            self._print(i)
-        self._state['numchar'] = len(msg) + 1
-        self._print(' ' + msg)
-
-    def end(self):
-        """Erase message."""
-#        self._print('\b \b' * self._state['numchar'])
-        # hack for jupyter's problem with multiple backspaces
-        for i in '\b \b' * self._state['numchar']:
-            self._print(i)
-        self._state['numchar'] = 0
-        self._state['clean'] = True
-
-    def _print(self, text: str):
-        """Print with customisations: same line and immediate output"""
-        if self.output:
-            print(text, end='', flush=True)
-
-    @classmethod
-    def show(cls, msg: str):
-        """Show message and return object"""
-        obj = cls()
-        obj.begin(msg)
-        return obj
 
 
 class _DisplayMixin(DisplayTemporary):
@@ -178,51 +180,26 @@ class _DisplayMixin(DisplayTemporary):
     step: int
     offset: int
 
-    # set debug to True to check that counter is in range and properly nested
-    debug: ClassVar[bool] = False
-    _nactive: ClassVar[int] = 0
-
     def __init__(self):
         super().__init__()
         self._state.update(prefix='', frmt='', nestlevel=None)
         self.counter = None
 
-    def begin(self):
+    def begin(self, msg: str = ''):
         """Display initial counter with prefix."""
-        self._print(self._state['prefix'])
+        self._state['prefix'] = DisplayTemporary.show(self._state['prefix'])
         self.counter = self.start - self.step
-        dsp = self._str(self.start)
-        self._state['numchar'] = len(dsp)
-        self._print(dsp)
-        self._state['clean'] = False
-        if self.debug:
-            self._nactive += 1
-            self._state['nest_level'] = self.nactive
-            self._check()
+        super().begin(self._str(self.start) + msg)
 
-    def update(self):
+    def update(self, msg: str = ''):
         """Erase previous counter and display new one."""
-#        self._print('\b' * self._state['numchar'])
-        # hack for jupyter's problem with multiple backspaces
-        for i in '\b' * self._state['numchar']:
-            self._print(i)
         dsp = self._str(self.counter)
-        self._state['numchar'] = len(dsp)
-        self._print(dsp)
-        if self.debug:
-            self._check()
+        super().update(dsp + msg)
 
     def end(self):
         """Erase previous counter and prefix."""
-        ndig = len(self._state['prefix']) + self._state['numchar']
-#        self._print('\b \b' * ndig)
-        # hack for jupyter's problem with multiple backspaces
-        for i in '\b \b' * ndig:
-            self._print(i)
-        self._state['numchar'] = 0
-        self._state['clean'] = True
-        if self.debug:
-            self._nactive -= 1
+        super().end()
+        self._state['prefix'].end()
 
     def _str(self, ctr: int) -> str:
         """String for display of counter, e.g.' 7/12,'."""
@@ -231,17 +208,12 @@ class _DisplayMixin(DisplayTemporary):
 
     def _check(self):
         """Ensure that DisplayCount's are properly used"""
+        super()._check()
         # raise error if ctr is outside range
         if self.counter > self.stop or self.counter < self.start:
             msg1 = 'DisplayCount{}'.format(self._prefix)
             msg2 = 'has value {} '.format(self.counter)
             msg3 = 'when upper limit is {}.'.format(self.stop)
-            raise IndexError(msg1 + msg2 + msg3)
-        # raise error if ctr_dsp's are nested incorrectly
-        if self._state['nest_level'] != self._nactive:
-            msg1 = 'DisplayCount{}'.format(self._prefix)
-            msg2 = 'used at level {} '.format(self._nactive)
-            msg3 = 'instead of level {}.'.format(self._state['nest_level'])
             raise IndexError(msg1 + msg2 + msg3)
 
 
@@ -424,12 +396,55 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
 
 
 # =============================================================================
-# %%* Display wrappers for enumerate/zip
+# %%* Display wrappers for enumerate/zip/batch
 # =============================================================================
 
 
-def _min_len(sequences: Tuple[Iterable, ...]) -> Optional[int]:
-    """Minimum length of sequences
+def dbatch(name: Optional[str] = None,
+           *sliceargs: Tuple[Optional[int], ...],
+           **kwargs):
+    """Iterate over batches, with counter display
+
+    Similar to `DisplayCount` object, except at each iteration it yields a
+    `slice` covering that step.
+
+    Nested loops display on one line and update correctly if the inner
+    DisplayCount/DisplayZip ends before the outer one is updated.
+    Displays look like:
+        ' i: 3/5, j: 6/8(/2), k:  7/10(/5),'
+
+    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+
+    Parameters
+    ----------
+    name : Optional[str]
+        name of counter used for prefix.
+    start : int or None, optional, default=0
+        initial counter value (inclusive).
+    stop : int or None, optional, default=None
+        value of counter at, or above which, the loop terminates (exclusive).
+    step : int or None, optional, default=1
+        increment of counter after each loop.
+
+    `start`, `stop` and `step` behave like `slice` indices when omitted.
+    To specify `start/step` without setting `stop`, set `stop` to `None`.
+    To specify `step` without setting `start`, set `start` to 0 or `None`.
+    Or use keyword arguments.
+
+    Yields
+    ------
+    batch_slice
+        `slice` object that starts at current counter and stops at the next
+        value with step size 1.
+    """
+    dsp = dcount(name, *sliceargs, **kwargs)
+    dsp._state['frmt'] += '(/' + str(dsp.step) + ')'
+    for i in dsp:
+        yield slice(i, i+dsp.step, 1)
+
+
+def min_len(sequences: Tuple[Iterable, ...]) -> Optional[int]:
+    """Length of shortest sequence.
     """
     min_len = min((len(seq) for seq in
                    filter(lambda x: isinstance(x, Sized), sequences)),
@@ -455,7 +470,7 @@ class _AddDisplayToIterables(object):
         else:
             self._iterables = (name,) + sequences
             name = None
-        self.display = DisplayCount(name, _min_len(sequences), **kwds)
+        self.display = DisplayCount(name, min_len(sequences), **kwds)
 
     def begin(self):
         """Display initial counter with prefix."""
@@ -597,11 +612,6 @@ class DisplayZip(_AddDisplayToIterables):
 # %%* Function interface
 # - only saves ink
 # =============================================================================
-
-
-def dtemp(msg: str = ''):
-    """Temporarily displaying a message"""
-    return DisplayTemporary.show(msg)
 
 
 def dcount(name: Optional[str] = None,
