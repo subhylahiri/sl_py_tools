@@ -14,6 +14,8 @@ DisplayTemporary : class
 
 dtemp : function
     Temporarily display a message.
+dcontext
+    Display message during context.
 dexpr
     Display message during lambda execution.
 dwrap : function
@@ -31,6 +33,9 @@ Examples
 >>> execute_fn(param1, param2)
 >>> dtmp.end()
 
+>>> with dcontext('running...'):
+>>>     execute_fn(param1, param2)
+
 >>> dexpr('running...', lambda: execute_fn(param1, param2))
 
 >>> @dwrap('running...')
@@ -39,6 +44,7 @@ Examples
 >>>     return smthng
 """
 from typing import ClassVar, Dict, Any, Callable
+from contextlib import contextmanager
 from functools import wraps
 import sys
 
@@ -211,6 +217,29 @@ def dtemp(msg: str = ''):
     return DisplayTemporary.show(msg)
 
 
+@contextmanager
+def dcontext(msg: str):
+    """Display message during context.
+
+    Prints message before entering context and deletes after.
+
+    Parameters
+    ----------
+    msg : str
+        message to display
+
+    Example
+    -------
+    >>> with dcontext('running...'):
+    >>>     execute_fn(param1, param2)
+    """
+    dtmp = dtemp(msg)
+    try:
+        yield
+    finally:
+        dtmp.end()
+
+
 def dexpr(msg: str, lambda_expr: Callable):
     """Display message during lambda execution.
 
@@ -233,9 +262,8 @@ def dexpr(msg: str, lambda_expr: Callable):
     -------
     >>> dexpr('running...', lambda: execute_fn(param1, param2))
     """
-    dtmp = dtemp(msg)
-    out = lambda_expr()
-    dtmp.end()
+    with dcontext(msg):
+        out = lambda_expr()
     return out
 
 
