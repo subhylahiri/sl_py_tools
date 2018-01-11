@@ -52,7 +52,7 @@ Examples
 """
 
 import datetime
-from typing import Union, Optional
+from typing import Union, Optional, Callable
 from functools import wraps
 
 DateTime = Union[datetime.date, datetime.time]
@@ -229,14 +229,14 @@ class timer(object):
         return obj
 
 
-def time_expr(lambda_expr):
+def time_expr(lambda_expr: Callable):
     """Time a lambda expression.
 
     Prints date & time before & after running `lambda_expr` and elapsed time.
 
     Parameters
     ----------
-    lambda_expr
+    lambda_expr : Callable
         A `lambda` function with no parameters.
         Note that only the `lambda` has no prarmeters. One can pass parameters
         to the function executed in the `lambda`.
@@ -255,19 +255,19 @@ def time_expr(lambda_expr):
     return out
 
 
-def time_wrap(func):
+def time_wrap(func: Callable) -> Callable:
     """Decorate a function with a timer
 
     Prints date & time before & after running `func` and elapsed time.
 
     Parameters
     ----------
-    func
+    func : Callable
         the function you want to time
 
     Returns
     -------
-    timed_func
+    timed_func : Callable
         wrapped version of `func`, with same paramaters and returns.
 
     Example
