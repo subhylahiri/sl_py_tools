@@ -16,25 +16,49 @@ assert sys.version_info[:2] >= (3, 6)
 
 
 class DisplayTemporary(object):
-    """Class for temporarily displaying a message"""
+    """Class for temporarily displaying a message.
+
+    Message erases when `end()` is called, or object is erased.
+
+    Class method
+    ------------
+    show(msg: str) -> DisplayTemporary:
+        display `msg` and return class instance (needed to erase message).
+
+    Methods
+    -------
+    begin(msg: str)
+        to initialise counter and display.
+    update(msg: str)
+        to erase previous message and display `msg`.
+    end()
+        to erase display.
+    """
     _state: Dict[str, Any]
 
     # set output to False to suppress display
     output: ClassVar[bool] = True
-    # set debug to True to check that counter is in range and properly nested
+    # set debug to True to check that displays are properly nested
     debug: ClassVar[bool] = False
     _nactive: ClassVar[int] = 0
 
     def __init__(self):
-        self._state = dict(clean=True, numchar=0)
+        self._state = dict(numchar=0)
 
     def __del__(self):
         """Clean up, if necessary"""
-        if not self._state['clean']:
+        if self._state['numchar']:
             self.end()
 
     def begin(self, msg: str = ''):
-        """Display message."""
+        """Display message.
+
+        Parameters
+        ----------
+        msg : str
+        """
+        if self._state['numchar']:
+            raise AttributeError('begin() called more than once.')
         self._state['numchar'] = len(msg) + 1
         self._print(' ' + msg)
         self._state['clean'] = False
@@ -61,7 +85,6 @@ class DisplayTemporary(object):
         for i in '\b \b' * self._state['numchar']:
             self._print(i)
         self._state['numchar'] = 0
-        self._state['clean'] = True
         if self.debug:
             self._nactive -= 1
 
@@ -71,7 +94,8 @@ class DisplayTemporary(object):
             print(text, end='', flush=True)
 
     def _check(self):
-        """Ensure that DisplayCount's are properly used"""
+        """Ensure that DisplayTemporaries are properly used
+        """
         # raise error if ctr_dsp's are nested incorrectly
         if self._state['nest_level'] != self._nactive:
             msg1 = 'DisplayCount{}'.format(self._prefix)
@@ -81,7 +105,8 @@ class DisplayTemporary(object):
 
     @classmethod
     def show(cls, msg: str):
-        """Show message and return object"""
+        """Show message and return class instance.
+        """
         obj = cls()
         obj.begin(msg)
         return obj
