@@ -1,8 +1,42 @@
 # -*- coding: utf-8 -*-
+# =============================================================================
+# Created on Tue Jan  9 17:06:58 2018
+#
+# @author: Subhy
+#
+# Module: display_tricks
+# =============================================================================
 """
-Created on Tue Jan  9 17:06:58 2018
+Tools for displaying temporary messages.
 
-@author: Subhy
+DisplayTemporary : class
+    Class for temporarily displaying a message.
+
+dtemp : function
+    Temporarily display a message.
+dexpr
+    Display message during lambda execution.
+dwrap : function
+    Decorate a function with a temporary printed message.
+
+.. warning:: Doesn't display properly on ``qtconsole``, and hence ``Spyder``.
+
+Examples
+--------
+>>> dtmp = DisplayTemporary.show('running...')
+>>> execute_fn(param1, param2)
+>>> dtmp.end()
+
+>>> dtmp = dtemp('running...')
+>>> execute_fn(param1, param2)
+>>> dtmp.end()
+
+>>> dexpr('running...', lambda: execute_fn(param1, param2))
+
+>>> @dwrap('running...')
+>>> def myfunc(param1, param2):
+>>>     smthng = do_something(param1, param2)
+>>>     return smthng
 """
 from typing import ClassVar, Dict, Any, Callable
 from functools import wraps
@@ -18,7 +52,14 @@ assert sys.version_info[:2] >= (3, 6)
 class DisplayTemporary(object):
     """Class for temporarily displaying a message.
 
-    Message erases when `end()` is called, or object is erased.
+    Message erases when `end()` is called, or object is deleted.
+
+    Attributes
+    ----------
+    output : bool, default : True
+        Class attribute. Set it to `False` to suppress display.
+    debug : bool, default : False
+        Class attribute. Set it to `True` to check counter range and nesting.
 
     Class method
     ------------
@@ -28,11 +69,17 @@ class DisplayTemporary(object):
     Methods
     -------
     begin(msg: str)
-        to initialise counter and display.
+        for initial display of `msg`.
     update(msg: str)
         to erase previous message and display `msg`.
     end()
         to erase display.
+
+    Example
+    -------
+    >>> dtmp = DisplayTemporary.show('running...')
+    >>> execute_fn(param1, param2)
+    >>> dtmp.end()
     """
     _state: Dict[str, Any]
 
@@ -46,7 +93,7 @@ class DisplayTemporary(object):
         self._state = dict(numchar=0)
 
     def __del__(self):
-        """Clean up, if necessary"""
+        """Clean up, if necessary, upon deletion."""
         if self._state['numchar']:
             self.end()
 
@@ -56,6 +103,7 @@ class DisplayTemporary(object):
         Parameters
         ----------
         msg : str
+            message to display
         """
         if self._state['numchar']:
             raise AttributeError('begin() called more than once.')
@@ -68,7 +116,13 @@ class DisplayTemporary(object):
             self._check()
 
     def update(self, msg: str = ''):
-        """Erase previous message and display new message."""
+        """Erase previous message and display new message.
+
+        Parameters
+        ----------
+        msg : str
+            message to display
+        """
 #        self._print('\b \b' * self._state['numchar'])
         # hack for jupyter's problem with multiple backspaces
         for i in '\b' * self._state['numchar']:
@@ -79,7 +133,8 @@ class DisplayTemporary(object):
             self._check()
 
     def end(self):
-        """Erase message."""
+        """Erase message.
+        """
 #        self._print('\b \b' * self._state['numchar'])
         # hack for jupyter's problem with multiple backspaces
         for i in '\b \b' * self._state['numchar']:
@@ -89,7 +144,13 @@ class DisplayTemporary(object):
             self._nactive -= 1
 
     def _print(self, text: str):
-        """Print with customisations: same line and immediate output"""
+        """Print with customisations: same line and immediate output
+
+        Parameters
+        ----------
+        text : str
+            string to display
+        """
         if self.output:
             print(text, end='', flush=True)
 
@@ -98,33 +159,67 @@ class DisplayTemporary(object):
         """
         # raise error if ctr_dsp's are nested incorrectly
         if self._state['nest_level'] != self._nactive:
-            msg1 = 'DisplayCount{}'.format(self._prefix)
+            msg1 = 'DisplayCount{}'.format(self._state['prefix'])
             msg2 = 'used at level {} '.format(self._nactive)
             msg3 = 'instead of level {}.'.format(self._state['nest_level'])
             raise IndexError(msg1 + msg2 + msg3)
 
     @classmethod
-    def show(cls, msg: str):
+    def show(cls, msg: str) -> 'DisplayTemporary':
         """Show message and return class instance.
+
+        Parameters
+        ----------
+        msg : str
+            message to display
+
+        Returns
+        -------
+        disp_temp : DisplayTemporary
+            instance of `DisplayTemporary`. Call `disp_temp.end()` or
+            `del disp_temp` to erase displayed message.
         """
         obj = cls()
         obj.begin(msg)
         return obj
 
+# =============================================================================
+# %%* Functions
+# =============================================================================
+
 
 def dtemp(msg: str = ''):
-    """Temporarily display a message
+    """Temporarily display a message.
+
+    Parameters
+    ----------
+    msg : str
+        message to display
+
+    Returns
+    -------
+    disp_temp : DisplayTemporary
+        instance of `DisplayTemporary`. Call `disp_temp.end()` or
+        `del disp_temp` to erase displayed message.
+
+    Example
+    -------
+    >>> dtmp = dtemp('running...')
+    >>> execute_fn(param1, param2)
+    >>> dtmp.end()
     """
     return DisplayTemporary.show(msg)
 
 
 def dexpr(msg: str, lambda_expr: Callable):
-    """Print message during lambda execution.
+    """Display message during lambda execution.
 
     Prints message before running `lambda_expr` and deletes after.
 
     Parameters
     ----------
+    msg : str
+        message to display
     lambda_expr : Callable
         A `lambda` function with no parameters.
         Note that only the `lambda` has no prarmeters. One can pass parameters
@@ -138,9 +233,9 @@ def dexpr(msg: str, lambda_expr: Callable):
     -------
     >>> dexpr('running...', lambda: execute_fn(param1, param2))
     """
-    d = dtemp(msg)
+    dtmp = dtemp(msg)
     out = lambda_expr()
-    d.end()
+    dtmp.end()
     return out
 
 
@@ -148,7 +243,6 @@ def dwrap(msg: str):
     """Decorate a function with a temporary printed message.
 
     Prints message before running `func` and deletes after.
-
 
     Parameters
     ----------

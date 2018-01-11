@@ -26,7 +26,7 @@ time_wrap(func):
 
 Classes
 =======
-timer:
+Timer:
     Class for displaying before/after time.
 
 Examples
@@ -37,7 +37,7 @@ Examples
 >>> d2 = datetime.datetime.now()
 >>> print(td_format(d2 - d1, True))
 
->>> dt timer.now()
+>>> dt Timer.now()
 >>> time.sleep(1000)
 >>> dt.time()
 >>> time.sleep(100)
@@ -55,10 +55,12 @@ import datetime
 from typing import Union, Optional, Callable
 from functools import wraps
 
-DateTime = Union[datetime.date, datetime.time]
+# =============================================================================
+# %%* Formatting functions
+# =============================================================================
 
 
-def dt_format(d: DateTime) -> str:
+def dt_format(dtm: Union[datetime.date, datetime.time]) -> str:
     """
     Formatted string for date/time objects,
     eg. 'Fri, 1 Sep 2017, 3:34:56 PM'
@@ -79,16 +81,17 @@ def dt_format(d: DateTime) -> str:
     >>> print(dt_format(d1))
     """
     out_str = ""
-    if isinstance(d, datetime.date):
-        out_str += "{0:%a}, {0.day} {0:%b} {0.year}".format(d)
-    if isinstance(d, datetime.datetime):
+    if isinstance(dtm, datetime.date):
+        out_str += "{0:%a}, {0.day} {0:%b} {0.year}".format(dtm)
+    if isinstance(dtm, datetime.datetime):
         out_str += ", "
-    if isinstance(d, (datetime.time, datetime.datetime)):
-        out_str += "{1}:{0.minute:02}:{0.second:02} {2}".format(d, *ampm_hr(d))
+    if isinstance(dtm, (datetime.time, datetime.datetime)):
+        out_str += "{1}:{0.minute:02}:{0.second:02} {2}".format(dtm,
+                                                                *ampm_hr(dtm))
     return out_str
 
 
-def td_format(d: datetime.timedelta, subsec: bool=False) -> str:
+def td_format(tdl: datetime.timedelta, subsec: bool = False) -> str:
     """
     Formatted string for timedelta objects,
     e.g. '10w, 5d, 4h, 39m, 50s'
@@ -112,12 +115,12 @@ def td_format(d: datetime.timedelta, subsec: bool=False) -> str:
     >>> d2 = datetime.datetime.now()
     >>> print(td_format(d2 - d1), True)
     """
-    if d.days < 0:
+    if tdl.days < 0:
         out_str = "-"
-        cmpts = (d.days + 1, 86399 - d.seconds, 10**6 - d.microseconds)
+        cmpts = (tdl.days + 1, 86399 - tdl.seconds, 10**6 - tdl.microseconds)
     else:
         out_str = ""
-        cmpts = (d.days, d.seconds, d.microseconds)
+        cmpts = (tdl.days, tdl.seconds, tdl.microseconds)
 
     unitss = (["y", "w", "d"], ["h", "m", "s"], ["ms", "us"])
     basess = ([365, 7, 1], [3600, 60, 1])
@@ -133,7 +136,7 @@ def td_format(d: datetime.timedelta, subsec: bool=False) -> str:
     return out_str[:-2]
 
 
-def ampm_hr(d: datetime.time) -> (int, str):
+def ampm_hr(dtm: datetime.time) -> (int, str):
     """
     Convert 24 hour clock to 12 hour.
 
@@ -149,10 +152,14 @@ def ampm_hr(d: datetime.time) -> (int, str):
     ampm
         "AM" if d.hour < 12, or "PM" otherwise.
     """
-    return d.hour % 12, ('AM', 'PM')[d.hour // 12]
+    return dtm.hour % 12, ('AM', 'PM')[dtm.hour // 12]
+
+# =============================================================================
+# %%* Timer class
+# =============================================================================
 
 
-class timer(object):
+class Timer(object):
     """Class for displaying before/after time.
 
     Parameters
@@ -163,12 +170,12 @@ class timer(object):
     Examples
     ========
     >>> import time
-    >>> dt = timer()
+    >>> dt = Timer()
     >>> dt.start()
     >>> time.sleep(1000)
     >>> dt.time()
 
-    >>> dt = timer.now()
+    >>> dt = Timer.now()
     >>> time.sleep(1000)
     >>> dt.time()
     >>> time.sleep(100)
@@ -176,7 +183,7 @@ class timer(object):
     """
     begin: datetime.datetime
 
-    def __init__(self, begin: Optional[datetime.datetime]=None):
+    def __init__(self, begin: Optional[datetime.datetime] = None):
         self.begin = begin
 
     def start(self, *args, **kwargs):
@@ -228,6 +235,10 @@ class timer(object):
         obj.start(*args, **kwargs)
         return obj
 
+# =============================================================================
+# %%* Wrappers
+# =============================================================================
+
 
 def time_expr(lambda_expr: Callable):
     """Time a lambda expression.
@@ -249,9 +260,9 @@ def time_expr(lambda_expr: Callable):
     -------
     >>> time_expr(lambda: execute_fn(param1, param2))
     """
-    tm = timer.now()
+    tmr = Timer.now()
     out = lambda_expr()
-    tm.time()
+    tmr.time()
     return out
 
 
