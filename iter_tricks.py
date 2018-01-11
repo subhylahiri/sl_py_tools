@@ -7,8 +7,12 @@
 # Module: iter_tricks
 # =============================================================================
 """
+Iterators for convenience and displaying progress.
+
 DisplayCount : class
     Iterator for displaying loop counters.
+DisplayBatch : class
+    Iterator for displaying loop counters, returning slices.
 DisplayEnumerate : class
     Like `zenumerate`, but using a `DisplayCount`.
 DisplayZip : class
@@ -27,7 +31,7 @@ denumerate : function
 dzip: function
     Creates a `DisplayZip`.
 dbatch
-    Like `batdch`, but uses `DisplayCount` to display counter.
+    Like `batch`, but uses `DisplayCount` to display counter.
 You can set `start` and `stop` in `zenumerate`, `denumerate` and `dzip`,
 but only via keyword arguments.
 
@@ -71,24 +75,39 @@ Examples
 >>>     assoc[key] = val
 >>>     time.sleep(0.1)
 >>> print(assoc)
+
+>>> import numpy as np
+>>> x = np.random.rand(1000, 3, 3)
+>>> y = np.empty((1000, 3), dtype = complex)
+>>> for s in batch(0, len(x), 10):
+>>>     y[s] = np.linalg.eigvals(x[s])
+>>> print(x[15], y[15])
+
+>>> x = np.random.rand(1000, 3, 3)
+>>> y = np.empty((1000, 3), dtype = complex)
+>>> for s in dbatch('s', 0, len(x), 10):
+>>>     y[s] = np.linalg.eigvals(x[s])
+>>> print(x[15], y[15])
 """
 __all__ = [
-           'DisplayCount',
-           'DisplayEnumerate',
-           'DisplayZip',
-           'batch',
-           'dbatch',
-           'dcount',
-           'denumerate',
-           'dzip',
-           ]
+    'DisplayCount',
+    'DisplayEnumerate',
+    'DisplayZip',
+    'DisplayBatch',
+    'zenumerate',
+    'batch',
+    'dbatch',
+    'dcount',
+    'denumerate',
+    'dzip',
+    ]
 import itertools
 # All of these imports could be removed:
 from collections.abc import Iterator, Sized
 from typing import Optional, Iterable, Tuple
 import sys
 
-from display_tricks import DisplayTemporary
+from .display_tricks import DisplayTemporary
 
 assert sys.version_info[:2] >= (3, 6)
 
@@ -142,6 +161,14 @@ def batch(*sliceargs, **kwargs):
     batch_slice
         slice object that starts at current counter and stops at the next value
         with step size 1.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.random.rand(1000, 3, 3)
+    >>> y = np.empty((1000, 3), dtype = complex)
+    >>> for s in batch(0, len(x), 10):
+    >>>     y[s] = np.linalg.eigvals(x[s])
     """
     inds = slice(*sliceargs)
 
@@ -265,12 +292,10 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
 
     Attributes
     ----------
-    output : bool
+    output : bool, default : True
         Class attribute. Set it to `False` to suppress display.
-        Default: `True`.
-    debug : bool
+    debug : bool, default : False
         Class attribute. Set it to `True` to check counter range and nesting.
-        Default: `False`
     counter : int or None
         Instance attribute. Current value of the counter.
 
@@ -400,9 +425,16 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
 # =============================================================================
 
 
-def dbatch(name: Optional[str] = None,
-           *sliceargs: Tuple[Optional[int], ...],
-           **kwargs):
+def min_len(sequences: Tuple[Iterable, ...]) -> Optional[int]:
+    """Length of shortest sequence.
+    """
+    mlen = min((len(seq) for seq in
+                filter(lambda x: isinstance(x, Sized), sequences)),
+               default=None)
+    return mlen
+
+
+class DisplayBatch(DisplayCount):
     """Iterate over batches, with counter display
 
     Similar to `DisplayCount` object, except at each iteration it yields a
@@ -436,20 +468,26 @@ def dbatch(name: Optional[str] = None,
     batch_slice
         `slice` object that starts at current counter and stops at the next
         value with step size 1.
-    """
-    dsp = dcount(name, *sliceargs, **kwargs)
-    dsp._state['frmt'] += '(/' + str(dsp.step) + ')'
-    for i in dsp:
-        yield slice(i, i+dsp.step, 1)
 
-
-def min_len(sequences: Tuple[Iterable, ...]) -> Optional[int]:
-    """Length of shortest sequence.
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.random.rand(1000, 3, 3)
+    >>> y = np.empty((1000, 3), dtype = complex)
+    >>> for s in dbatch('s', 0, len(x), 10):
+    >>>     y[s] = np.linalg.eigvals(x[s])
     """
-    min_len = min((len(seq) for seq in
-                   filter(lambda x: isinstance(x, Sized), sequences)),
-                  default=None)
-    return min_len
+    def __init__(self, name: Optional[str] = None,
+                 *sliceargs: Tuple[Optional[int], ...],
+                 **kwargs):
+        super().__init__(name, *sliceargs, **kwargs)
+        extra = '(/' + str(self.step) + '),'
+        self._state['frmt'] = self._state['frmt'][:-1] + extra
+
+    def __next__(self):
+        """Increment counter, erase previous counter and display new one."""
+        counter = super().__next__()
+        return slice(counter, counter + self.step, 1)
 
 
 class _AddDisplayToIterables(object):
@@ -789,3 +827,54 @@ def dzip(name: Optional[str] = None,
     zip, enumerate
     """
     return DisplayZip(name, *sequences, **kwds)
+
+
+def dbatch(name: Optional[str] = None,
+           *sliceargs: Tuple[Optional[int], ...],
+           **kwargs) -> DisplayBatch:
+    """Iterate over batches, with counter display
+
+    Similar to `dcount`, except at each iteration it yields a
+    `slice` covering that step.
+
+    Nested loops display on one line and update correctly if the inner
+    DisplayCount/DisplayZip ends before the outer one is updated.
+    Displays look like:
+        ' i: 3/5, j: 6/8(/2), k:  7/10(/5),'
+
+    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+
+    Parameters
+    ----------
+    name : Optional[str]
+        name of counter used for prefix.
+    start : int or None, optional, default=0
+        initial counter value (inclusive).
+    stop : int or None, optional, default=None
+        value of counter at, or above which, the loop terminates (exclusive).
+    step : int or None, optional, default=1
+        increment of counter after each loop.
+
+    `start`, `stop` and `step` behave like `slice` indices when omitted.
+    To specify `start/step` without setting `stop`, set `stop` to `None`.
+    To specify `step` without setting `start`, set `start` to 0 or `None`.
+    Or use keyword arguments.
+
+
+    Returns
+    -------
+    disp_counter : DisplayBatch
+        An iterator that displays counter & returns:
+
+        batch_slice:
+            `slice` object that starts at current counter and stops at next.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.random.rand(1000, 3, 3)
+    >>> y = np.empty((1000, 3), dtype = complex)
+    >>> for s in dbatch('s', 0, len(x), 10):
+    >>>     y[s] = np.linalg.eigvals(x[s])
+    """
+    return DisplayBatch(name, *sliceargs, **kwargs)
