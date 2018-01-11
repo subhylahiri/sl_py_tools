@@ -90,7 +90,7 @@ import sys
 
 from display_tricks import DisplayTemporary
 
-assert sys.version_info.major >= 3
+assert sys.version_info[:2] >= (3, 6)
 
 # =============================================================================
 # %%* Convenience functions
@@ -168,7 +168,7 @@ def batch(*sliceargs, **kwargs):
 
 
 class _DisplayMixin(DisplayTemporary):
-    """Mixin providing machinery for DisplayCount etc.
+    """Mixin providing non-iterator machinery for DisplayCount etc.
 
     Does not define `__iter__` or `__next__` (or `__reversed__`)
     This is a mixin. Only implements `begin`, `disp`, `end` and private stuff.
@@ -472,13 +472,13 @@ class _AddDisplayToIterables(object):
             name = None
         self.display = DisplayCount(name, min_len(sequences), **kwds)
 
-    def begin(self):
+    def begin(self, *args, **kwds):
         """Display initial counter with prefix."""
-        self.display.begin()
+        self.display.begin(*args, **kwds)
 
-    def disp(self):
+    def update(self, *args, **kwds):
         """Erase previous counter and display new one."""
-        self.display.disp()
+        self.display.update(*args, **kwds)
 
     def end(self):
         """Erase previous counter and prefix."""

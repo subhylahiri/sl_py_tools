@@ -4,8 +4,15 @@ Created on Tue Jan  9 17:06:58 2018
 
 @author: Subhy
 """
-from typing import ClassVar, Dict, Any
+from typing import ClassVar, Dict, Any, Callable
 from functools import wraps
+import sys
+
+assert sys.version_info[:2] >= (3, 6)
+
+# =============================================================================
+# %%* Class
+# =============================================================================
 
 
 class DisplayTemporary(object):
@@ -37,7 +44,7 @@ class DisplayTemporary(object):
             self._check()
 
     def update(self, msg: str = ''):
-        """Display message."""
+        """Erase previous message and display new message."""
 #        self._print('\b \b' * self._state['numchar'])
         # hack for jupyter's problem with multiple backspaces
         for i in '\b' * self._state['numchar']:
@@ -81,18 +88,19 @@ class DisplayTemporary(object):
 
 
 def dtemp(msg: str = ''):
-    """Temporarily displaying a message"""
+    """Temporarily display a message
+    """
     return DisplayTemporary.show(msg)
 
 
-def dexpr(msg: str, lambda_expr):
+def dexpr(msg: str, lambda_expr: Callable):
     """Print message during lambda execution.
 
     Prints message before running `lambda_expr` and deletes after.
 
     Parameters
     ----------
-    lambda_expr
+    lambda_expr : Callable
         A `lambda` function with no parameters.
         Note that only the `lambda` has no prarmeters. One can pass parameters
         to the function executed in the `lambda`.
@@ -111,7 +119,7 @@ def dexpr(msg: str, lambda_expr):
     return out
 
 
-def dwrap(msg):
+def dwrap(msg: str):
     """Decorate a function with a temporary printed message.
 
     Prints message before running `func` and deletes after.
@@ -119,13 +127,13 @@ def dwrap(msg):
 
     Parameters
     ----------
-    func
-        the function you want to time
+    msg : str
+        the message to display during function execution
 
     Returns
     -------
-    timed_func
-        wrapped version of `func`, with same paramaters and returns.
+    decorator
+        decorator that wraps a function, to displae `msg` during execution.
 
     Example
     -------
@@ -135,6 +143,28 @@ def dwrap(msg):
     >>>     return smthng
     """
     def decorator(func):
+        """Decorate a function with a temporary printed message.
+
+        Prints message before running `func` and deletes after.
+
+        Parameters
+        ----------
+        func
+            the function you want to time
+
+        Returns
+        -------
+        timed_func
+            wrapped version of `func`, with same paramaters and returns.
+
+        Example
+        -------
+        >>> decorator = dwrap('running...')
+        >>> @decorator
+        >>> def myfunc(param1, param2):
+        >>>     smthng = do_something(param1, param2)
+        >>>     return smthng
+        """
         @wraps(func)
         def dfunc(*args, **kwds):
             """Wrapped function"""
