@@ -481,8 +481,21 @@ class DisplayBatch(DisplayCount):
                  *sliceargs: Tuple[Optional[int], ...],
                  **kwargs):
         super().__init__(name, *sliceargs, **kwargs)
-        extra = '(/' + str(self.step) + '),'
-        self._state['frmt'] = self._state['frmt'][:-1] + extra
+
+        if self.stop is None:
+            self._state['frmt'] = '{:d}-{:d}'
+        else:
+            num_dig = len(str(self.stop))
+            frmt = '{:>' + str(num_dig) + 'd}'
+            self._state['frmt'] = frmt + '-' + frmt + '/'
+            self._state['frmt'] += frmt.format(self.stop)
+        self._state['frmt'] += ','
+
+    def _str(self, ctr: int) -> str:
+        """String for display of counter, e.g.' 7/12,'."""
+#        return self._frmt.format(ctr)
+        return self._state['frmt'].format(ctr + self.offset,
+                                          ctr + self.offset + self.step - 1)
 
     def __next__(self):
         """Increment counter, erase previous counter and display new one."""
@@ -840,7 +853,7 @@ def dbatch(name: Optional[str] = None,
     Nested loops display on one line and update correctly if the inner
     DisplayCount/DisplayZip ends before the outer one is updated.
     Displays look like:
-        ' i: 3/5, j: 6/8(/2), k:  7/10(/5),'
+        ' i: 3/5, j: 3-4/8k:  6-10/10,'
 
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
 

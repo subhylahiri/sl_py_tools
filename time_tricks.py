@@ -54,6 +54,7 @@ Examples
 import datetime
 from typing import Union, Optional, Callable
 from functools import wraps
+from contextlib import contextmanager
 
 # =============================================================================
 # %%* Formatting functions
@@ -240,7 +241,25 @@ class Timer(object):
 # =============================================================================
 
 
-def time_expr(lambda_expr: Callable):
+@contextmanager
+def time_while(*args, **kwargs):
+    """Time a context.
+
+    Prints date & time before & after context, and elapsed time.
+
+    Example
+    -------
+    >>> with time_while():
+    >>>     execute_fn(param1, param2)
+    """
+    dtmp = Timer.now(*args, **kwargs)
+    try:
+        yield
+    finally:
+        dtmp.time()
+
+
+def time_expr(lambda_expr: Callable, *args, **kwargs):
     """Time a lambda expression.
 
     Prints date & time before & after running `lambda_expr` and elapsed time.
@@ -260,9 +279,8 @@ def time_expr(lambda_expr: Callable):
     -------
     >>> time_expr(lambda: execute_fn(param1, param2))
     """
-    tmr = Timer.now()
-    out = lambda_expr()
-    tmr.time()
+    with time_while(*args, **kwargs):
+        out = lambda_expr()
     return out
 
 
