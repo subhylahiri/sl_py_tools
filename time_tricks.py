@@ -19,6 +19,8 @@ td_format(d: datetime.timedelta, subsec: bool=False) -> str:
     e.g. '10w, 5d, 4h, 39m, 50s'
 ampm_hr(d: datetime.time) -> (int, str):
     converts 24 hr clock to 12 hr.
+time_with
+    Prints date & time before & after context, and elapsed time.
 time_expr(lambda_expr):
     Time a lambda expression.
 time_wrap(func):
@@ -31,6 +33,7 @@ Timer:
 
 Examples
 ========
+>>> import time
 >>> d1 = datetime.datetime.now()
 >>> print(dt_format(d1))
 >>> time.sleep(100)
@@ -43,12 +46,18 @@ Examples
 >>> time.sleep(100)
 >>> dt.time()
 
->>> time_expr(lambda: execute_fn(param1, param2))
+>>> with time_while():
+>>>     time.sleep(100)
+
+>>> time_expr(lambda: time.sleep(100))
 
 >>> @time_wrap
 >>> def myfunc(param1, param2):
->>>     smthng = do_something(param1, param2)
+>>>     time.sleep(param1)
+>>>     smthng = do_something(param2)
 >>>     return smthng
+>>>
+>>> myfunc(20, 30)
 """
 
 import datetime
@@ -242,7 +251,7 @@ class Timer(object):
 
 
 @contextmanager
-def time_while(*args, **kwargs):
+def time_with(*args, **kwargs):
     """Time a context.
 
     Prints date & time before & after context, and elapsed time.
@@ -279,7 +288,7 @@ def time_expr(lambda_expr: Callable, *args, **kwargs):
     -------
     >>> time_expr(lambda: execute_fn(param1, param2))
     """
-    with time_while(*args, **kwargs):
+    with time_with(*args, **kwargs):
         out = lambda_expr()
     return out
 
