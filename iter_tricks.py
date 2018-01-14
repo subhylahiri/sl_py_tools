@@ -207,8 +207,8 @@ class _DisplayMixin(DisplayTemporary):
     step: int
     offset: int
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwds):
+        super().__init__(**kwds)
         self._state.update(prefix='', frmt='', nestlevel=None)
         self.counter = None
 
@@ -345,7 +345,7 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
     def __init__(self, name: Optional[str] = None,
                  *sliceargs: Tuple[Optional[int], ...],
                  **kwargs):
-        super().__init__()
+        super().__init__(**kwargs)
 
         if name is None:
             inds = slice(*sliceargs)

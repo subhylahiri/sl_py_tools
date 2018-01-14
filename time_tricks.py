@@ -46,12 +46,12 @@ Examples
 >>> time.sleep(100)
 >>> dt.time()
 
->>> with time_while():
+>>> with time_with():
 >>>     time.sleep(100)
 
 >>> time_expr(lambda: time.sleep(100))
 
->>> @time_wrap
+>>> @time_with()
 >>> def myfunc(param1, param2):
 >>>     time.sleep(param1)
 >>>     smthng = do_something(param2)
@@ -62,7 +62,6 @@ Examples
 
 import datetime
 from typing import Union, Optional, Callable
-from functools import wraps
 from contextlib import contextmanager
 
 # =============================================================================
@@ -252,14 +251,20 @@ class Timer(object):
 
 @contextmanager
 def time_with(*args, **kwargs):
-    """Time a context.
+    """Time a context, or decorate a function with a timer
 
     Prints date & time before & after context, and elapsed time.
+    Can also be used as a function decorator.
 
     Example
     -------
-    >>> with time_while():
+    >>> with time_with():
     >>>     execute_fn(param1, param2)
+
+    >>> @time_with()
+    >>> def myfunc(param1, param2):
+    >>>     smthng = do_something(param1, param2)
+    >>>     return smthng
     """
     dtmp = Timer.now(*args, **kwargs)
     try:
@@ -291,32 +296,3 @@ def time_expr(lambda_expr: Callable, *args, **kwargs):
     with time_with(*args, **kwargs):
         out = lambda_expr()
     return out
-
-
-def time_wrap(func: Callable) -> Callable:
-    """Decorate a function with a timer
-
-    Prints date & time before & after running `func` and elapsed time.
-
-    Parameters
-    ----------
-    func : Callable
-        the function you want to time
-
-    Returns
-    -------
-    timed_func : Callable
-        wrapped version of `func`, with same paramaters and returns.
-
-    Example
-    -------
-    >>> @time_wrap
-    >>> def myfunc(param1, param2):
-    >>>     smthng = do_something(param1, param2)
-    >>>     return smthng
-    """
-    @wraps(func)
-    def timed_func(*args, **kwds):
-        """Wrapped function"""
-        return time_expr(lambda: func(*args, **kwds))
-    return timed_func

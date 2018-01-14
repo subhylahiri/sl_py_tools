@@ -38,14 +38,14 @@ Examples
 
 >>> dexpr('running...', lambda: execute_fn(param1, param2))
 
->>> @dwrap('running...')
+>>> @dcontext('running...')
 >>> def myfunc(param1, param2):
 >>>     smthng = do_something(param1, param2)
 >>>     return smthng
 """
-from typing import ClassVar, Dict, Any, Callable
+from typing import ClassVar, Dict, Any, Callable, Optional
+import io
 from contextlib import contextmanager
-from functools import wraps
 import sys
 
 assert sys.version_info[:2] >= (3, 6)
@@ -91,11 +91,14 @@ class DisplayTemporary(object):
 
     # set output to False to suppress display
     output: ClassVar[bool] = True
+    # write output to file. If None, use sys.stdout
+    file: ClassVar[Optional[io.TextIOBase]] = None
     # set debug to True to check that displays are properly nested
     debug: ClassVar[bool] = False
+    # used for debug
     _nactive: ClassVar[int] = 0
 
-    def __init__(self):
+    def __init__(self, **kwds):
         self._state = dict(numchar=0)
 
     def __del__(self):
@@ -129,10 +132,7 @@ class DisplayTemporary(object):
         msg : str
             message to display
         """
-#        self._print('\b \b' * self._state['numchar'])
-        # hack for jupyter's problem with multiple backspaces
-        for i in '\b' * self._state['numchar']:
-            self._print(i)
+        self._bksp(self._state['numchar'])
         self._state['numchar'] = len(msg) + 1
         self._print(' ' + msg)
         if self.debug:
@@ -141,10 +141,7 @@ class DisplayTemporary(object):
     def end(self):
         """Erase message.
         """
-#        self._print('\b \b' * self._state['numchar'])
-        # hack for jupyter's problem with multiple backspaces
-        for i in '\b \b' * self._state['numchar']:
-            self._print(i)
+        self._erase(self._state['numchar'])
         self._state['numchar'] = 0
         if self.debug:
             self._nactive -= 1
@@ -158,7 +155,28 @@ class DisplayTemporary(object):
             string to display
         """
         if self.output:
-            print(text, end='', flush=True)
+            print(text, end='', flush=True, file=self.file)
+
+    def _bksp(self, num: int = 1):
+        """Go back num characters
+        """
+        if self.file is None:  # self.file.isatty() or self.file is sys.stdout
+            pass
+        elif self.file.seekable():
+            self.file.seek(self.file.tell() - num)
+            return
+
+        # hack for jupyter's problem with multiple backspaces
+        for i in '\b' * num:
+            self._print(i)
+        # self._print('\b' * num)
+
+    def _erase(self, num: int = 1):
+        """Go back num characters
+        """
+        self._bksp(num)
+        self._print(' ' * num)
+        self._bksp(num)
 
     def _check(self):
         """Ensure that DisplayTemporaries are properly used
@@ -185,9 +203,9 @@ class DisplayTemporary(object):
             instance of `DisplayTemporary`. Call `disp_temp.end()` or
             `del disp_temp` to erase displayed message.
         """
-        obj = cls()
-        obj.begin(msg)
-        return obj
+        disp_temp = cls()
+        disp_temp.begin(msg)
+        return disp_temp
 
 # =============================================================================
 # %%* Functions
@@ -232,6 +250,11 @@ def dcontext(msg: str):
     -------
     >>> with dcontext('running...'):
     >>>     execute_fn(param1, param2)
+
+    >>> @dcontext('running...')
+    >>> def myfunc(param1, param2):
+    >>>     smthng = do_something(param1, param2)
+    >>>     return smthng
     """
     dtmp = dtemp(msg)
     try:
@@ -265,56 +288,3 @@ def dexpr(msg: str, lambda_expr: Callable):
     with dcontext(msg):
         out = lambda_expr()
     return out
-
-
-def dwrap(msg: str):
-    """Decorate a function with a temporary printed message.
-
-    Prints message before running `func` and deletes after.
-
-    Parameters
-    ----------
-    msg : str
-        the message to display during function execution
-
-    Returns
-    -------
-    decorator
-        decorator that wraps a function, to displae `msg` during execution.
-
-    Example
-    -------
-    >>> @dwrap('running...')
-    >>> def myfunc(param1, param2):
-    >>>     smthng = do_something(param1, param2)
-    >>>     return smthng
-    """
-    def decorator(func):
-        """Decorate a function with a temporary printed message.
-
-        Prints message before running `func` and deletes after.
-
-        Parameters
-        ----------
-        func
-            the function you want to time
-
-        Returns
-        -------
-        timed_func
-            wrapped version of `func`, with same paramaters and returns.
-
-        Example
-        -------
-        >>> decorator = dwrap('running...')
-        >>> @decorator
-        >>> def myfunc(param1, param2):
-        >>>     smthng = do_something(param1, param2)
-        >>>     return smthng
-        """
-        @wraps(func)
-        def dfunc(*args, **kwds):
-            """Wrapped function"""
-            return dexpr(msg, lambda: func(*args, **kwds))
-        return dfunc
-    return decorator
