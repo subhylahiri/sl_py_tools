@@ -64,8 +64,10 @@ class DisplayTemporary(object):
     ----------
     output : bool, default : True
         Class attribute. Set it to `False` to suppress display.
+    file : Optional[io.TextIOBase], default : None
+        Class attribute. Output printed to `file`. If None, use `sys.stdout`.
     debug : bool, default : False
-        Class attribute. Set it to `True` to check counter range and nesting.
+        Class attribute. Set it to `True` to check nesting.
 
     Class method
     ------------

@@ -61,8 +61,9 @@ Examples
 """
 
 import datetime
-from typing import Union, Optional, Callable
 from contextlib import contextmanager
+from typing import Union, Optional, Callable, ClassVar
+import io
 
 # =============================================================================
 # %%* Formatting functions
@@ -192,6 +193,9 @@ class Timer(object):
     """
     begin: datetime.datetime
 
+    # write output to file. If None, use sys.stdout
+    file: ClassVar[Optional[io.TextIOBase]] = None
+
     def __init__(self, begin: Optional[datetime.datetime] = None):
         self.begin = begin
 
@@ -206,9 +210,9 @@ class Timer(object):
             Time zone to use. Passed to `datetime.datetime.now`.
         """
         self.begin = datetime.datetime.now(*args, **kwargs)
-        print(dt_format(self.begin))
+        print(dt_format(self.begin), file=self.file)
 
-    def time(self, *args, **kwargs):
+    def time(self, subsec: bool = False, *args, **kwargs):
         """Call this after thing you are timing.
 
         Prints and stores current time.
@@ -223,8 +227,9 @@ class Timer(object):
             self.start(*args, **kwargs)
             return
         end = datetime.datetime.now(self.begin.tzinfo)
-        print(dt_format(end))
-        print("That took: " + td_format(end - self.begin, *args, **kwargs))
+        print(dt_format(end), file=self.file)
+        print("That took: " + td_format(end - self.begin, subsec=subsec),
+              file=self.file)
         self.begin = end
 
     @classmethod
@@ -250,7 +255,7 @@ class Timer(object):
 
 
 @contextmanager
-def time_with(*args, **kwargs):
+def time_with(subsec: bool = False, *args, **kwargs):
     """Time a context, or decorate a function with a timer
 
     Prints date & time before & after context, and elapsed time.
@@ -270,10 +275,10 @@ def time_with(*args, **kwargs):
     try:
         yield
     finally:
-        dtmp.time()
+        dtmp.time(subsec=subsec)
 
 
-def time_expr(lambda_expr: Callable, *args, **kwargs):
+def time_expr(lambda_expr: Callable, subsec: bool = False, *args, **kwargs):
     """Time a lambda expression.
 
     Prints date & time before & after running `lambda_expr` and elapsed time.
@@ -293,6 +298,6 @@ def time_expr(lambda_expr: Callable, *args, **kwargs):
     -------
     >>> time_expr(lambda: execute_fn(param1, param2))
     """
-    with time_with(*args, **kwargs):
+    with time_with(subsec, *args, **kwargs):
         out = lambda_expr()
     return out
