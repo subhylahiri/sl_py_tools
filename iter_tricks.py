@@ -32,7 +32,9 @@ dzip: function
     Creates a `DisplayZip`.
 dbatch
     Like `batch`, but uses `DisplayCount` to display counter.
-You can set `start` and `stop` in `zenumerate`, `denumerate` and `dzip`,
+rdcount, rdbatch, rdenumerate, rdzip
+    Reversed versions of `dcount`, `dbatch`, `rdenumerate`, `dzip`.
+You can set `start` and `stop` in `zenumerate`, `denumerate`, `dzip`, etc,
 but only via keyword arguments.
 
 .. warning:: Doesn't display properly on ``qtconsole``, and hence ``Spyder``.
@@ -91,20 +93,25 @@ Examples
 """
 __all__ = [
     'DisplayCount',
+    'DisplayBatch',
     'DisplayEnumerate',
     'DisplayZip',
-    'DisplayBatch',
     'zenumerate',
     'batch',
     'dbatch',
     'dcount',
     'denumerate',
     'dzip',
+    'rdcount',
+    'rdbatch',
+    'rdenumerate',
+    'rdzip',
     ]
 import itertools
+from functools import wraps
 # All of these imports could be removed:
 from collections.abc import Iterator, Sized
-from typing import Optional, Iterable, Tuple
+from typing import Optional, Iterable, Tuple, Callable
 import sys
 
 from .display_tricks import DisplayTemporary
@@ -383,14 +390,13 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
         return self
 
     def __reversed__(self):
-        """Display final counter with prefix.
-        Calling next will count down.
+        """Prepare to display final counter with prefix.
+        Calling iter, then next will count down.
         """
         if self.stop is None:
             raise ValueError('Must specify stop to reverse')
         self.start, self.stop = self.stop - self.step, self.start - self.step
         self.step *= -1
-        self.begin()
         return self
 
     def __next__(self):
@@ -494,20 +500,21 @@ class DisplayBatch(DisplayCount):
     def _str(self, ctr: int) -> str:
         """String for display of counter, e.g.' 7/12,'."""
 #        return self._frmt.format(ctr)
-        return self._state['frmt'].format(ctr + self.offset,
-                                          ctr + self.offset + self.step - 1)
+        return self._state['frmt'].format(ctr + self.offset, ctr + self.offset
+                                          + abs(self.step) - 1)
 
     def __next__(self):
         """Increment counter, erase previous counter and display new one."""
         counter = super().__next__()
-        return slice(counter, counter + self.step, 1)
+        return slice(counter, counter + abs(self.step))
 
 
 class _AddDisplayToIterables(object):
     """Wraps iterator to display progress.
 
-    Does not define `__iter__` or `__next__` (or `__reversed__`)
-    This is a mixin. Only implements constructor, `begin`, `disp` and `end`.
+    Does not define `__iter__` or `__next__`
+    This is a mixin. Only implements constructor, `begin`, `disp` and `end`,
+    as well as __init__ and __reversed__.
     Subclasses must implement `iter` and `next`.
     """
     _iterables: Tuple[Iterable, ...]
@@ -521,7 +528,13 @@ class _AddDisplayToIterables(object):
         else:
             self._iterables = (name,) + sequences
             name = None
-        self.display = DisplayCount(name, min_len(sequences), **kwds)
+        self.display = DisplayCount(name, min_len(self._iterables), **kwds)
+
+    def __reversed__(self):
+        """Prepare to display fina; counter with prefix."""
+        self.display = reversed(self.display)
+        self._iterables = tuple(reversed(seq) for seq in self._iterables)
+        return self
 
     def begin(self, *args, **kwds):
         """Display initial counter with prefix."""
@@ -891,3 +904,23 @@ def dbatch(name: Optional[str] = None,
     >>>     y[s] = np.linalg.eigvals(x[s])
     """
     return DisplayBatch(name, *sliceargs, **kwargs)
+
+
+# =============================================================================
+# %%* Reversed iterator factories
+# =============================================================================
+
+
+def _reverse_iter(it_func: Callable):
+    """Wrap iterator factory with reversed
+    """
+    @wraps(it_func)
+    def rev_it_func(*args, **kwds):
+        return reversed(it_func(*args, **kwds))
+    return rev_it_func
+
+
+rdcount = _reverse_iter(dcount)
+rdbatch = _reverse_iter(dbatch)
+rdenumerate = _reverse_iter(denumerate)
+rdzip = _reverse_iter(dzip)

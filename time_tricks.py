@@ -64,6 +64,9 @@ import datetime
 from contextlib import contextmanager
 from typing import Union, Optional, Callable, ClassVar
 import io
+import sys
+
+assert sys.version_info[:2] >= (3, 6)
 
 # =============================================================================
 # %%* Formatting functions

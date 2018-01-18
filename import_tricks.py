@@ -84,7 +84,7 @@ class Reloader(Callable):
         self.excluded_mods = also_exclude_mods
         self.exclude_mod(*deepreload.reload.__defaults__[0])
         self.exclude_mod('typing', 'collections', 'collections.abc', 'abc')
-        self.exclude_mod('types', 'numbers')
+        self.exclude_mod('types', 'numbers', 'io', 'contextlib', 'datetime')
         self.exclude_mod('itertools', 'functools', 'pkgutil')
 
         self.excluded_pkgs = set(also_exclude_pkgs)
