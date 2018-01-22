@@ -16,7 +16,7 @@ The defaults are defined in the `Reloader` class ``__init__``.
 They can be viewed in `reload.excluded_mods` and `reload.excluded_pkgs`.
 
 Replacing the built in `reload`, as described in `IPython.lib.deepreload`, may
- not work with this `reload` as it is a callable object rather than a function.
+not work with this `reload` as it is a callable object rather than a function.
 
 Example
 =======
@@ -33,11 +33,17 @@ from collections.abc import Callable
 from typing import Tuple, Set
 # essential
 import sys
+import os
 from functools import wraps
 from contextlib import contextmanager
+
 from IPython.lib import deepreload
 
 ORIGINAL_IMPORT_SUBMODULE = deepreload.import_submodule
+
+# =============================================================================
+# %%* Reloader class
+# =============================================================================
 
 
 class Reloader(Callable):
@@ -57,6 +63,8 @@ class Reloader(Callable):
         Tuple of module names to add to the excluded list.
     also_exclude_pkgs : Tuple[str, ...] = ()
         Tuple of package names to add to the excluded list.
+    exclude_std : bool = True
+        Exclude all packages from the Python standard library?
 
     Methods
     =======
@@ -80,21 +88,29 @@ class Reloader(Callable):
     """
     def __init__(self,
                  also_exclude_mods: Tuple[str, ...] = (),
-                 also_exclude_pkgs: Tuple[str, ...] = ()):
+                 also_exclude_pkgs: Tuple[str, ...] = (),
+                 exclude_std: bool = True):
+        self.exclude_std = exclude_std
+
         self.excluded_mods = also_exclude_mods
         self.exclude_mod(*deepreload.reload.__defaults__[0])
-        self.exclude_mod('typing', 'collections', 'collections.abc', 'abc')
-        self.exclude_mod('types', 'numbers', 'io', 'contextlib', 'datetime')
-        self.exclude_mod('itertools', 'functools', 'pkgutil')
+#        self.exclude_mod('typing', 'collections', 'collections.abc', 'abc')
+#        self.exclude_mod('types', 'numbers', 'io', 'contextlib', 'datetime')
+#        self.exclude_mod('itertools', 'functools', 'pkgutil')
 
         self.excluded_pkgs = set(also_exclude_pkgs)
-        self.exclude_pkg('numpy', 'matplotlib', 'scipy')
-        self.exclude_pkg('IPython', 'importlib')
+        self.exclude_pkg('numpy', 'matplotlib', 'scipy', 'IPython')
+#        self.exclude_pkg('importlib')
 
     def __call__(self, module, *args, **kwd):
         """Deep reload `module` with specified modules and packages excluded.
         """
-        with replace_import_submodule_hook(self.excluded_pkgs):
+        if self.exclude_std:
+            context = replace_import_submodule_hook_std(self.excluded_pkgs)
+        else:
+            context = replace_import_submodule_hook(self.excluded_pkgs)
+
+        with context:
             deepreload.reload(module, *args, exclude=self.excluded_mods, **kwd)
 
     def exclude_mod(self, *modules):
@@ -120,6 +136,10 @@ class Reloader(Callable):
 
 # Use instance to do your reloads.
 reload = Reloader()
+
+# =============================================================================
+# %%* Helper functions for Reloader
+# =============================================================================
 
 
 def parent_names(fullname: str) -> Set[str]:
@@ -159,6 +179,76 @@ def replace_import_submodule_hook(excluded_pkgs):
     """
     saved_import_submodule = deepreload.import_submodule
     deepreload.import_submodule = import_submodule_wrapper(excluded_pkgs)
+    try:
+        yield
+    finally:
+        deepreload.import_submodule = saved_import_submodule
+
+
+# =============================================================================
+# %%* ALso excluding stdlib packages
+# =============================================================================
+
+# from https://stackoverflow.com/questions/22195382/how-to-check-if-a-module-
+# library-package-is-part-of-the-python-standard-library
+# by: https://stackoverflow.com/users/100297/martijn-pieters
+
+# paths for stdlib
+_paths = (os.path.abspath(p) for p in sys.path)
+stdlib = tuple(p for p in _paths
+               if p.startswith((sys.prefix, sys.exec_prefix,
+                                sys.base_exec_prefix, sys.base_prefix))
+               and 'site-packages' not in p)
+
+
+def stdlib_check(module):
+    """Check if a module is from stdlib.
+
+    from https://stackoverflow.com/questions/22195382/how-to-check-if-a-module-
+    library-package-is-part-of-the-python-standard-library
+    by: https://stackoverflow.com/users/100297/martijn-pieters
+    """
+    if (not hasattr(module, '__name__')
+            or module.__name__ in sys.builtin_module_names
+            or not hasattr(module, '__file__')):
+        # an import sentinel, built-in module or not a real module, really
+        return True
+
+    fname = module.__file__
+    if 'site-packages' in fname:
+        return False
+
+    if fname.endswith(('__init__.py', '__init__.pyc', '__init__.pyo')):
+        fname = os.path.dirname(fname)
+
+    if os.path.dirname(fname).startswith(stdlib):
+        # stdlib path, skip
+        return True
+    return False
+
+
+def import_submodule_wrapper_std(excluded_pkgs):
+    """Wrapper for deepreload.import_submodule that excludes entire packages
+    and anything in stdlib.
+    """
+    @wraps(ORIGINAL_IMPORT_SUBMODULE)
+    def my_import_submodule(mod, subname, fullname):
+        if ((package_check(fullname, excluded_pkgs) or stdlib_check(mod))
+                and fullname in sys.modules):
+            deepreload.found_now[fullname] = 1
+            return sys.modules[fullname]
+        return ORIGINAL_IMPORT_SUBMODULE(mod, subname, fullname)
+    return my_import_submodule
+
+
+@contextmanager
+def replace_import_submodule_hook_std(excluded_pkgs):
+    """Temporarily replace import__submodule__ in IPython.lib.deepreload.
+
+    Our version excludes some entire packages.
+    """
+    saved_import_submodule = deepreload.import_submodule
+    deepreload.import_submodule = import_submodule_wrapper_std(excluded_pkgs)
     try:
         yield
     finally:
