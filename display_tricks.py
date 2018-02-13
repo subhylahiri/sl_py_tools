@@ -209,6 +209,11 @@ class DisplayTemporary(object):
         disp_temp.begin(msg)
         return disp_temp
 
+
+# Crappy way of checking if we're running in a qtconsole.
+if 'spyder' in sys.modules:
+    DisplayTemporary.output = False
+
 # =============================================================================
 # %%* Functions
 # =============================================================================
