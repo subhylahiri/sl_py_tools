@@ -38,6 +38,9 @@ You can set `start` and `stop` in `zenumerate`, `denumerate`, `dzip`, etc,
 but only via keyword arguments.
 
 .. warning:: Doesn't display properly on ``qtconsole``, and hence ``Spyder``.
+Instead, use in a console connected to the same kernel:
+``cd`` to the folder, then type: ``jupyter console --existing``, and run your
+code there.
 
 Examples
 --------
@@ -262,6 +265,9 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
         ' i: 3/5, j: 6/8, k:  7/10,'
 
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
 
     Construction
     ------------
@@ -406,9 +412,8 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
         if (self.stop is None) or self.step*(self.stop - self.counter) > 0:
             self.update()
             return self.counter
-        else:
-            self.end()
-            raise StopIteration()
+        self.end()
+        raise StopIteration()
 
     def __len__(self):
         """Number of entries"""
@@ -453,6 +458,9 @@ class DisplayBatch(DisplayCount):
         ' i: 3/5, j: 6/8(/2), k:  7/10(/5),'
 
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
 
     Parameters
     ----------
@@ -564,6 +572,9 @@ class DisplayEnumerate(_AddDisplayToIterables):
     The output of `next` is a `tuple`: (counter, iter0, iter1, ...)
 
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
 
     Parameters
     ----------
@@ -623,6 +634,9 @@ class DisplayZip(_AddDisplayToIterables):
         ' i: 3/5, j: 6/8, k:  7/10,'
 
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
 
     Parameters
     ----------
@@ -692,6 +706,9 @@ def dcount(name: Optional[str] = None,
         ' i: 3/5, j: 6/8, k:  7/10,'
 
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
 
     Parameters
     ----------
@@ -765,6 +782,9 @@ def denumerate(name: Optional[str] = None,
     The output of `next` is a `tuple`: (counter, iter0, iter1, ...)
 
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
 
     Parameters
     ----------
@@ -870,6 +890,9 @@ def dbatch(name: Optional[str] = None,
         ' i: 3/5, j: 3-4/8k:  6-10/10,'
 
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
 
     Parameters
     ----------

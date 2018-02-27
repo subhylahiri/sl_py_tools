@@ -22,6 +22,9 @@ dwrap : function
     Decorate a function with a temporary printed message.
 
 .. warning:: Doesn't display properly on ``qtconsole``, and hence ``Spyder``.
+Instead, use in a console connected to the same kernel:
+``cd`` to the folder, then type: ``jupyter console --existing``, and run your
+code there.
 
 Examples
 --------
@@ -59,6 +62,11 @@ class DisplayTemporary(object):
     """Class for temporarily displaying a message.
 
     Message erases when `end()` is called, or object is deleted.
+
+    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
 
     Attributes
     ----------
@@ -159,7 +167,7 @@ class DisplayTemporary(object):
         if self.output:
             print(text, end='', flush=True, file=self.file)
 
-    def _bksp(self, num: int = 1):
+    def _bksp(self, num: int = 1, bkc: str = '\b'):
         """Go back num characters
         """
         if self.file is None:  # self.file.isatty() or self.file is sys.stdout
@@ -169,7 +177,7 @@ class DisplayTemporary(object):
             return
 
         # hack for jupyter's problem with multiple backspaces
-        for i in '\b' * num:
+        for i in bkc * num:
             self._print(i)
         # self._print('\b' * num)
 
@@ -177,7 +185,7 @@ class DisplayTemporary(object):
         """Go back num characters
         """
         self._bksp(num)
-        self._print(' ' * num)
+        self._bksp(num, ' ')
         self._bksp(num)
 
     def _check(self):
@@ -211,8 +219,8 @@ class DisplayTemporary(object):
 
 
 # Crappy way of checking if we're running in a qtconsole.
-if 'spyder' in sys.modules:
-    DisplayTemporary.output = False
+# if 'spyder' in sys.modules:
+#     DisplayTemporary.output = False
 
 # =============================================================================
 # %%* Functions
@@ -221,6 +229,11 @@ if 'spyder' in sys.modules:
 
 def dtemp(msg: str = ''):
     """Temporarily display a message.
+
+    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
 
     Parameters
     ----------
@@ -245,6 +258,11 @@ def dtemp(msg: str = ''):
 @contextmanager
 def dcontext(msg: str):
     """Display message during context.
+
+    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
 
     Prints message before entering context and deletes after.
 
@@ -272,6 +290,11 @@ def dcontext(msg: str):
 
 def dexpr(msg: str, lambda_expr: Callable):
     """Display message during lambda execution.
+
+    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
 
     Prints message before running `lambda_expr` and deletes after.
 
