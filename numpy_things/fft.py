@@ -20,7 +20,7 @@ def fftfreqs(shape: Sequence[int],
     shape : Sequence[int]
         Axes length.
     spacings : Sequence[scalar], optional
-        Sample spacing s(inverse of the sampling rate). Defaults to 1.
+        Sample spacings (inverse of the sampling rates). Defaults to 1.
 
     Returns
     -------
@@ -29,13 +29,13 @@ def fftfreqs(shape: Sequence[int],
 
     See Also
     --------
-    numpy.fft.fftfreq : for each axes
+    numpy.fft.fftfreq : for each axis
     """
     freqs = ()
     if spacings is None:
         spacings = (1.,) * len(shape)
-    for n, d in zip(shape, spacings):
-        freqs += fft.fftfreq(n, d)
+    for siz, step in zip(shape, spacings):
+        freqs += fft.fftfreq(siz, step)
     return freqs
 
 
@@ -49,7 +49,7 @@ def rfftfreqs(shape: Sequence[int],
     shape : Sequence[int]
         Axes length.
     spacings : Sequence[scalar], optional
-        Sample spacing s(inverse of the sampling rate). Defaults to 1.
+        Sample spacings (inverse of the sampling rates). Defaults to 1.
 
     Returns
     -------
@@ -58,16 +58,43 @@ def rfftfreqs(shape: Sequence[int],
 
     See Also
     --------
-    numpy.fft.fftfreq : for all axes but last.
+    numpy.fft.fftfreq : for all axes except last.
     numpy.fft.rfftfreq : for last axis.
     """
-    freqs = ()
     if spacings is None:
         spacings = (1.,) * len(shape)
-    for n, d in zip(shape[:-1], spacings[:-1]):
-        freqs += (fft.fftfreq(n, d),)
+    freqs = fftfreqs(shape[:-1], spacings[:-1])
     freqs += (fft.rfftfreq(shape[-1], spacings[-1]),)
     return freqs
+
+
+def fft_flip(fftarray: np.ndarray,
+             axes: Sequence[int] = (-1,),) -> np.ndarray:
+    """
+    Swap positive/negative frequencies and complex conjugate Fourier transform.
+
+    Result is the Fourier transform of the complex conjugate of the inverse
+    transform of the input array.
+    If the input array is from a real Fourier transform the final axis should
+    be excluded, as it doesn't contain negative frequencies.
+
+    Parameters
+    ----------
+    fftarray : np.ndarray
+        Fourier transform.
+    axes : Sequence[int], optional
+        Which axes were Fourier transformed? Default = (-1,).
+        Exclude final axis for a real Fourier transform.
+
+    Returns
+    -------
+    rfftarray : np.ndarray
+        Fourier transform with frequencies flipped, complex conjugated.
+    """
+    fftconj = fftarray.conj()
+    for axis in axes:
+        fftconj = np.roll(np.flip(fftconj, axis), 1, axis)
+    return fftconj
 
 
 def rfft_to_fft(rfftarray: np.ndarray,
@@ -106,13 +133,12 @@ def rfft_to_fft(rfftarray: np.ndarray,
         inds += (slice(1, -1),)
     else:
         inds += (slice(1, None),)
-    redundant = np.flip(rfftarray.conj()[inds], axis)
-    for ax in axes[:-1]:
-        redundant = np.roll(np.flip(redundant, ax), 1, ax)
+    redundant = np.flip(fft_flip(rfftarray[inds], axes[:-1]), axis)
     return np.concatenate((rfftarray, redundant), axis)
 
 
-def fft_to_rfft(fftarray: np.ndarray, axis: int = -1) -> np.ndarray:
+def fft_to_rfft(fftarray: np.ndarray,
+                axes: Sequence[int] = (-1,),) -> np.ndarray:
     """
     Parameters
     ----------
@@ -120,14 +146,14 @@ def fft_to_rfft(fftarray: np.ndarray, axis: int = -1) -> np.ndarray:
 
     The fourier transform of a real quantity has a Hermitean symmetry.
     Therefore half of the frequency components are redundant and not kept by
-    ``rfft*``. This function removes those frequencies.
+    ``rfft*``. This function symmetrises and then removes those frequencies.
 
     Parameters
     ----------
     fftarray : np.ndarray
         Fourier transform including redundant frequencies.
-    axis : int, optional
-        Which axis was the last one of the Fourier transform? Default = -1.
+    axes : Sequence[int], optional
+        Which axes were Fourier transformed? Default = (-1,).
 
     Returns
     -------
@@ -138,9 +164,12 @@ def fft_to_rfft(fftarray: np.ndarray, axis: int = -1) -> np.ndarray:
     --------
     rfft_to_fft : inverse of this function
     """
-    siz = fftarray.shape[axis]
-    new_siz = siz // 2 + 1
+    fftconj = fft_flip(fftarray, axes)
+    fftconj += fftarray
+    fftconj /= 2.
+    axis = axes[-1]
+    new_siz = fftarray.shape[axis] // 2 + 1
     if axis < 0:
         axis += fftarray.ndim
     inds = (slice(None),) * axis + (slice(new_siz),)
-    return fftarray[inds]
+    return fftconj[inds]
