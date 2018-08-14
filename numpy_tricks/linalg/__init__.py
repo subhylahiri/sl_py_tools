@@ -5,7 +5,7 @@
 # package: linalg_tricks
 # =============================================================================
 """
-Linear algebra rotines.
+Linear algebra routines.
 
 Functions
 ---------
