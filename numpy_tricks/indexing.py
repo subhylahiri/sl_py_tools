@@ -81,27 +81,32 @@ class Slicify(object):
     """Store index info in variables.
 
     Converts colon notation to slice objects, so that it can be stored, passed
-    to functions, etc. Everything else is unchanged:
+    to functions, etc. Everything else is passed through unchanged:
+
     >>> a = slicify[4,...,5:9]
     (4, Ellipsis, slice(5, 9, None))
 
     Output is always a tuple, even with only one argument:
+
     >>> a = slicify[:]
     (slice(None, None, None),)
 
     Parameters
     ----------
     *indexinfo
-        Anything that can be used as a set of indices: integers, bools,
-        ndarrays of int/bool, Ellipsis, slices objects or colons+ints.
+        Anything that can be used as a set of indices: integers, ndarray[int],
+        ndarray[bool], Ellipsis, slices objects or colons & ints.
 
     Returns
     -------
-    *indexinfo
-        tuple of integers, ndarrays of integer/bool, Ellipsis, slice objects.
+    indexinfo
+        tuple of [integers, ndarrays of int/bool, Ellipsis, slice objects].
     """
     def __getitem__(self, *indexinfo):
         return indexinfo
+
+    def __init__():
+        pass
 
 
 slicify = Slicify()

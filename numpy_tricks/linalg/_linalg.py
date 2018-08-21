@@ -132,8 +132,8 @@ def matldiv(x: np.ndarray, y: np.ndarray,
             out=(None,), rcond=1e-15) -> np.ndarray:
     """Matrix division from left.
 
-    Computes :math:`z = x \ y = x^{-1} y`, or :math:`x^+ y` for non-square `x`.
-    Pseudo inverse version broadcasts (if broadcasting is needed, uses
+    Computes :math:`z = x \\ y = x^{-1} y`, or :math:`x^+ y` for nonsquare `x`.
+    Pseudo-inverse version broadcasts (if broadcasting is needed, uses
     `np.linalg.solve` and assumes full rank `x`, else, uses `np.linalg.lstsq`).
     Full inverse version broadcasts (uses `np.linalg.solve`).
 
@@ -197,7 +197,7 @@ def matldiv(x: np.ndarray, y: np.ndarray,
 def matrdiv(a: np.ndarray, b: np.ndarray, *args, **kwargs) -> np.ndarray:
     """Matrix division from right.
 
-    Computes :math:`c = a / b = a b^{-1}`, or :math:`a b^+` if b isn't square.
+    Computes :math:`c = a / b = a b^{-1}`, or :math:`a b^+` for nonsquare `b`.
     Pseudo inverse version broadcasts  (if broadcasting is needed, uses
     `np.linalg.solve` and assumes full rank a, else, uses `np.linalg.lstsq`).
     Full inverse version broadcasts (uses `np.linalg.solve`).
