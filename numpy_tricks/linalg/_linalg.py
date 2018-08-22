@@ -139,18 +139,18 @@ def matldiv(x: np.ndarray, y: np.ndarray,
 
     Parameters
     ----------
-    x : {(..., M, N), (..., N, N)} array_like
+    x : (..., M, N) array_like
         Divisor or Denominator.
-    y : {(..., N), (..., N, K)} array_like
+    y : {(..., M), (..., M, K)} array_like
         Dividend or Numerator.
-    out : {(..., M), (..., M, K), (..., N), (..., N, K)} np.ndarray
+    out : {(..., N), (..., N, K)} np.ndarray
         array to store the output in.
     rcond : float = 1e-15
         passed to `numpy.linalg.lstsq`
 
     Returns
     -------
-    z : {(..., M), (..., M, K), (..., N), (..., N, K)} np.ndarray
+    z : {(..., N), (..., N, K)} np.ndarray
         Quotient. It has the same type as `a`, unless type(b) is a subclass of
         type(a), in which case `c` has the same type as `b`.
 
@@ -170,11 +170,10 @@ def matldiv(x: np.ndarray, y: np.ndarray,
     if a.dtype == np.object_ or b.dtype == np.object_:
         return NotImplemented
 
-    returntype = _mostsub_type(x, y)
-    returndtype = np.result_type(x, y)
-
+    if isinstance(out, np.ndarray):
+        out = (out,)
     if out[0] is None:
-        out = (np.empty(return_shape_mat(trnsp(a), b), dtype=returndtype),)
+        out = (_preallocate_out(trnsp(a), b),)
 
     if a.ndim == 0:
         out[0][...] = b / a
@@ -191,31 +190,32 @@ def matldiv(x: np.ndarray, y: np.ndarray,
     else:
         return NotImplemented
 
-    return out[0].view(returntype)
+    return out[0]
 
 
-def matrdiv(a: np.ndarray, b: np.ndarray, *args, **kwargs) -> np.ndarray:
+def matrdiv(x: np.ndarray, y: np.ndarray, out=(None,),
+            *args, **kwargs) -> np.ndarray:
     """Matrix division from right.
 
-    Computes :math:`c = a / b = a b^{-1}`, or :math:`a b^+` for nonsquare `b`.
+    Computes :math:`z = x / y = x y^{-1}`, or :math:`x y^+` for nonsquare `y`.
     Pseudo inverse version broadcasts  (if broadcasting is needed, uses
-    `np.linalg.solve` and assumes full rank a, else, uses `np.linalg.lstsq`).
+    `np.linalg.solve` and assumes full rank `y`, else, uses `np.linalg.lstsq`).
     Full inverse version broadcasts (uses `np.linalg.solve`).
 
     Parameters
     ----------
-    a : {(..., M), (..., K, M)} array_like
+    x : {(..., M), (..., K, M)} array_like
         Dividend or Numerator.
-    b : {(..., M, N), (..., M, M)} array_like
+    y : (..., N, M) array_like
         Divisor or Denominator.
-    out : {(..., N), (..., K, N), (..., M), (..., K, M)} np.ndarray
+    out : {(..., N), (..., K, N)} np.ndarray
         array to store the output in.
     rcond : float = 1e-15
         passed to `numpy.linalg.lstsq`
 
     Returns
     -------
-    c : {(..., N), (..., K, N), (..., M), (..., K, M)} np.ndarray
+    z : {(..., N), (..., K, N)} np.ndarray
         Quotient. It has the same type as `a`, unless type(b) is a subclass of
         type(a), in which case `c` has the same type as `b`.
 
@@ -230,7 +230,19 @@ def matrdiv(a: np.ndarray, b: np.ndarray, *args, **kwargs) -> np.ndarray:
     `np.linalg.solve` : performs exact matrix division.
     `np.linalg.lstsq` : performs least-square matrix division.
     """
-    return trnsp(matldiv(trnsp(b), trnsp(a), *args, **kwargs))
+    a = np.asarray(x)
+    b = np.asarray(y)
+    if a.dtype == np.object_ or b.dtype == np.object_:
+        return NotImplemented
+
+    if isinstance(out, np.ndarray):
+        out = (out,)
+    if out[0] is None:
+        out = (_preallocate_out(a, trnsp(b)),)
+
+    out[0][...] = trnsp(matldiv(trnsp(b), trnsp(a), *args, **kwargs))
+
+    return out[0]
 
 
 def matmul(x, y, out=(None,)):
@@ -248,15 +260,14 @@ def matmul(x, y, out=(None,)):
     if a.dtype == np.object_ or b.dtype == np.object_:
         return NotImplemented
 
-    returntype = _mostsub_type(x, y)
-    returndtype = np.result_type(x, y)
-
+    if isinstance(out, np.ndarray):
+        out = (out,)
     if out[0] is None:
-        out = (np.empty(return_shape_mat(a, b), dtype=returndtype),)
+        out = (_preallocate_out(a, b),)
 
     np.matmul(a, b, out=out[0])
 
-    return out[0].view(returntype)
+    return out[0]
 
 
 def _mostsub_type(a, *args) -> type:
@@ -269,3 +280,13 @@ def _mostsub_type(a, *args) -> type:
         if isinstance(b, returntype):
             returntype = type(b)
     return returntype
+
+
+def _preallocate_out(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Preallocated array for output of a @ b
+    Correct shape, dtype and type
+    """
+    returntype = _mostsub_type(a, b)
+    returndtype = np.result_type(a, b)
+
+    return np.empty(return_shape_mat(a, b), dtype=returndtype).view(returntype)
