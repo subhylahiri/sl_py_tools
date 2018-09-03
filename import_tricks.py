@@ -99,7 +99,8 @@ class Reloader(Callable):
 #        self.exclude_mod('itertools', 'functools', 'pkgutil')
 
         self.excluded_pkgs = set(also_exclude_pkgs)
-        self.exclude_pkg('numpy', 'matplotlib', 'scipy', 'IPython')
+        self.exclude_pkg('numpy', 'matplotlib', 'scipy', 'IPython', 'numba',
+                         'llvmlite')
 #        self.exclude_pkg('importlib')
 
     def __call__(self, module, *args, **kwd):
