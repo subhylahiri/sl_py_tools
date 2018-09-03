@@ -195,14 +195,16 @@ class Timer(object):
     >>> dt.time()
     """
     begin: datetime.datetime
+    absolute: bool
 
     # write output to file. If None, use sys.stdout
     file: ClassVar[Optional[io.TextIOBase]] = None
 
     def __init__(self, begin: Optional[datetime.datetime] = None):
         self.begin = begin
+        self.absolute = True
 
-    def start(self, *args, **kwargs):
+    def start(self, *args, absolute=True, **kwargs):
         """Call this before thing you are timing.
 
         Prints and stores current time.
@@ -212,8 +214,10 @@ class Timer(object):
         tz : Optional[datetime.tzinfo] = None
             Time zone to use. Passed to `datetime.datetime.now`.
         """
+        self.absolute = absolute
         self.begin = datetime.datetime.now(*args, **kwargs)
-        print(dt_format(self.begin), file=self.file)
+        if self.absolute:
+            print(dt_format(self.begin), file=self.file)
 
     def time(self, subsec: bool = False, *args, **kwargs):
         """Call this after thing you are timing.
@@ -230,7 +234,8 @@ class Timer(object):
             self.start(*args, **kwargs)
             return
         end = datetime.datetime.now(self.begin.tzinfo)
-        print(dt_format(end), file=self.file)
+        if self.absolute:
+            print(dt_format(end), file=self.file)
         print("That took: " + td_format(end - self.begin, subsec=subsec),
               file=self.file)
         self.begin = end
