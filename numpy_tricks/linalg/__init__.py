@@ -7,6 +7,33 @@
 """
 Linear algebra routines.
 
+Classes
+-------
+lnarray
+    Subclass of `numpy.ndarray` with properties such as `pinv/inv` for matrix
+    division, `t` for transposing stacks of matrices, `c`, `r` and `s` for
+    dealing with stacks of vectors and scalars.
+pinvarray
+    Provides interface for matrix division when it is matrix multiplied (@).
+    Returned by `lnarray.pinv`. It calls `np.linalg.lstsq` behind the scenes.
+    Does not actually pseudoinvert the matrix unless it is explicitly called.
+    I think it is best not to store these objects in variables, and call on
+    `lnarray.pinv` on the rhs instead.
+invarray
+    Provides interface for matrix division when it is matrix multiplied (@).
+    Returned by `lnarray.inv`. It calls `np.linalg.solve` behind the scenes.
+    Does not actually invert the matrix unless it is explicitly called.
+    I think it is best not to store these objects in variables, and call on
+    `lnarray.inv` on the rhs instead.
+lnmatrix
+    Subclass of `lnarray` which swaps matrix/elementwise multiplication and
+    division from the right. Shouldn't be necessary given `lnarray`'s syntax.
+ldarray
+    `lnarray` subclass which overloads bitshift operators for matrix division.
+    One of several reasons why this is a bad idea is that bitshifting has lower
+    operator priority than division, so you will have to use parentheses often.
+    I think you're better off sticking with `lnarray`.
+
 Functions
 ---------
 trnsp
@@ -21,25 +48,9 @@ matldiv
     Matrix division from left.
 matrdiv
     Matrix division from right.
-And versions of most `numpy`'s array creation routines.
-
-Classes
--------
-lnarray
-    Subclass of `numpy.ndarray` with properties such as `inv` for matrix
-    division, `t` for transposing stacks of matrices, `c`, `r` and `s` for
-    dealing with stacks of vectors and scalars.
-invarray
-    Provides interface for matrix division when it is matrix multiplied (@).
-    Does not actually invert the matrix unless it has to: if you try to do
-    anything other than matrix multiplication or multiplication by scalars.
-lnmatrix
-    Subclass of `lnarray` which swaps matrix/elementwise multiplication and
-    division from the right.
-ldarray
-    `lnarray` subclass which overloads bitshift operators for matrix division.
-    One of several reasons why this is a bad idea is that bitshifting has lower
-    operator priority than division, so you will have to use parentheses often.
+Also includes `gufunc`s, or wrappers thereof, for `matmul`, `solve`, `rsolve`,
+`lstsq`, `rlstsq`, `qr`, `qr_tall`, `lstsq_m`, `lstsq_n`, as well as versions
+of most `numpy` array creation routines.
 
 Examples
 --------
@@ -47,8 +58,8 @@ Examples
 >>> import linalg as sp
 >>> x = sp.lnarray(np.random.rand(2, 3, 4))
 >>> y = sp.lnarray(np.random.rand(2, 3, 4))
->>> z = x.inv @ y
->>> w = x @ y.inv
+>>> z = x.pinv @ y
+>>> w = x @ y.pinv
 >>> u = x @ y.t
 >>> v = (x.r @ y[:, None, ...].t).ur
 >>> a = sp.ldarray(np.random.rand(2, 3, 4))
@@ -62,5 +73,7 @@ from ._ldarray import ldarray
 from ._linalg import trnsp, col, row, scal, matldiv, matrdiv
 from ._gufuncs import (matmul, solve, rsolve, lstsq, rlstsq, qr, qr_tall,
                        lstsq_m, lstsq_n)
+import _ln_wrap as wrappers
 from ._creation_ln import *
+# import _ld_wrap as wrappers
 # from ._creation_ld import *
