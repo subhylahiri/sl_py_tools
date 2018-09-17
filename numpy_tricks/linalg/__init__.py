@@ -57,8 +57,10 @@ Examples
 >>> d = (a >> b)
 """
 
-from ._lnarray import lnarray, invarray, lnmatrix
+from ._lnarray import lnarray, pinvarray, invarray, lnmatrix
 from ._ldarray import ldarray
-from ._linalg import trnsp, col, row, scal, matldiv, matrdiv, matmul
+from ._linalg import trnsp, col, row, scal, matldiv, matrdiv
+from ._gufuncs import (matmul, solve, rsolve, lstsq, rlstsq, qr, qr_tall,
+                       lstsq_m, lstsq_n)
 from ._creation_ln import *
 # from ._creation_ld import *
