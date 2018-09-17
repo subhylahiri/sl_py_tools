@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-# =============================================================================
-# Created on Sun Dec  3 21:37:24 2017
-# @author: subhy
-# module: _lnarray
-# =============================================================================
 """
+Created on Sun Dec  3 21:37:24 2017
+
+@author: subhy
+
 Classes that provide nicer syntax for matrix division and tools for working
 with `numpy.linalg`'s broadcasting.
 
@@ -14,7 +13,7 @@ lnarray
     Subclass of `numpy.ndarray` with properties such as `inv` for matrix
     division, `t` for transposing stacks of matrices, `c`, `r` and `s` for
     dealing with stacks of vectors and scalars.
-invarray
+pinvarray
     Provides interface for matrix division when it is matrix multiplied (@).
     Does not actually invert the matrix unless it has to: if you try to do
     anything other than matrix multiplication or multiplication by scalars.
@@ -35,10 +34,10 @@ Examples
 """
 
 import numpy as np
-from numpy.lib.mixins import _numeric_methods
+from numpy.lib.mixins import _numeric_methods, NDArrayOperatorsMixin
 from typing import Optional, Tuple
-from . import _linalg
-from . import _invarray_helper as invh
+from . import _linalg as la
+from . import _gufuncs as gf
 
 
 # =============================================================================
@@ -61,10 +60,14 @@ class lnarray(np.ndarray):
 
     Properties
     ----------
+    pinv : pinvarray
+        Lazy pseudoinverse. When matrix multiplying, performs matrix division.
+        Note: call as a property. If you call it as a function, you'll get the
+        actual pseudoinverse.
     inv : invarray
         Lazy inverse. When matrix multiplying, performs matrix division.
         Note: call as a property. If you call it as a function, you'll get the
-        actual (pseudo)inverse
+        actual inverse.
     t
         Transpose last two axes.
     c
@@ -84,8 +87,8 @@ class lnarray(np.ndarray):
     >>> import linalg as sp
     >>> x = sp.lnarray(np.random.rand(2, 3, 4))
     >>> y = sp.lnarray(np.random.rand(2, 3, 4))
-    >>> z = x.inv @ y
-    >>> w = x @ y.inv
+    >>> z = x.pinv @ y
+    >>> w = x @ y.pinv
     >>> u = x @ y.t
     >>> v = (x.r @ y.t).ur
 
@@ -93,10 +96,14 @@ class lnarray(np.ndarray):
     --------
     `np.ndarray` : the super class.
     `np.asarray` : used to get view/copy of data from `input_array`.
+    `pinvarray` : class that provides an interface for matrix division.
     `invarray` : class that provides an interface for matrix division.
     `lnmatrix` : `lnarray`, but with matrix/elementwise operators swapped
     `ldarray` : class that provides another interface for matrix division.
     """
+    # Set of ufuncs that need special handling of vectors
+    vec_ufuncs = {gf.matmul, gf.solve, gf.lstsq_m, gf.lstsq_n}
+
     def __new__(cls, input_array):
         # Input array is an already formed ndarray instance
         # We first cast to be our class type
@@ -108,13 +115,59 @@ class lnarray(np.ndarray):
 #        # We are not adding any attributes
 #        pass
 
-    __array_priority__ = 1.
-    __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(_linalg.matmul,
-                                                            'matmul')
-    __matldiv__, __rmatldiv__, __imatldiv__ = _numeric_methods(_linalg.matldiv,
-                                                               'matldiv')
-    __matrdiv__, __rmatrdiv__, __imatrdiv__ = _numeric_methods(_linalg.matrdiv,
-                                                               'matrdiv')
+    __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(gf.matmul, 'matmul')
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        args = []
+        for input_ in inputs:
+            if isinstance(input_, lnarray):
+                args.append(input_.view(np.ndarray))
+            else:
+                args.append(input_)
+
+        to_squeeze = [False, False]
+        if ufunc in self.vec_ufuncs:
+            if args[0].ndim == 1:
+                args[0] = args[0][..., None, :]
+                to_squeeze[0] = True
+            if args[1].ndim == 1:
+                args[1] = args[1][..., None]
+                to_squeeze[1] = True
+        args = tuple(args)
+
+        outputs = kwargs.pop('out', None)
+        if outputs:
+            out_args = []
+            for output in outputs:
+                if isinstance(output, lnarray):
+                    out_args.append(output.view(np.ndarray))
+                else:
+                    out_args.append(output)
+            kwargs['out'] = tuple(out_args)
+        else:
+            outputs = (None,) * ufunc.nout
+
+        results = super().__array_ufunc__(ufunc, method, *args, **kwargs)
+        if results is NotImplemented:
+            return NotImplemented
+
+        if ufunc.nout == 1:
+            results = (results,)
+
+        squeezable_result = results[0]
+        if to_squeeze[0]:
+            squeezable_result = squeezable_result.squeeze(-2)
+        if to_squeeze[1]:
+            squeezable_result = squeezable_result.squeeze(-1)
+        results = (squeezable_result,) + results[1:]
+
+        results = tuple((np.asarray(result).view(lnarray)
+                         if output is None else output)
+                        for result, output in zip(results, outputs))
+#        results = tuple((result[()] if result.ndim == 0 else result)
+#                        for result in results)
+
+        return results[0] if len(results) == 1 else results
 
     @property
     def t(self) -> 'lnarray':
@@ -211,18 +264,33 @@ class lnarray(np.ndarray):
         return self.squeeze(axis=-2).squeeze(axis=-1)
 
     @property
+    def pinv(self) -> 'pinvarray':
+        """Lazy matrix inverse
+
+        Parameters/Results
+        ------------------
+        a : lnarray, (..., M, N) --> a_inv : pinvarray, (..., N, M)
+            When matrix multiplying, performs matrix division.
+
+        See also
+        --------
+        `pinvarray`
+        """
+        return pinvarray(self)
+
+    @property
     def inv(self) -> 'invarray':
         """Lazy matrix inverse
 
         Parameters/Results
         ------------------
-        a : lnarray, (..., M, N) --> a_inv : invarray, (..., N, M)
+        a : lnarray, (..., M, M) --> a_inv : pinvarray, (..., M, M)
             When matrix multiplying, performs matrix division.
 
         Raises
         ------
         ValueError
-            If a.shape[-2] != 1
+            If a.shape[-2] != a.shape[-1]
 
         See also
         --------
@@ -238,133 +306,26 @@ class lnarray(np.ndarray):
 
 
 # =============================================================================
-# %%|| Helpers for class: invarray
+# Class: pinvarray
 # =============================================================================
 
 
-# guaranteed to have at least one invarray
-def _inv_matmul(a, b, out=(None,)):
-    """Matrix multiplication for invarrays, mimicking ufunc interface
-    """
-    if out[0] is None:
-        fout = np.empty(invh._out_shape_mat(a, b)).view(lnarray)
-        if isinstance(a, invarray) and isinstance(b, invarray):
-            fout = invarray(fout.t)
-        out = (fout,)
+class pinvarray(NDArrayOperatorsMixin):
+    """Lazy matrix pseudoinverse of `lnarray`.
 
-    if isinstance(a, invarray) and isinstance(b, invarray):
-        # out is invarray
-        _linalg.matmul(b._to_invert, a._to_invert, out=(out[0]._to_invert,))
-        out[0]._inverted = None
-    elif isinstance(a, invarray) and isinstance(b, np.ndarray):
-        _linalg.matldiv(a._to_invert, b, out=out)
-    elif isinstance(a, np.ndarray) and isinstance(b, invarray):
-        _linalg.matrdiv(a, b._to_invert, out=out)
-    else:
-        return NotImplemented
-
-    return out[0]
-
-
-def _inv_matldiv(a, b, out=(None,)):
-    """Matrix left-division for invarrays, mimicking ufunc interface
-    """
-    if out[0] is None:
-        fout = np.empty(invh._out_shape_mat(a, b)).view(lnarray)
-        if isinstance(a, np.ndarray) and isinstance(b, invarray):
-            fout = invarray(fout.t)
-        out = (fout,)
-
-    if isinstance(a, invarray) and isinstance(b, invarray):
-        _linalg.matrdiv(b._to_invert, a._to_invert, out=out)
-    elif isinstance(a, invarray) and isinstance(b, np.ndarray):
-        _linalg.matmul(a._to_invert, b, out=out)
-    elif isinstance(a, np.ndarray) and isinstance(b, invarray):
-        # out is invarray
-        _linalg.matmul(b._to_invert, a, out=(out[0]._to_invert,))
-        out[0]._inverted = None
-    else:
-        return NotImplemented
-
-    return out[0]
-
-
-def _inv_matrdiv(a, b, out=(None,)):
-    """Matrix right-division for invarrays, mimicking ufunc interface
-    """
-    if out[0] is None:
-        fout = np.empty(invh._out_shape_mat(a, b)).view(lnarray)
-        if isinstance(a, invarray) and isinstance(b, np.ndarray):
-            fout = invarray(fout.t)
-        out = (fout,)
-
-    if isinstance(a, invarray) and isinstance(b, invarray):
-        _linalg.matldiv(a._to_invert, b._to_invert, out=(fout,))
-    elif isinstance(a, invarray) and isinstance(b, np.ndarray):
-        # out is invarray
-        _linalg.matmul(b, a._to_invert, out=(out[0]._to_invert,))
-        out[0]._inverted = None
-    elif isinstance(a, np.ndarray) and isinstance(b, invarray):
-        _linalg.matmul(b._to_invert, a, out=(fout,))
-    else:
-        return NotImplemented
-
-    return out[0]
-
-
-def _inv_mul(a, b, out=(None,)):
-    """Elementwise multiplication for invarrays, mimicking ufunc interface
-    """
-    if out[0] is None:
-        out = (invarray(np.empty(invh._out_shape_inv(a, b)).view(lnarray)),)
-
-    if isinstance(a, invarray) and invh._isscalar(b):
-        np.true_divide(a._to_invert, b, out=(out[0]._to_invert,))
-    elif invh._isscalar(a) and isinstance(b, invarray):
-        np.true_divide(b._to_invert, a, out=(out[0]._to_invert,))
-    else:
-        return NotImplemented
-
-    out[0]._inverted = None
-    return out[0]
-
-
-def _inv_truediv(a, b, out=(None,)):
-    """Elementwise division for invarrays, mimicking ufunc interface
-    """
-    if out[0] is None:
-        out = (invarray(np.empty(invh._out_shape_inv(a, b)).view(lnarray)),)
-
-    if isinstance(a, invarray) and invh._isscalar(b):
-        np.multiply(a._to_invert, b, out=(out[0]._to_invert,))
-    else:
-        return NotImplemented
-
-    out[0]._inverted = None
-    return out[0]
-
-
-# =============================================================================
-# Class: invarray
-# =============================================================================
-
-
-class invarray(object):
-    """Lazy matrix (pseudo)inverse of `lnarray`.
-
-    Does not actually perform the matrix inversion unless it has to.
+    Does not actually perform the matrix pseudoinversion unless it has to.
     It will use matrix division for matmul (@) with an `lnarray`.
 
     It is intended to be ephemeral, appearing in larger expressions rather than
     being stored in a variable.
-    Use `invarray.get()` to get the actual (pseudo)inverse.
+    Use `pinvarray()` to get the actual pseudoinverse.
 
     Methods
     -------
     self() -> lnarray
-        Returns the actual, concrete (pseudo)inverse, calculating it if it has
+        Returns the actual, concrete pseudoinverse, calculating it if it has
         not already been done.
-    inv : lnarray
+    pinv : lnarray
         Returns the original array that needed inverting.
 
     Notes
@@ -408,6 +369,32 @@ class invarray(object):
     _to_invert: lnarray
     _inverted: Optional[lnarray]
 
+    # _ufunc_map[ufunc_in][arg1][arg2] -> (ufunc_out, out1), where:
+    # ufunc_in = ufunc we were given
+    # ar1/arg2 = is the first/second argument a pinvarray?
+    # ufunc_out = ufunc to use instead
+    # out1 = is the first output a pinvarray?
+    _ufunc_map = {gf.matmul: {True: {True: (None, False),  # a^+ b^+
+                                     False: (gf.lstsq_bin, False)},  # a^+ b
+                              False: {True: (gf.rlstsq_bin, False),  # a b^+
+                                      False: (None, False)}},  # never happens
+                  gf.lstsq_m: {True: {True: (gf.rlstsq_bin, False),  # a^++ b^+
+                                      False: (gf.matmul, False)},  # a^++ b
+                               False: {True: (None, False),  # a^+ b^+
+                                       False: (None, False)}},  # never happens
+                  gf.lstsq_n: {True: {True: (gf.rlstsq_bin, False),  # a^++ b^+
+                                      False: (gf.matmul, False)},  # a^++ b
+                               False: {True: (None, False),  # a^+ b^+
+                                       False: (None, False)}},  # never happens
+                  np.multiply: {True: {True: (None, False),  # a^+ * b^+
+                                       False: (np.true_divide, True)},  # a^+*b
+                                False: {True: (gf.rtrue_divide, True),  # a*b^+
+                                        False: (None, False)}},  # never happen
+                  np.true_divide: {True: {True: (None, False),  # a^+/b^+
+                                          False: (np.multiply, True)},  # a^+/b
+                                   False: {True: (None, False),  # a/b^+
+                                           False: (None, False)}}}  # never hap
+
     def __init__(self, to_invert: lnarray):
         if isinstance(to_invert, lnarray) and not isinstance(to_invert,
                                                              lnmatrix):
@@ -417,17 +404,81 @@ class invarray(object):
             # in case input is `lnmatrix`, `ndarray` or `array_like`
             self._to_invert = np.asarray(to_invert).view(lnarray)
         self._inverted = None
-#        if to_invert.ndim < 2:
-#            msg = "Array to be inverted must have ndim >= 2, "
-#            msg += "but to_invert.ndim = {}. ".format(to_invert.ndim)
-#            msg += "Must be a matrix, or stack of matrices."
-#            raise ValueError(msg)
 
-    # needed for ndarray @ invarray to work.
-    __array_ufunc__ = None
-#    __array_priority__ = 2.
+    __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(gf.matmul, 'matmul')
 
-    # not sure about including this.
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        """Handling ufunce with pinvarrays
+        """
+        my_t = type(self)
+
+        args = []
+        pinv_in = [False] * len(inputs)
+        # For most inputs, we swap multiplication & division instead of inverse
+        for i, input_ in enumerate(inputs):
+            if isinstance(input_, pinvarray):
+                args.append(input_._to_invert)
+                pinv_in[i] = True
+            else:
+                args.append(input_)
+        args = tuple(args)
+
+        pinv_out = [False] * ufunc.nout
+        if ufunc in self._ufunc_map.keys():
+            ufunc, pinv_out[0] = self._ufunc_map[ufunc][pinv_in[0]][pinv_in[1]]
+        else:
+            ufunc = None
+        if ufunc is None:
+            return NotImplemented
+        # Alternative: other ufuncs use implicit inversion.
+        # Not used on the basis that explicit > implicit. Use __call__ instead.
+#            args = []
+#            for input_ in inputs:
+#                if isinstance(input_, pinvarray):
+#                    args.append(input_())
+#                else:
+#                    args.append(input_)
+#            args = tuple(args)
+#            return self._to_invert.__array_ufunc__(ufunc, method, *args,
+#                                                   **kwargs)
+
+        outputs = kwargs.pop('out', None)
+        if outputs:
+            out_args = []
+            for j, output in enumerate(outputs):
+                if isinstance(output, pinvarray):
+                    out_args.append(output._to_invert)
+                    pinv_out[j] = True
+                else:
+                    out_args.append(output)
+            kwargs['out'] = tuple(out_args)
+        else:
+            outputs = (None,) * ufunc.nout
+
+        results = self._to_invert.__array_ufunc__(ufunc, method, *args,
+                                                  **kwargs)
+
+        if results is NotImplemented:
+            return NotImplemented
+
+        if ufunc.nout == 1:
+            results = (results,)
+
+        converted_results = []
+        for result, output, pout in zip(results, outputs, pinv_out):
+            if output is None:
+                if pout:
+                    converted_results.append(my_t(result))
+                else:
+                    converted_results.append(result)
+            else:
+                converted_results.append(output)
+        results = tuple(converted_results)
+
+        return results[0] if len(results) == 1 else results
+
+    # This would allow other operations to work with implicit inversion.
+    # Not used on the basis that explicit > implicit. Use __call__ instead.
 #    def __getattr__(self, name):
 #        """Get `np.ndarray proerties from actual (pseudo)inverse.
 #
@@ -443,7 +494,7 @@ class invarray(object):
 #        else:
 #            raise AttributeError
 
-    # make this __call__? @property? get()? do()?
+    # make this __call__? @property? get()? do()? __array__?
     def __call__(self) -> lnarray:
         """Get actual (pseudo)inverse
 
@@ -463,21 +514,11 @@ class invarray(object):
             self._invert()
         return self._inverted
 
-    __matmul__, __rmatmul__, __imatmul__ = invh._inv_methods(_inv_matmul,
-                                                             'matmul')
-    __matldiv__, __rmatldiv__, __imatldiv__ = invh._inv_methods(_inv_matldiv,
-                                                                'matldiv')
-    __matrdiv__, __rmatrdiv__, __imatrdiv__ = invh._inv_methods(_inv_matrdiv,
-                                                                'matrdiv')
-    __mul__, __rmul__, __imul__ = invh._inv_methods(_inv_mul, 'mul')
-    __truediv__, __rtruediv__, __itruediv__ = invh._inv_methods(_inv_truediv,
-                                                                'truediv')
+    def __pos__(self) -> 'pinvarray':
+        return pinvarray(self._to_invert)
 
-    def __pos__(self) -> 'invarray':
-        return invarray(self._to_invert)
-
-    def __neg__(self) -> 'invarray':
-        return invarray(-(self._to_invert))
+    def __neg__(self) -> 'pinvarray':
+        return pinvarray(-(self._to_invert))
 
     def __len__(self):
         return self.shape[0]
@@ -486,11 +527,36 @@ class invarray(object):
         return str(self._to_invert) + '**(-1)'
 
     def __repr__(self) -> str:
-        extra = len(type(self._to_invert).__name__) - 8
-        # len('invarray') == 8
+        namelen = len(type(self).__name__)
+        extra = len(type(self._to_invert).__name__) - namelen
+        # len('pinvarray') == 8
         rep = repr(self._to_invert).replace("\n" + " " * extra,
                                             "\n" + " " * -extra)
-        return "invarray" + rep[(extra + 8):]
+        return "pinvarray" + rep[(extra + namelen):]
+
+    def swapaxes(self, axis1, axis2) -> 'pinvarray':
+        """Interchange two axes
+
+        Parameters
+        ----------
+        axis1 : int
+            First axis.
+        axis2 : int
+            Second axis.
+
+        Returns
+        -------
+        a_swapped : ndarray
+            For NumPy >= 1.10.0, if `a.pinv` is an ndarray, then new pinvarray
+            containing a view of `a.pinv` is returned; otherwise a new array is
+            created.
+        """
+        if (axis1 % self.ndim) in {self.ndim - 1, self.ndim - 2}:
+            axis1 = (-3 - axis1) % self.ndim
+        if (axis2 % self.ndim) in {self.ndim - 1, self.ndim - 2}:
+            axis2 = (-3 - axis2) % self.ndim
+        my_t = type(self)
+        return my_t(self._to_invert.copy())
 
     @property
     def shape(self) -> Tuple[int, ...]:
@@ -510,17 +576,18 @@ class invarray(object):
         return self._to_invert.dtype
 
     @property
-    def inv(self) -> lnarray:
+    def pinv(self) -> lnarray:
         return self._to_invert
 
     @property
-    def t(self) -> 'invarray':
+    def t(self) -> 'pinvarray':
         """A copy of object, but view of data"""
-        return invarray(self._to_invert.t)
+        return pinvarray(self._to_invert.t)
 
-    def copy(self) -> 'invarray':
+    def copy(self) -> 'pinvarray':
         """Copy data"""
-        return invarray(self._to_invert.copy())
+        my_t = type(self)
+        return my_t(self._to_invert.copy())
 
     def _invert(self):
         """Actually perform (pseudo)inverse
@@ -529,20 +596,115 @@ class invarray(object):
             # scalar or vector
             self._inverted = (self._to_invert /
                               np.linalg.norm(self._to_invert)**2)
-        elif self.shape[-2] == self.shape[-1]:
+        elif self.ndim >= 2:
+            # pinv broadcasts
+            self._inverted = np.linalg.pinv(self._to_invert)
+        else:
+            raise ValueError('Nothing to invert?' + str(self._to_invert))
+
+
+# =============================================================================
+# Class: invarray
+# =============================================================================
+
+
+class invarray(pinvarray):
+    """Lazy matrix inverse of `lnarray`.
+
+    Does not actually perform the matrix inversion unless it has to.
+    It will use matrix division for matmul (@) with an `lnarray`.
+
+    It is intended to be ephemeral, appearing in larger expressions rather than
+    being stored in a variable.
+    Use `invarray()` to get the actual inverse.
+
+    Methods
+    -------
+    self() -> lnarray
+        Returns the actual, concrete inverse, calculating it if it has
+        not already been done.
+    inv : lnarray
+        Returns the original array that needed inverting.
+
+    Notes
+    -----
+    It can also be multiplied and divided by a nonzero scalar or stack of
+    scalars, i.e. `ndarray` with last two dimensions singletons.
+    Actually divides/multiplies the pre-inversion object.
+
+    *Any* other operation or attribute access will require actually
+    performing the inversion and using that instead (except for `len`,
+    `shape`, `size`, 'ndim`, `repr`, `str`, `t` and `inv`).
+
+    It uses `np.linalg.solve` or `np.linalg.inv`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import linalg as sp
+    >>> x = sp.lnarray(np.random.rand(2, 3, 4))
+    >>> y = sp.lnarray(np.random.rand(2, 3, 4))
+    >>> z = x.inv @ y
+    >>> w = x @ y.inv
+
+    Raises
+    ------
+    LinAlgError
+        If a is not full rank (square, or broadcasting non-square) or
+        if computation doesn't converge (non-square, no broadcasting).
+
+    See also
+    --------
+    `lnarray` : the array class used.
+    `matldiv`, `matrdiv`
+    `pinvarray` : class that provides another interface for matrix division.
+    """
+    # _ufunc_map[ufunc_in][arg1][arg2] -> (ufunc_out, out1), where:
+    # ufunc_in = ufunc we were given
+    # ar1/arg2 = is the first/second argument an invarray?
+    # ufunc_out = ufunc to use instead
+    # out1 = is the first output an invarray?
+    _ufunc_map = {gf.matmul: {True: {True: (gf.rmatmul, True),  # a^- b^-
+                                     False: (gf.solve, False)},  # a^- b
+                              False: {True: (gf.rsolve, False),  # a b^-
+                                      False: (None, False)}},  # never happens
+                  gf.solve: {True: {True: (gf.rsolve, False),  # a^-- b^-
+                                    False: (gf.matmul, False)},  # a^-- b
+                             False: {True: (gf.rmatmul, True),  # a^- b^-
+                                     False: (None, False)}},  # never happens
+                  np.multiply: {True: {True: (None, False),  # a^- * b^-
+                                       False: (np.true_divide, True)},  # a^-*b
+                                False: {True: (gf.rtrue_divide, True),  # a*b^-
+                                        False: (None, False)}},  # never happen
+                  np.true_divide: {True: {True: (None, False),  # a^-/b^-
+                                          False: (np.multiply, True)},  # a^-/b
+                                   False: {True: (None, False),  # a/b^-
+                                           False: (None, False)}}}  # never hap
+
+    def __init__(self, to_invert: lnarray):
+        super().__init__(to_invert)
+
+        if to_invert.ndim < 2:
+            msg = "Array to be inverted must have ndim >= 2, "
+            msg += "but to_invert.ndim = {}. ".format(to_invert.ndim)
+            msg += "Must be a matrix, or stack of matrices."
+            raise ValueError(msg)
+
+        if to_invert.shape[-1] != to_invert.shape[-2]:
+            msg = "Array to be inverted must square "
+            msg += "but to_invert.shape = {}. ".format(to_invert.shape)
+            raise ValueError(msg)
+
+    @property
+    def inv(self) -> lnarray:
+        return self._to_invert
+
+    def _invert(self):
+        """Actually perform pseudoinverse
+        """
+        if self.ndim >= 2 and self.shape[-2] == self.shape[-1]:
             # square
             self._inverted = np.linalg.inv(self._to_invert)
-        elif self.ndim == 2:
-            # no broadcasting needed
-            self._inverted = np.linalg.pinv(self._to_invert)
-        elif self.shape[-2] > self.shape[-1]:
-            # tall and skinny
-            self._inverted = (self._to_invert.t @
-                              (self._to_invert @ self._to_invert.t).inv)
-        elif self.shape[-2] < self.shape[-1]:
-            # short and fat
-            self._inverted = ((self._to_invert.t @ self._to_invert).inv @
-                              self._to_invert.t)
         else:
             raise ValueError('Nothing to invert?' + str(self._to_invert))
 
@@ -553,7 +715,7 @@ class invarray(object):
 
 
 class lnmatrix(lnarray):
-    """Matrix version of `lnarray`
+    """Matrix version of `lnarray` (Not recommended)
 
     This subclass of `lnarray` is solely meant for linear algebra.
     It just swaps matrix/elementwise multiplication and division.
@@ -589,12 +751,8 @@ class lnmatrix(lnarray):
     __matmul__ = lnarray.__mul__
     __rmatmul__ = lnarray.__rmul__
     __imatmul__ = lnarray.__imul__
-    __truediv__ = lnarray.__matrdiv__
-    __rtruediv__ = lnarray.__rmatrdiv__
-    __itruediv__ = lnarray.__imatrdiv__
-    __matrdiv__ = lnarray.__truediv__
-    __rmatrdiv__ = lnarray.__rtruediv__
-    __imatrdiv__ = lnarray.__itruediv__
+    __truediv__, __rtruediv__, __itruediv__ = _numeric_methods(la.matrdiv,
+                                                               'matrdiv')
 
     @property
     def a(self) -> lnarray:
