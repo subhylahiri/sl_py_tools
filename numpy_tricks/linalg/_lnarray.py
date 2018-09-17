@@ -395,6 +395,9 @@ class pinvarray(NDArrayOperatorsMixin):
                                    False: {True: (None, False),  # a/b^+
                                            False: (None, False)}}}  # never hap
 
+    # these ufuncs are passed on to self._to_invert
+    _unary_ufuncs = {np.positive, np.negative}
+
     def __init__(self, to_invert: lnarray):
         if isinstance(to_invert, lnarray) and not isinstance(to_invert,
                                                              lnmatrix):
@@ -413,7 +416,7 @@ class pinvarray(NDArrayOperatorsMixin):
         my_t = type(self)
 
         args = []
-        pinv_in = [False] * len(inputs)
+        pinv_in = [False] * len(inputs)  # which inputs are we converting?
         # For most inputs, we swap multiplication & division instead of inverse
         for i, input_ in enumerate(inputs):
             if isinstance(input_, pinvarray):
@@ -423,9 +426,13 @@ class pinvarray(NDArrayOperatorsMixin):
                 args.append(input_)
         args = tuple(args)
 
-        pinv_out = [False] * ufunc.nout
+        pinv_out = [False] * ufunc.nout  # which outputs need converting back?
         if ufunc in self._ufunc_map.keys():
             ufunc, pinv_out[0] = self._ufunc_map[ufunc][pinv_in[0]][pinv_in[1]]
+        elif ufunc in self._unary_ufuncs:
+            # Apply ufunc to self._to_invert.
+            # Already converted input; just need to convert output
+            pinv_out[0] = True
         else:
             ufunc = None
         if ufunc is None:
@@ -490,7 +497,7 @@ class pinvarray(NDArrayOperatorsMixin):
 #        (pseudo)inverse first.
 #        """
 #        if hasattr(self._to_invert, name):
-#            return getattr(self.get(), name)
+#            return getattr(self(), name)
 #        else:
 #            raise AttributeError
 
@@ -513,12 +520,6 @@ class pinvarray(NDArrayOperatorsMixin):
         if self._inverted is None:
             self._invert()
         return self._inverted
-
-    def __pos__(self) -> 'pinvarray':
-        return pinvarray(self._to_invert)
-
-    def __neg__(self) -> 'pinvarray':
-        return pinvarray(-(self._to_invert))
 
     def __len__(self):
         return self.shape[0]
@@ -584,10 +585,10 @@ class pinvarray(NDArrayOperatorsMixin):
         """A copy of object, but view of data"""
         return pinvarray(self._to_invert.t)
 
-    def copy(self) -> 'pinvarray':
+    def copy(self, *args, **kwds) -> 'pinvarray':
         """Copy data"""
         my_t = type(self)
-        return my_t(self._to_invert.copy())
+        return my_t(self._to_invert.copy(*args, **kwds))
 
     def _invert(self):
         """Actually perform (pseudo)inverse
@@ -694,6 +695,10 @@ class invarray(pinvarray):
             msg = "Array to be inverted must square "
             msg += "but to_invert.shape = {}. ".format(to_invert.shape)
             raise ValueError(msg)
+
+    @property
+    def pinv(self) -> lnarray:
+        raise TypeError('This is an invarray, not a pinvarray!')
 
     @property
     def inv(self) -> lnarray:
