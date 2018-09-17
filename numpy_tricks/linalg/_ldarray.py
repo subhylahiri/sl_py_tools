@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-# =============================================================================
-# Created on Thu Dec  7 16:41:56 2017
-# @author: Subhy
-# module: _ldarray
-# =============================================================================
 """
+Created on Thu Dec  7 16:41:56 2017
+
+@author: Subhy
+
 Class that provides syntax for matrix division via bitshift operators.
 
 Classes
@@ -29,7 +28,9 @@ Examples
 """
 
 import numpy as np
+from numpy.lib.mixins import _numeric_methods
 from ._lnarray import lnarray
+from ._linalg import matldiv, matrdiv
 
 # =============================================================================
 # Class: ldarray
@@ -56,6 +57,8 @@ class ldarray(lnarray):
 
     Properties
     ----------
+    pinv : pinvarray
+        Lazy pseudoinverse. When matrix multiplying, performs matrix division.
     inv : invarray
         Lazy inverse. When matrix multiplying, performs matrix division.
     t
@@ -96,48 +99,7 @@ class ldarray(lnarray):
 #        # We are not adding any attributes
 #        pass
 
-    def __lshift__(self, other: np.ndarray) -> 'lnarray':
-        """Left matrix division.
-
-        See `linalg.matldiv`
-        """
-        return self.__matldiv__(other)
-
-    def __rlshift__(self, other: np.ndarray) -> 'lnarray':
-        """Reverse left matrix division.
-
-        See `linalg.matldiv`
-        """
-        return self.__rmatldiv__(other)
-
-    def __ilshift__(self, other: np.ndarray) -> 'lnarray':
-        """In place left matrix division.
-
-        self = other \ self
-
-        See `linalg.matldiv`
-        """
-        self = self.__imatldiv__(other)
-        return self
-
-    def __rshift__(self, other: np.ndarray) -> 'lnarray':
-        """Right matrix division.
-
-        See `linalg.matrdiv`
-        """
-        return self.__matrdiv__(other)
-
-    def __rrshift__(self, other: np.ndarray) -> 'lnarray':
-        """Reverse right matrix division.
-
-        See `linalg.matrdiv`
-        """
-        return self.__rmatrdiv__(other)
-
-    def __irshift__(self, other: np.ndarray) -> 'lnarray':
-        """In place right matrix division.
-
-        See `linalg.matrdiv`
-        """
-        self = self.__imatrdiv__(other)
-        return self
+    __lshift__, __rlshift__, __ilshift__ = _numeric_methods(matldiv,
+                                                            'matldiv')
+    __rshift__, __rrshift__, __irshift__ = _numeric_methods(matrdiv,
+                                                            'matrdiv')
