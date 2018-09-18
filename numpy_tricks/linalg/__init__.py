@@ -75,5 +75,6 @@ from ._gufuncs import (matmul, solve, rsolve, lstsq, rlstsq, qr, qr_tall,
                        lstsq_m, lstsq_n)
 from . import _ln_wrap as wrappers
 from ._ln_creation import *
+from ._ln_manipulation import *
 # import _ld_wrap as wrappers
 # from ._ld_creation import *
