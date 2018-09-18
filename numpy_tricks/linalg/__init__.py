@@ -74,6 +74,6 @@ from ._linalg import trnsp, col, row, scal, matldiv, matrdiv
 from ._gufuncs import (matmul, solve, rsolve, lstsq, rlstsq, qr, qr_tall,
                        lstsq_m, lstsq_n)
 from . import _ln_wrap as wrappers
-from ._creation_ln import *
+from ._ln_creation import *
 # import _ld_wrap as wrappers
-# from ._creation_ld import *
+# from ._ld_creation import *
