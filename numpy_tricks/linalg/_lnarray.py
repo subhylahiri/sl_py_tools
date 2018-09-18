@@ -33,11 +33,12 @@ Examples
 >>> v = (x.r @ y.t).ur
 """
 
+from typing import Optional, Tuple
 import numpy as np
 from numpy.lib.mixins import _numeric_methods, NDArrayOperatorsMixin
-from typing import Optional, Tuple
 from . import _linalg as la
 from . import _gufuncs as gf
+from . import convert_loop as cvl
 
 
 # =============================================================================
@@ -118,12 +119,7 @@ class lnarray(np.ndarray):
     __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(gf.matmul, 'matmul')
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        args = []
-        for input_ in inputs:
-            if isinstance(input_, lnarray):
-                args.append(input_.view(np.ndarray))
-            else:
-                args.append(input_)
+        args = list(cvl.conv_loop_in(lnarray, inputs))[0]
 
         to_squeeze = [False, False]
         if ufunc in self.vec_ufuncs:
@@ -137,12 +133,7 @@ class lnarray(np.ndarray):
 
         outputs = kwargs.pop('out', None)
         if outputs:
-            out_args = []
-            for output in outputs:
-                if isinstance(output, lnarray):
-                    out_args.append(output.view(np.ndarray))
-                else:
-                    out_args.append(output)
+            out_args = cvl.conv_loop_in(lnarray, outputs)[0]
             kwargs['out'] = tuple(out_args)
         else:
             outputs = (None,) * ufunc.nout
@@ -161,12 +152,11 @@ class lnarray(np.ndarray):
             squeezable_result = squeezable_result.squeeze(-1)
         results = (squeezable_result,) + results[1:]
 
-        results = tuple((np.asarray(result).view(lnarray)
+        results = tuple((np.asarray(result).view(type(self))
                          if output is None else output)
                         for result, output in zip(results, outputs))
-#        results = tuple((result[()] if result.ndim == 0 else result)
-#                        for result in results)
-
+#        if len(results) == 1 and results[0].ndim == 1:
+#            return results[0][()]
         return results[0] if len(results) == 1 else results
 
     @property
@@ -401,7 +391,7 @@ class pinvarray(NDArrayOperatorsMixin):
     def __init__(self, to_invert: lnarray):
         if isinstance(to_invert, lnarray) and not isinstance(to_invert,
                                                              lnmatrix):
-            # don't want to mess up subclasses, so that `inv` returns input
+            # don't want to mess up subclasses, so that `pinv` returns input
             self._to_invert = to_invert
         else:
             # in case input is `lnmatrix`, `ndarray` or `array_like`
@@ -413,18 +403,9 @@ class pinvarray(NDArrayOperatorsMixin):
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """Handling ufunce with pinvarrays
         """
-        my_t = type(self)
-
-        args = []
-        pinv_in = [False] * len(inputs)  # which inputs are we converting?
+        # which inputs are we converting?
         # For most inputs, we swap multiplication & division instead of inverse
-        for i, input_ in enumerate(inputs):
-            if isinstance(input_, pinvarray):
-                args.append(input_._to_invert)
-                pinv_in[i] = True
-            else:
-                args.append(input_)
-        args = tuple(args)
+        args, pinv_in = cvl.conv_loop_in(pinvarray, inputs)
 
         pinv_out = [False] * ufunc.nout  # which outputs need converting back?
         if ufunc in self._ufunc_map.keys():
@@ -451,13 +432,7 @@ class pinvarray(NDArrayOperatorsMixin):
 
         outputs = kwargs.pop('out', None)
         if outputs:
-            out_args = []
-            for j, output in enumerate(outputs):
-                if isinstance(output, pinvarray):
-                    out_args.append(output._to_invert)
-                    pinv_out[j] = True
-                else:
-                    out_args.append(output)
+            out_args, pinv_out = cvl.conv_loop_in(pinvarray, outputs)
             kwargs['out'] = tuple(out_args)
         else:
             outputs = (None,) * ufunc.nout
@@ -471,16 +446,7 @@ class pinvarray(NDArrayOperatorsMixin):
         if ufunc.nout == 1:
             results = (results,)
 
-        converted_results = []
-        for result, output, pout in zip(results, outputs, pinv_out):
-            if output is None:
-                if pout:
-                    converted_results.append(my_t(result))
-                else:
-                    converted_results.append(result)
-            else:
-                converted_results.append(output)
-        results = tuple(converted_results)
+        results = cvl.conv_loop_out(self, '', results, outputs, pinv_out)
 
         return results[0] if len(results) == 1 else results
 
@@ -536,7 +502,7 @@ class pinvarray(NDArrayOperatorsMixin):
         return "pinvarray" + rep[(extra + namelen):]
 
     def swapaxes(self, axis1, axis2) -> 'pinvarray':
-        """Interchange two axes
+        """Interchange two axes in a copy
 
         Parameters
         ----------
@@ -552,32 +518,46 @@ class pinvarray(NDArrayOperatorsMixin):
             containing a view of `a.pinv` is returned; otherwise a new array is
             created.
         """
-        if (axis1 % self.ndim) in {self.ndim - 1, self.ndim - 2}:
+        if axis1 % self.ndim in {self.ndim - 1, self.ndim - 2}:
             axis1 = (-3 - axis1) % self.ndim
-        if (axis2 % self.ndim) in {self.ndim - 1, self.ndim - 2}:
+        if axis2 % self.ndim in {self.ndim - 1, self.ndim - 2}:
             axis2 = (-3 - axis2) % self.ndim
         my_t = type(self)
-        return my_t(self._to_invert.copy())
+        return my_t(self._to_invert.copy().swapaxes(axis1, axis2))
+
+    def view(self, typ):
+        """View of uninverted matrix as typ"""
+        return self._to_invert.view(typ)
 
     @property
     def shape(self) -> Tuple[int, ...]:
+        """Effective shape of pinvarray in matmul etc.
+        """
         # Matrix operations are allowed with x.inv when allowed for x.t
         return self._to_invert.t.shape
 
     @property
     def ndim(self) -> int:
+        """Number of dimensions
+        """
         return self._to_invert.ndim
 
     @property
     def size(self) -> int:
+        """Number of elements
+        """
         return self._to_invert.size
 
     @property
     def dtype(self) -> np.dtype:
+        """Data type
+        """
         return self._to_invert.dtype
 
     @property
     def pinv(self) -> lnarray:
+        """Uninverted matrix
+        """
         return self._to_invert
 
     @property
@@ -698,10 +678,14 @@ class invarray(pinvarray):
 
     @property
     def pinv(self) -> lnarray:
+        """Uninverted matrix
+        """
         raise TypeError('This is an invarray, not a pinvarray!')
 
     @property
     def inv(self) -> lnarray:
+        """Uninverted matrix
+        """
         return self._to_invert
 
     def _invert(self):
