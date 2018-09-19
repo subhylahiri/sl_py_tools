@@ -46,7 +46,7 @@ Examples
 >>>     smthng = do_something(param1, param2)
 >>>     return smthng
 """
-from typing import ClassVar, Dict, Any, Callable, Optional
+from typing import ClassVar, Callable, Optional
 import io
 from contextlib import contextmanager
 import sys
@@ -58,7 +58,31 @@ assert sys.version_info[:2] >= (3, 6)
 # =============================================================================
 
 
-class DisplayTemporary(object):
+class _DisplayState():
+    """Internal state of a DisplayTemporary"""
+    numchar: int
+    nest_level: Optional[int]
+    name: str
+
+    def __init__(self, prev_state: Optional['_DisplayState'] = None):
+        """Construct internal state"""
+        self.nest_level = None
+        self.numchar = 0
+        self.name = "DisplayTemporary({})"
+        if prev_state is not None:
+            self.numchar = prev_state.numchar
+            self.nest_level = prev_state.nest_level
+
+    def format(self, *args, **kwds):
+        """Replace field(s) in name"""
+        self.name = self.name.format(*args, **kwds)
+
+    def rename(self, name: str):
+        """Replace prefix in name"""
+        self.name = name + "({})"
+
+
+class DisplayTemporary():
     """Class for temporarily displaying a message.
 
     Message erases when `end()` is called, or object is deleted.
@@ -97,7 +121,7 @@ class DisplayTemporary(object):
     >>> execute_fn(param1, param2)
     >>> dtmp.end()
     """
-    _state: Dict[str, Any]
+    _state: _DisplayState
 
     # set output to False to suppress display
     output: ClassVar[bool] = True
@@ -109,11 +133,11 @@ class DisplayTemporary(object):
     _nactive: ClassVar[int] = 0
 
     def __init__(self, **kwds):
-        self._state = dict(numchar=0)
+        self._state = _DisplayState(**kwds)
 
     def __del__(self):
         """Clean up, if necessary, upon deletion."""
-        if self._state['numchar']:
+        if self._state.numchar:
             self.end()
 
     def begin(self, msg: str = ''):
@@ -124,14 +148,15 @@ class DisplayTemporary(object):
         msg : str
             message to display
         """
-        if self._state['numchar']:
+        if self._state.numchar:
             raise AttributeError('begin() called more than once.')
-        self._state['numchar'] = len(msg) + 1
+        self._state.format(msg)
+        self._state.numchar = len(msg) + 1
         self._print(' ' + msg)
-        self._state['clean'] = False
+#        self._state['clean'] = False
         if self.debug:
             self._nactive += 1
-            self._state['nest_level'] = self._nactive
+            self._state.nest_level = self._nactive
             self._check()
 
     def update(self, msg: str = ''):
@@ -142,8 +167,8 @@ class DisplayTemporary(object):
         msg : str
             message to display
         """
-        self._bksp(self._state['numchar'])
-        self._state['numchar'] = len(msg) + 1
+        self._bksp(self._state.numchar)
+        self._state.numchar = len(msg) + 1
         self._print(' ' + msg)
         if self.debug:
             self._check()
@@ -151,8 +176,8 @@ class DisplayTemporary(object):
     def end(self):
         """Erase message.
         """
-        self._erase(self._state['numchar'])
-        self._state['numchar'] = 0
+        self._erase(self._state.numchar)
+        self._state.numchar = 0
         if self.debug:
             self._nactive -= 1
 
@@ -192,16 +217,18 @@ class DisplayTemporary(object):
         """Ensure that DisplayTemporaries are properly used
         """
         # raise error if ctr_dsp's are nested incorrectly
-        if self._state['nest_level'] != self._nactive:
-            msg1 = 'DisplayCount{}'.format(self._state['prefix'])
-            msg2 = 'used at level {} '.format(self._nactive)
-            msg3 = 'instead of level {}.'.format(self._state['nest_level'])
-            raise IndexError(msg1 + msg2 + msg3)
+        if self._state.nest_level != self._nactive:
+            msg1 = 'used at level {} '.format(self._nactive)
+            msg2 = 'instead of level {}.'.format(self._state.nest_level)
+            raise IndexError(self._state.name + msg1 + msg2)
+
+    def rename(self, name):
+        """Change name in debug message"""
+        self._state.rename(name)
 
     @classmethod
     def show(cls, msg: str) -> 'DisplayTemporary':
         """Show message and return class instance.
-
         Parameters
         ----------
         msg : str

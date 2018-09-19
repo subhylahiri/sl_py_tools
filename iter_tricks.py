@@ -114,10 +114,10 @@ import itertools
 from functools import wraps
 # All of these imports could be removed:
 from collections.abc import Iterator, Sized
-from typing import Optional, Iterable, Tuple, Callable
+from typing import Optional, Iterable, Tuple, Callable, Union, Any, Dict
 import sys
 
-from .display_tricks import DisplayTemporary
+from .display_tricks import DisplayTemporary, _DisplayState
 
 assert sys.version_info[:2] >= (3, 6)
 
@@ -204,6 +204,35 @@ def batch(*sliceargs, **kwargs):
 # =============================================================================
 
 
+def _extract_name(args: Tuple[Any],
+                  kwds: Dict[str, Any]) -> (Optional[str], Tuple[Any]):
+    """Extract name from other args
+
+    If name is in kwds, assume all of args is others, pop name from kwds.
+    Else, if args[0] is a str or None, assume it's name & args[1:] is others.
+    Else, name is None and all of args is others.
+    """
+    name = None
+    others = args
+    if 'name' not in kwds and isinstance(args[0], (str, type(None))):
+        name = args[0]
+        others = args[1:]
+    name = kwds.pop('name', name)
+    return name, others
+
+
+class _DisplayCntState(_DisplayState):
+    """Internal stae of a DisplayCount, etc."""
+    prefix: Union[str, DisplayTemporary]
+    formatter: str
+
+    def __init__(self, prev_state: Optional[_DisplayState] = None):
+        """Construct internal state"""
+        super().__init__(prev_state)
+        self.prefix = ' '
+        self.formatter = ''
+
+
 class _DisplayMixin(DisplayTemporary):
     """Mixin providing non-iterator machinery for DisplayCount etc.
 
@@ -216,15 +245,19 @@ class _DisplayMixin(DisplayTemporary):
     stop: Optional[int]
     step: int
     offset: int
+    _state: _DisplayCntState
 
     def __init__(self, **kwds):
+        """Construct non-iterator machinery"""
         super().__init__(**kwds)
-        self._state.update(prefix='', frmt='', nestlevel=None)
+        self._state = _DisplayCntState(self._state)
         self.counter = None
+        self.rename(type(self).__name__)
 
     def begin(self, msg: str = ''):
         """Display initial counter with prefix."""
-        self._state['prefix'] = DisplayTemporary.show(self._state['prefix'])
+        self._state.format(self._state.prefix)
+        self._state.prefix = DisplayTemporary.show(self._state.prefix)
         self.counter = self.start - self.step
         super().begin(self._str(self.start) + msg)
 
@@ -236,12 +269,12 @@ class _DisplayMixin(DisplayTemporary):
     def end(self):
         """Erase previous counter and prefix."""
         super().end()
-        self._state['prefix'].end()
+        self._state.prefix.end()
 
-    def _str(self, ctr: int) -> str:
+    def _str(self, *ctrs: int) -> str:
         """String for display of counter, e.g.' 7/12,'."""
 #        return self._frmt.format(ctr)
-        return self._state['frmt'].format(ctr + self.offset)
+        return self._state.formatter.format(*(n + self.offset for n in ctrs))
 
     def _check(self):
         """Ensure that DisplayCount's are properly used"""
@@ -355,18 +388,14 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
     --------
     denumerate, DisplayZip, itertools.count
     """
-    def __init__(self, name: Optional[str] = None,
-                 *sliceargs: Tuple[Optional[int], ...],
+    def __init__(self, *args: Tuple[Union[str, int, None], ...],
                  **kwargs):
         super().__init__(**kwargs)
 
-        if name is None:
-            inds = slice(*sliceargs)
-        elif isinstance(name, str):
-            inds = slice(*sliceargs)
-            self._state['prefix'] += name + ':'
-        else:
-            inds = slice(name, *sliceargs)
+        name, sliceargs = _extract_name(args, kwargs)
+        inds = slice(*sliceargs)
+        if name:
+            self._state.prefix += name + ':'
 
         self.start = kwargs.get('start', inds.start)
         self.stop = kwargs.get('stop', inds.stop)
@@ -383,12 +412,12 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
         self.offset = kwargs.get('offset', int(self.start == 0))
 
         if self.stop is None:
-            self._state['frmt'] = '{:d}'
+            self._state.formatter = '{:d}'
         else:
             num_dig = len(str(self.stop))
-            self._state['frmt'] = '{:>' + str(num_dig) + 'd}'
-            self._state['frmt'] += '/' + self._state['frmt'].format(self.stop)
-        self._state['frmt'] += ','
+            self._state.formatter = '{:>' + str(num_dig) + 'd}/'
+            self._state.formatter += self._str(self.stop - self.offset)[:-1]
+        self._state.formatter += ','
 
     def __iter__(self):
         """Display initial counter with prefix."""
@@ -397,13 +426,13 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
 
     def __reversed__(self):
         """Prepare to display final counter with prefix.
-        Calling iter, then next will count down.
+        Calling iter and then next will count down.
         """
         if self.stop is None:
             raise ValueError('Must specify stop to reverse')
         self.start, self.stop = self.stop - self.step, self.start - self.step
         self.step *= -1
-        self._state['prefix'] += '-'
+        self._state.prefix += '-'
         return self
 
     def __next__(self):
@@ -418,7 +447,7 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
     def __len__(self):
         """Number of entries"""
         if self.stop is None:
-            return None
+            raise ValueError('Must specify stop to define len')
         return (self.stop - self.start) // self.step
 
 #    def __contains__(self, x):
@@ -492,25 +521,25 @@ class DisplayBatch(DisplayCount):
     >>> for s in dbatch('s', 0, len(x), 10):
     >>>     y[s] = np.linalg.eigvals(x[s])
     """
-    def __init__(self, name: Optional[str] = None,
-                 *sliceargs: Tuple[Optional[int], ...],
+    def __init__(self, *args: Tuple[Union[str, int, None], ...],
                  **kwargs):
-        super().__init__(name, *sliceargs, **kwargs)
+        super().__init__(*args, **kwargs)
+        self._state.name = 'DisplayBatch({})'
 
         if self.stop is None:
-            self._state['frmt'] = '{:d}-{:d}'
+            self._state.formatter = '{:d}-{:d}'
         else:
             num_dig = len(str(self.stop))
             frmt = '{:>' + str(num_dig) + 'd}'
-            self._state['frmt'] = frmt + '-' + frmt + '/'
-            self._state['frmt'] += frmt.format(self.stop)
-        self._state['frmt'] += ','
+            self._state.formatter = frmt + '-' + frmt + '/'
+            self._state.formatter += frmt.format(self.stop)
+        self._state.formatter += ','
 
-    def _str(self, ctr: int) -> str:
+    def _str(self, *ctrs: int) -> str:
         """String for display of counter, e.g.' 7/12,'."""
 #        return self._frmt.format(ctr)
-        return self._state['frmt'].format(ctr + self.offset, ctr + self.offset
-                                          + abs(self.step) - 1)
+        return super()._str(*itertools.chain(*((n, n + abs(self.step) - 1)
+                                               for n in ctrs)))
 
     def __next__(self):
         """Increment counter, erase previous counter and display new one."""
@@ -518,7 +547,7 @@ class DisplayBatch(DisplayCount):
         return slice(counter, counter + abs(self.step))
 
 
-class _AddDisplayToIterables(object):
+class _AddDisplayToIterables():
     """Wraps iterator to display progress.
 
     Does not define `__iter__` or `__next__`
@@ -529,15 +558,12 @@ class _AddDisplayToIterables(object):
     _iterables: Tuple[Iterable, ...]
     display: DisplayCount
 
-    def __init__(self, name: Optional[str] = None,
-                 *sequences: Tuple[Iterable, ...],
+    def __init__(self, *args: Tuple[Union[str, Iterable, None], ...],
                  **kwds):
-        if name is None or isinstance(name, str):
-            self._iterables = sequences
-        else:
-            self._iterables = (name,) + sequences
-            name = None
+        """Construct non-iterator machinery"""
+        name, self._iterables = _extract_name(args, kwds)
         self.display = DisplayCount(name, min_len(self._iterables), **kwds)
+        self.display.rename(type(self).__name__)
 
     def __reversed__(self):
         """Prepare to display fina; counter with prefix."""
@@ -693,8 +719,7 @@ class DisplayZip(_AddDisplayToIterables):
 # =============================================================================
 
 
-def dcount(name: Optional[str] = None,
-           *sliceargs: Tuple[Optional[int], ...],
+def dcount(*args: Tuple[Union[str, int, None], ...],
            **kwargs)-> DisplayCount:
     """Produces iterator for displaying loop counters.
 
@@ -764,11 +789,10 @@ def dcount(name: Optional[str] = None,
     DisplayEnumerate, DisplayZip,
     itertools.count
     """
-    return DisplayCount(name, *sliceargs, **kwargs)
+    return DisplayCount(*args, **kwargs)
 
 
-def denumerate(name: Optional[str] = None,
-               *sequences: Tuple[Iterable, ...],
+def denumerate(*args: Tuple[Union[str, Iterable, None], ...],
                **kwds)-> DisplayEnumerate:
     """Like `zenumerate`, but using a `DisplayCount`.
 
@@ -821,11 +845,10 @@ def denumerate(name: Optional[str] = None,
     DisplayZip, DisplayCount,
     enumerate, zip
     """
-    return DisplayEnumerate(name, *sequences, **kwds)
+    return DisplayEnumerate(*args, **kwds)
 
 
-def dzip(name: Optional[str] = None,
-         *sequences: Tuple[Iterable, ...],
+def dzip(*args: Tuple[Union[str, Iterable, None], ...],
          **kwds)-> DisplayZip:
     """Like `enumerate` + `zip`, but using a `DisplayCount`.
 
@@ -873,11 +896,10 @@ def dzip(name: Optional[str] = None,
     DisplayEnumerate, DisplayCount
     zip, enumerate
     """
-    return DisplayZip(name, *sequences, **kwds)
+    return DisplayZip(*args, **kwds)
 
 
-def dbatch(name: Optional[str] = None,
-           *sliceargs: Tuple[Optional[int], ...],
+def dbatch(*args: Tuple[Union[str, int, None], ...],
            **kwargs) -> DisplayBatch:
     """Iterate over batches, with counter display
 
@@ -927,7 +949,7 @@ def dbatch(name: Optional[str] = None,
     >>> for s in dbatch('s', 0, len(x), 10):
     >>>     y[s] = np.linalg.eigvals(x[s])
     """
-    return DisplayBatch(name, *sliceargs, **kwargs)
+    return DisplayBatch(*args, **kwargs)
 
 
 # =============================================================================
