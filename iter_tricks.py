@@ -98,26 +98,17 @@ Examples
 """
 # current_module = __import__(__name__)
 __all__ = [
-    'DisplayCount',
-    'DisplayBatch',
-    'DisplayEnumerate',
-    'DisplayZip',
-    'zenumerate',
-    'batch',
-    'dbatch',
-    'dcount',
-    'denumerate',
-    'dzip',
-    'rdcount',
-    'rdbatch',
-    'rdenumerate',
-    'rdzip',
+    'DisplayCount', 'DisplayBatch', 'DisplayEnumerate', 'DisplayZip',
+    'zenumerate', 'batch',
+    'dbatch', 'dcount', 'denumerate', 'dzip',
+    'rdcount', 'rdbatch', 'rdenumerate', 'rdzip',
     ]
 import itertools
 from functools import wraps
 # All of these imports could be removed:
+from abc import abstractmethod
 from collections.abc import Iterator, Sized
-from typing import Optional, Iterable, Tuple, Callable, Union, Any, Dict
+from typing import Optional, Union, Any, Callable, Iterable, Dict, Tuple
 import sys
 
 from .display_tricks import DisplayTemporary, _DisplayState
@@ -270,12 +261,20 @@ class _DisplayCntState(_DisplayState):
         self.prefix = ' '
         self.formatter = '{:d}'
 
+    def begin(self):
+        """Display prefix"""
+        self.format(self.prefix)
+        self.prefix = DisplayTemporary(self.prefix)
 
-class _DisplayMixin(DisplayTemporary):
+    def end(self):
+        """Display prefix"""
+        self.prefix.end()
+
+
+class _DisplayMixin(DisplayTemporary, Iterator):
     """Mixin providing non-iterator machinery for DisplayCount etc.
 
-    Does not define `__iter__` or `__next__` (or `__reversed__`)
-    This is a mixin. Only implements `begin`, `disp`, `end` and private stuff.
+    This is an ABC. Only implements `begin`, `disp`, `end` and private stuff.
     Subclasses must implement `iter` and `next`.
     """
     counter: Optional[int]
@@ -292,10 +291,17 @@ class _DisplayMixin(DisplayTemporary):
         self.counter = None
         self.rename(type(self).__name__)
 
+    @abstractmethod
+    def __next__(self):
+        pass
+
+    @abstractmethod
+    def __iter__(self):
+        pass
+
     def begin(self, msg: str = ''):
         """Display initial counter with prefix."""
-        self._state.format(self._state.prefix)
-        self._state.prefix = DisplayTemporary.show(self._state.prefix)
+        self._state.begin()
         self.counter = self.start - self.step
         super().begin(self._str(self.start) + msg)
 
@@ -307,7 +313,7 @@ class _DisplayMixin(DisplayTemporary):
     def end(self):
         """Erase previous counter and prefix."""
         super().end()
-        self._state.prefix.end()
+        self._state.end()
 
     def _str(self, *ctrs: int) -> str:
         """String for display of counter, e.g.' 7/12,'."""
@@ -325,13 +331,11 @@ class _DisplayMixin(DisplayTemporary):
             raise IndexError(msg1 + msg2 + msg3)
 
 
-class _AddDisplayToIterables():
+class _AddDisplayToIterables(Iterator):
     """Wraps iterator to display progress.
 
-    Does not define `__iter__` or `__next__`
-    This is a mixin. Only implements constructor, `begin`, `disp` and `end`,
-    as well as __init__ and __reversed__.
-    Subclasses must implement `iter` and `next`.
+    This is an ABC. Only implements `begin`, `disp` and `end`, as well as
+    __init__ and __reversed__. Subclasses must implement `iter` and `next`.
 
     Specify ``displayer`` in keyword arguments of class definition to customise
     display. No default, but ``DisplayCount`` is suggested.
@@ -357,13 +361,20 @@ class _AddDisplayToIterables():
         self._iterables = tuple(reversed(seq) for seq in self._iterables)
         return self
 
+    @abstractmethod
+    def __next__(self):
+        pass
+
+    @abstractmethod
+    def __iter__(self):
+        pass
+
     def _min_len(self) -> Optional[int]:
         """Length of shortest sequence.
         """
-        mlen = min((len(seq) for seq in
+        return min((len(seq) for seq in
                     filter(lambda x: isinstance(x, Sized), self._iterables)),
                    default=None)
-        return mlen
 
     def begin(self, *args, **kwds):
         """Display initial counter with prefix."""
@@ -383,13 +394,13 @@ class _AddDisplayToIterables():
 # =============================================================================
 
 
-class DisplayCount(_DisplayMixin, Iterator, Sized):
+class DisplayCount(_DisplayMixin, Sized):
     """Iterator for displaying loop counters.
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
     Returns loop counter in each loop iteration.
     Nested loops display on one line and update correctly if the inner
-    DisplayCount/DisplayZip ends before the outer one is updated.
+    DisplayCount ends before the outer one is updated.
     Displays look like:
         ' i: 3/5, j: 6/8, k:  7/10,'
 
@@ -404,9 +415,9 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
 
     DisplayCount(name: str, low: int=0, high: int)
 
-    DisplayCount(low: int=0, high: int, step: int=1)
-
     DisplayCount(name: str, high: int)
+
+    DisplayCount(low: int=0, high: int, step: int=1)
 
     DisplayCount(low: int=0, high: int)
 
@@ -534,16 +545,6 @@ class DisplayCount(_DisplayMixin, Iterator, Sized):
             raise ValueError('Must specify stop to define len')
         return (self.stop - self.start) // self.step
 
-#    def __contains__(self, x):
-#        """Is it an entry?"""
-#        if not isinstance(x, int):
-#            return False
-#        out = ((x - self.start) * self.step >= 0
-#               and (x - self.start) % self.step == 0)
-#        if self.stop is not None:
-#            out &= (self.stop - x)*self.step > 0
-#        return out
-
 
 class DisplayBatch(DisplayCount):
     """Iterate over batches, with counter display
@@ -594,7 +595,6 @@ class DisplayBatch(DisplayCount):
     def __init__(self, *args: Tuple[Union[str, int, None], ...],
                  **kwargs):
         super().__init__(*args, **kwargs)
-        self._state.name = 'DisplayBatch({})'
 
         if self.stop is None:
             self._state.formatter = '{:d}-{:d}'

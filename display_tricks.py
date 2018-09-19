@@ -308,7 +308,7 @@ def dcontext(msg: str):
     >>>     smthng = do_something(param1, param2)
     >>>     return smthng
     """
-    dtmp = dtemp(msg)
+    dtmp = DisplayTemporary.show(msg)
     try:
         yield
     finally:
