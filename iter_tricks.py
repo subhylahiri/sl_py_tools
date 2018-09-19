@@ -264,7 +264,7 @@ class _DisplayCntState(_DisplayState):
     def begin(self):
         """Display prefix"""
         self.format(self.prefix)
-        self.prefix = DisplayTemporary(self.prefix)
+        self.prefix = DisplayTemporary.show(self.prefix)
 
     def end(self):
         """Display prefix"""
@@ -278,9 +278,6 @@ class _DisplayMixin(DisplayTemporary, Iterator):
     Subclasses must implement `iter` and `next`.
     """
     counter: Optional[int]
-    start: int
-    stop: Optional[int]
-    step: int
     offset: int
     _state: _DisplayCntState
 
@@ -302,8 +299,7 @@ class _DisplayMixin(DisplayTemporary, Iterator):
     def begin(self, msg: str = ''):
         """Display initial counter with prefix."""
         self._state.begin()
-        self.counter = self.start - self.step
-        super().begin(self._str(self.start) + msg)
+        super().begin(self._str(self.counter) + msg)
 
     def update(self, msg: str = ''):
         """Erase previous counter and display new one."""
@@ -319,16 +315,6 @@ class _DisplayMixin(DisplayTemporary, Iterator):
         """String for display of counter, e.g.' 7/12,'."""
 #        return self._frmt.format(ctr)
         return self._state.formatter.format(*(n + self.offset for n in ctrs))
-
-    def _check(self):
-        """Ensure that DisplayCount's are properly used"""
-        super()._check()
-        # raise error if ctr is outside range
-        if self.counter > self.stop or self.counter < self.start:
-            msg1 = 'DisplayCount{}'.format(self._prefix)
-            msg2 = 'has value {} '.format(self.counter)
-            msg3 = 'when upper limit is {}.'.format(self.stop)
-            raise IndexError(msg1 + msg2 + msg3)
 
 
 class _AddDisplayToIterables(Iterator):
@@ -495,6 +481,10 @@ class DisplayCount(_DisplayMixin, Sized):
     --------
     denumerate, DisplayZip, itertools.count
     """
+    start: int
+    stop: Optional[int]
+    step: int
+
     def __init__(self, *args: Tuple[Union[str, int, None], ...],
                  **kwargs):
         name, sliceargs = _extract_name(args, kwargs)
@@ -516,7 +506,9 @@ class DisplayCount(_DisplayMixin, Sized):
 
     def __iter__(self):
         """Display initial counter with prefix."""
+        self.counter = self.start
         self.begin()
+        self.counter -= self.step
         return self
 
     def __reversed__(self):
@@ -544,6 +536,15 @@ class DisplayCount(_DisplayMixin, Sized):
         if self.stop is None:
             raise ValueError('Must specify stop to define len')
         return (self.stop - self.start) // self.step
+
+    def _check(self):
+        """Ensure that DisplayCount's are properly used"""
+        super()._check()
+        # raise error if ctr is outside range
+        if self.counter > self.stop or self.counter < self.start:
+            msg1 = ' has value {} '.format(self.counter)
+            msg2 = 'when upper limit is {}.'.format(self.stop)
+            raise IndexError(self._state.name + msg1 + msg2)
 
 
 class DisplayBatch(DisplayCount):
