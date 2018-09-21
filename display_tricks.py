@@ -73,11 +73,11 @@ class _DisplayState():
             self.numchar = prev_state.numchar
             self.nest_level = prev_state.nest_level
 
-    def format(self, *args, **kwds):
+    def rename_self(self, *args, **kwds):
         """Replace field(s) in name"""
         self.name = self.name.format(*args, **kwds)
 
-    def rename(self, name: str):
+    def rename_cls(self, name: str):
         """Replace prefix in name"""
         self.name = name + "({})"
 
@@ -150,7 +150,7 @@ class DisplayTemporary():
         """
         if self._state.numchar:
             raise AttributeError('begin() called more than once.')
-        self._state.format(msg)
+        self._state.rename_self(msg)
         self._state.numchar = len(msg) + 1
         self._print(' ' + msg)
 #        self._state['clean'] = False
@@ -210,7 +210,7 @@ class DisplayTemporary():
         """Go back num characters
         """
         self._bksp(num)
-        self._bksp(num, ' ')
+        self._print(' ' * num)
         self._bksp(num)
 
     def _check(self):
@@ -222,9 +222,9 @@ class DisplayTemporary():
             msg2 = 'instead of level {}.'.format(self._state.nest_level)
             raise IndexError(self._state.name + msg1 + msg2)
 
-    def rename(self, name):
+    def rename_cls(self, name):
         """Change name in debug message"""
-        self._state.rename(name)
+        self._state.rename_cls(name)
 
     @classmethod
     def show(cls, msg: str) -> 'DisplayTemporary':

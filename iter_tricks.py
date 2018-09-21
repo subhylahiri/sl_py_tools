@@ -20,8 +20,6 @@ DisplayZip : class
 
 For convenience:
 
-zenumerate : function
-    Combination of enumerate and unpacked zip.
 dcount : function
     Creates a `DisplayCount`.
 denumerate : function
@@ -32,6 +30,8 @@ dbatch
     Like `batch`, but uses `DisplayCount` to display counter.
 The above have a method called rev that return reversed iterators:
 
+zenumerate : function
+    Combination of enumerate and unpacked zip.
 batch
     Generator that yields `slice` objects covering batches of indices.
 rdcount, rdbatch, rdenumerate, rdzip
@@ -104,14 +104,12 @@ __all__ = [
     'rdcount', 'rdbatch', 'rdenumerate', 'rdzip',
     ]
 import itertools
-from functools import wraps
 # All of these imports could be removed:
-from abc import abstractmethod
 from collections.abc import Iterator, Sized
-from typing import Optional, Union, Any, Callable, Iterable, Dict, Tuple
+from typing import Optional
 import sys
 
-from .display_tricks import DisplayTemporary, _DisplayState
+from . import _iter_base as _it
 
 assert sys.version_info[:2] >= (3, 6)
 
@@ -120,69 +118,7 @@ assert sys.version_info[:2] >= (3, 6)
 # =============================================================================
 
 
-def _extract_name(args: Tuple[Any],
-                  kwds: Dict[str, Any]) -> (Optional[str], Tuple[Any]):
-    """Extract name from other args
-
-    If name is in kwds, assume all of args is others, pop name from kwds.
-    Else, if args[0] is a str or None, assume it's name & args[1:] is others.
-    Else, name is None and all of args is others.
-    """
-    name = None
-    others = args
-    if 'name' not in kwds and isinstance(args[0], (str, type(None))):
-        name = args[0]
-        others = args[1:]
-    name = kwds.pop('name', name)
-    return name, others
-
-
-def _extract_slice(args: Tuple[Optional[int], ...],
-                   kwargs: Dict[str, Any]) -> Tuple[Optional[int], ...]:
-    """Extract slice indices from args/kwargs
-
-    Returns
-    ----------
-    start : int or None, optional, default=0
-        initial counter value (inclusive).
-    stop : int or None, optional, default=None
-        value of counter at, or above which, the loop terminates (exclusive).
-    step : int or None, optional, default=1
-        increment of counter after each loop.
-
-    `start`, `stop` and `step` behave like `slice` indices when omitted.
-    To specify `start/step` without setting `stop`, set `stop` to `None`.
-    To specify `step` without setting `start`, set `start` to 0 or `None`.
-    Or use keyword arguments.
-    """
-    inds = slice(*args)
-    start = kwargs.pop('start', inds.start)
-    stop = kwargs.pop('stop', inds.stop)
-    step = kwargs.pop('step', inds.step)
-    if start is None:
-        start = 0
-    if step is None:
-        step = 1
-    return start, stop, step
-
-
-def _and_reverse(it_func: Callable):
-    """Wrap iterator factory with reversed
-    """
-    @wraps(it_func)
-    def rev_it_func(*args, **kwds):
-        return reversed(it_func(*args, **kwds))
-
-    new_name = it_func.__name__ + '.rev'
-    rev_it_func.__name__ = new_name
-    it_func.rev = rev_it_func
-#    __all__.append(new_name)
-#    setattr(current_module, new_name, rev_it_func)
-    return it_func
-
-
-@_and_reverse
-def zenumerate(*iterables: Tuple[Iterable, ...], start=0, step=1) -> zip:
+def zenumerate(*iterables: _it.ZipArgs, start=0, step=1) -> zip:
     """Combination of enumerate and unpacked zip.
 
     Behaves like `enumerate`, but accepts multiple iterables.
@@ -202,7 +138,7 @@ def zenumerate(*iterables: Tuple[Iterable, ...], start=0, step=1) -> zip:
     return zip(itertools.count(start, step), *iterables)
 
 
-def batch(*sliceargs, **kwargs):
+def batch(*sliceargs: _it.SliceArgs, **kwargs: _it.KeyWords):
     """Iterate over batches
 
     Similar to `range` object, except at each iteration it yields a `slice`
@@ -236,7 +172,7 @@ def batch(*sliceargs, **kwargs):
     >>> for s in batch(0, len(x), 10):
     >>>     y[s] = np.linalg.eigvals(x[s])
     """
-    start, stop, step = _extract_slice(sliceargs, kwargs)
+    start, stop, step = _it.extract_slice(sliceargs, kwargs)
     if stop is None:
         for i in itertools.count(start, step):
             yield slice(i, i+step, 1)
@@ -246,141 +182,11 @@ def batch(*sliceargs, **kwargs):
 
 
 # =============================================================================
-# %%* Mixins for defining displaying iterators
-# =============================================================================
-
-
-class _DisplayCntState(_DisplayState):
-    """Internal stae of a DisplayCount, etc."""
-    prefix: Union[str, DisplayTemporary]
-    formatter: str
-
-    def __init__(self, prev_state: Optional[_DisplayState] = None):
-        """Construct internal state"""
-        super().__init__(prev_state)
-        self.prefix = ' '
-        self.formatter = '{:d}'
-
-    def begin(self):
-        """Display prefix"""
-        self.format(self.prefix)
-        self.prefix = DisplayTemporary.show(self.prefix)
-
-    def end(self):
-        """Display prefix"""
-        self.prefix.end()
-
-
-class _DisplayMixin(DisplayTemporary, Iterator):
-    """Mixin providing non-iterator machinery for DisplayCount etc.
-
-    This is an ABC. Only implements `begin`, `disp`, `end` and private stuff.
-    Subclasses must implement `iter` and `next`.
-    """
-    counter: Optional[int]
-    offset: int
-    _state: _DisplayCntState
-
-    def __init__(self, **kwds):
-        """Construct non-iterator machinery"""
-        super().__init__(**kwds)
-        self._state = _DisplayCntState(self._state)
-        self.counter = None
-        self.rename(type(self).__name__)
-
-    @abstractmethod
-    def __next__(self):
-        pass
-
-    @abstractmethod
-    def __iter__(self):
-        pass
-
-    def begin(self, msg: str = ''):
-        """Display initial counter with prefix."""
-        self._state.begin()
-        super().begin(self._str(self.counter) + msg)
-
-    def update(self, msg: str = ''):
-        """Erase previous counter and display new one."""
-        dsp = self._str(self.counter)
-        super().update(dsp + msg)
-
-    def end(self):
-        """Erase previous counter and prefix."""
-        super().end()
-        self._state.end()
-
-    def _str(self, *ctrs: int) -> str:
-        """String for display of counter, e.g.' 7/12,'."""
-#        return self._frmt.format(ctr)
-        return self._state.formatter.format(*(n + self.offset for n in ctrs))
-
-
-class _AddDisplayToIterables(Iterator):
-    """Wraps iterator to display progress.
-
-    This is an ABC. Only implements `begin`, `disp` and `end`, as well as
-    __init__ and __reversed__. Subclasses must implement `iter` and `next`.
-
-    Specify ``displayer`` in keyword arguments of class definition to customise
-    display. No default, but ``DisplayCount`` is suggested.
-    The constructor signature is ``displayer(name, self._min_len(), **kwds)``.
-    """
-    _iterables: Tuple[Iterable, ...]
-    display: _DisplayMixin
-
-    def __init_subclass__(cls, displayer, **kwargs):
-        super().__init_subclass__(**kwargs)
-        cls.displayer = displayer
-
-    def __init__(self, *args: Tuple[Union[str, Iterable, None], ...],
-                 **kwds):
-        """Construct non-iterator machinery"""
-        name, self._iterables = _extract_name(args, kwds)
-        self.display = self.displayer(name, self._min_len(), **kwds)
-        self.display.rename(type(self).__name__)
-
-    def __reversed__(self):
-        """Prepare to display fina; counter with prefix."""
-        self.display = reversed(self.display)
-        self._iterables = tuple(reversed(seq) for seq in self._iterables)
-        return self
-
-    @abstractmethod
-    def __next__(self):
-        pass
-
-    @abstractmethod
-    def __iter__(self):
-        pass
-
-    def _min_len(self) -> Optional[int]:
-        """Length of shortest sequence.
-        """
-        return min((len(seq) for seq in
-                    filter(lambda x: isinstance(x, Sized), self._iterables)),
-                   default=None)
-
-    def begin(self, *args, **kwds):
-        """Display initial counter with prefix."""
-        self.display.begin(*args, **kwds)
-
-    def update(self, *args, **kwds):
-        """Erase previous counter and display new one."""
-        self.display.update(*args, **kwds)
-
-    def end(self):
-        """Erase previous counter and prefix."""
-        self.display.end()
-
-
-# =============================================================================
 # %%* Displaying iterator classes
 # =============================================================================
 
 
-class DisplayCount(_DisplayMixin, Sized):
+class DisplayCount(_it.DisplayMixin, Sized):
     """Iterator for displaying loop counters.
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -485,10 +291,9 @@ class DisplayCount(_DisplayMixin, Sized):
     stop: Optional[int]
     step: int
 
-    def __init__(self, *args: Tuple[Union[str, int, None], ...],
-                 **kwargs):
-        name, sliceargs = _extract_name(args, kwargs)
-        self.start, self.stop, self.step = _extract_slice(sliceargs, kwargs)
+    def __init__(self, *args: _it.DSliceArgs, **kwargs):
+        name, sliceargs = _it.extract_name(args, kwargs)
+        self.start, self.stop, self.step = _it.extract_slice(sliceargs, kwargs)
         # offset for display of counter, default: 1 if start==0, 0 otherwise
         self.offset = kwargs.pop('offset', int(self.start == 0))
 
@@ -499,9 +304,7 @@ class DisplayCount(_DisplayMixin, Sized):
 
         if self.stop:
             self.stop = self.start + self.step * len(self)
-            num_dig = str(len(str(self.stop)))
-            self._state.formatter = '{:>' + num_dig + 'd}/'
-            self._state.formatter += self._str(self.stop - self.offset)[:-1]
+            self._state.formatter = _it.counter_format(self.stop)
         self._state.formatter += ','
 
     def __iter__(self):
@@ -554,7 +357,7 @@ class DisplayBatch(DisplayCount):
     `slice` covering that step.
 
     Nested loops display on one line and update correctly if the inner
-    DisplayCount/DisplayZip ends before the outer one is updated.
+    DisplayCount ends before the outer one is updated.
     Displays look like:
         ' i: 3/5, j: 6/8(/2), k:  7/10(/5),'
 
@@ -593,17 +396,14 @@ class DisplayBatch(DisplayCount):
     >>> for s in dbatch('s', 0, len(x), 10):
     >>>     y[s] = np.linalg.eigvals(x[s])
     """
-    def __init__(self, *args: Tuple[Union[str, int, None], ...],
-                 **kwargs):
+    def __init__(self, *args: _it.DSliceArgs, **kwargs):
         super().__init__(*args, **kwargs)
 
         if self.stop is None:
             self._state.formatter = '{:d}-{:d}'
         else:
-            num_dig = len(str(self.stop))
-            frmt = '{:>' + str(num_dig) + 'd}'
-            self._state.formatter = frmt + '-' + frmt + '/'
-            self._state.formatter += frmt.format(self.stop)
+            frmt = _it.counter_format(self.stop)
+            self._state.formatter = frmt[:frmt.find('/')] + '-' + frmt
         self._state.formatter += ','
 
     def _str(self, *ctrs: int) -> str:
@@ -618,7 +418,7 @@ class DisplayBatch(DisplayCount):
         return slice(counter, counter + abs(self.step))
 
 
-class DisplayEnumerate(_AddDisplayToIterables, displayer=DisplayCount):
+class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):
     """Wraps iterator to display progress.
 
     Like `zenumerate`, but using a `DisplayCount`.
@@ -626,7 +426,7 @@ class DisplayEnumerate(_AddDisplayToIterables, displayer=DisplayCount):
     Prints loop counter (plus 1), updates in place, and deletes at end.
     Returns (loop counter, sequence members) in each loop iteration.
     Nested loops display on one line and update correctly if the inner
-    DisplayCount/DisplayZip ends before the outer one is updated.
+    DisplayCount ends before the outer one is updated.
     Displays look like:
         ' i: 3/5, j: 6/8, k:  7/10,'
     The output of `next` is a `tuple`: (counter, iter0, iter1, ...)
@@ -675,13 +475,13 @@ class DisplayEnumerate(_AddDisplayToIterables, displayer=DisplayCount):
         try:
             output = next(self._iterator)
         except StopIteration:
-            self.display = None
+            self.end()
             raise
         else:
             return output
 
 
-class DisplayZip(_AddDisplayToIterables, displayer=DisplayCount):
+class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
     """Wraps iterator to display progress.
 
     Like `denumerate`, but doesn't return counter value.
@@ -689,7 +489,7 @@ class DisplayZip(_AddDisplayToIterables, displayer=DisplayCount):
     Prints loop counter (plus 1), updates in place, and deletes at end.
     Returns sequence members in each loop iteration.
     Nested loops display on one line and update correctly if the inner
-    DisplayCount/DisplayZip ends before the outer one is updated.
+    DisplayCount ends before the outer one is updated.
     Displays look like:
         ' i: 3/5, j: 6/8, k:  7/10,'
 
@@ -742,7 +542,7 @@ class DisplayZip(_AddDisplayToIterables, displayer=DisplayCount):
             next(self.display)
             output = next(self._iterator)
         except StopIteration:
-            self.display = None
+            self.end()
             raise
         else:
             return output
@@ -753,15 +553,15 @@ class DisplayZip(_AddDisplayToIterables, displayer=DisplayCount):
 # =============================================================================
 
 
-@_and_reverse
-def dcount(*args: Tuple[Union[str, int, None], ...],
+@_it.and_reverse
+def dcount(*args: _it.DSliceArgs,
            **kwargs)-> DisplayCount:
     """Produces iterator for displaying loop counters.
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
     Returns loop counter in each loop iteration.
     Nested loops display on one line and update correctly if the inner
-    DisplayCount/DisplayZip ends before the outer one is updated.
+    DisplayCount ends before the outer one is updated.
     Displays look like:
         ' i: 3/5, j: 6/8, k:  7/10,'
 
@@ -827,16 +627,15 @@ def dcount(*args: Tuple[Union[str, int, None], ...],
     return DisplayCount(*args, **kwargs)
 
 
-@_and_reverse
-def denumerate(*args: Tuple[Union[str, Iterable, None], ...],
-               **kwds)-> DisplayEnumerate:
+@_it.and_reverse
+def denumerate(*args: _it.DZipArgs, **kwds)-> DisplayEnumerate:
     """Like `zenumerate`, but using a `DisplayCount`.
 
     Reads maximum couter value from min length of Sized `sequences`.
     Prints loop counter (plus 1), updates in place, and deletes at end.
     Returns (loop counter, sequence members) in each loop iteration.
     Nested loops display on one line and update correctly if the inner
-    DisplayCount/DisplayZip ends before the outer one is updated.
+    DisplayCount ends before the outer one is updated.
     Displays look like:
         ' i: 3/5, j: 6/8, k:  7/10,'
     The output of `next` is a `tuple`: (counter, iter0, iter1, ...)
@@ -884,16 +683,15 @@ def denumerate(*args: Tuple[Union[str, Iterable, None], ...],
     return DisplayEnumerate(*args, **kwds)
 
 
-@_and_reverse
-def dzip(*args: Tuple[Union[str, Iterable, None], ...],
-         **kwds)-> DisplayZip:
+@_it.and_reverse
+def dzip(*args: _it.DZipArgs, **kwds)-> DisplayZip:
     """Like `enumerate` + `zip`, but using a `DisplayCount`.
 
     Reads maximum couter value from min length of Sized `sequences`.
     Prints loop counter (plus 1), updates in place, and deletes at end.
     Returns (loop counter, sequence members) in each loop iteration.
     Nested loops display on one line and update correctly if the inner
-    DisplayCount/DisplayZip ends before the outer one is updated.
+    DisplayCount ends before the outer one is updated.
     Displays look like:
         ' i: 3/5, j: 6/8, k:  7/10,'
 
@@ -936,8 +734,8 @@ def dzip(*args: Tuple[Union[str, Iterable, None], ...],
     return DisplayZip(*args, **kwds)
 
 
-@_and_reverse
-def dbatch(*args: Tuple[Union[str, int, None], ...],
+@_it.and_reverse
+def dbatch(*args: _it.DSliceArgs,
            **kwargs) -> DisplayBatch:
     """Iterate over batches, with counter display
 
@@ -945,7 +743,7 @@ def dbatch(*args: Tuple[Union[str, int, None], ...],
     `slice` covering that step.
 
     Nested loops display on one line and update correctly if the inner
-    DisplayCount/DisplayZip ends before the outer one is updated.
+    DisplayCount ends before the outer one is updated.
     Displays look like:
         ' i: 3/5, j: 3-4/8k:  6-10/10,'
 
