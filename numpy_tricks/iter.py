@@ -12,7 +12,39 @@ from .. import _iter_base as _it
 
 
 class DisplayNDIndex(_it.DisplayMixin):
-    """Numpy ndindex with display
+    """Numpy ndindex with progress display
+
+    Prints loop counter (plus 1), updates in place, and deletes at end.
+    Nested loops display on one line and update correctly if the inner
+    iterator ends before the outer one is updated.
+    Displays look like:
+        ' ii: (3/5, 6/8,  7/10),'
+
+    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
+
+    Construction
+    ------------
+    DisplayNDIndex(name:str, d0: int, d1:int, ...)
+    DisplayNDIndex(d0: int, d1: int, ...)
+
+    Parameters
+    ----------
+    name : str, optional
+        Name to display before indices.
+    d0, d1, ... : int
+        Shape of the array(s) iterated over.
+
+    Yields
+    ------
+    multi-index : Tuple[int]
+        A tuple of integers describing the indices along each axis.
+
+    See Also
+    --------
+    numpy.ndindex
     """
     counter: Optional[Tuple[int, ...]]
     shape: Tuple[int]
@@ -54,6 +86,37 @@ class DisplayNDIndex(_it.DisplayMixin):
 
 class DisplayNDIter(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
     """Numpy nditer with display
+
+    Prints loop counter (plus 1), updates in place, and deletes at end.
+    Nested loops display on one line and update correctly if the inner
+    iterator ends before the outer one is updated.
+    Displays look like:
+        ' ii: (3/5, 6/8,  7/10),'
+
+    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
+
+    Construction
+    ------------
+    DisplayNDIter(name:str, ...)
+    DisplayNDIter(...)
+
+    Parameters
+    ----------
+    name : str, optional
+        Name to display before indices.
+    ...
+        Passed to ``numpy.nditer``.
+
+    Yields
+    ------
+    Whatever the underlying ``nditer`` yields.
+
+    See Also
+    --------
+    numpy.nditer
     """
     def __init__(self, *args: _it.Args, **kwds: _it.KeyWords):
         name, args = _it.extract_name(args, kwds)
@@ -80,7 +143,38 @@ class DisplayNDIter(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
 
 
 class DisplayNDEnumerate(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
-    """Numpy nditer with display
+    """Numpy ndenumerate with display
+
+    Prints loop counter (plus 1), updates in place, and deletes at end.
+    Nested loops display on one line and update correctly if the inner
+    iterator ends before the outer one is updated.
+    Displays look like:
+        ' ii: (3/5, 6/8,  7/10),'
+
+    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
+
+    Construction
+    ------------
+    DisplayNDEnumerate(name:str, ...)
+    DisplayNDEnumerate(...)
+
+    Parameters
+    ----------
+    name : str, optional
+        Name to display before indices.
+    ...
+        Passed to ``numpy.ndenumerate``.
+
+    Yields
+    ------
+    Whatever the underlying ``ndenumerate`` yields.
+
+    See Also
+    --------
+    numpy.ndenumerate
     """
     def __init__(self, *args: _it.Args, **kwds: _it.KeyWords):
         name, args = _it.extract_name(args, kwds)
@@ -111,19 +205,113 @@ class DisplayNDEnumerate(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
 # =============================================================================
 
 
-def dndindex(*args: _it.DSliceArgs, **kwds: _it.KeyWords):
-    """
+def dndindex(*args: _it.DSliceArgs, **kwds: _it.KeyWords) -> DisplayNDIndex:
+    """Numpy ndindex with progress display
+
+    Prints loop counter (plus 1), updates in place, and deletes at end.
+    Nested loops display on one line and update correctly if the inner
+    iterator ends before the outer one is updated.
+    Displays look like:
+        ' ii: (3/5, 6/8,  7/10),'
+
+    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
+
+    Construction
+    ------------
+    DisplayNDIndex(name:str, d0: int, d1:int, ...)
+    DisplayNDIndex(d0: int, d1: int, ...)
+
+    Parameters
+    ----------
+    name : str, optional
+        Name to display before indices.
+    d0, d1, ... : int
+        Shape of the array(s) iterated over.
+
+    Yields
+    ------
+    multi-index : Tuple[int]
+        A tuple of integers describing the indices along each axis.
+
+    See Also
+    --------
+    numpy.ndindex
     """
     return DisplayNDIndex(*args, **kwds)
 
 
-def dnditer(*args: _it.Args, **kwds: _it.KeyWords):
-    """
+def dnditer(*args: _it.Args, **kwds: _it.KeyWords) -> DisplayNDIter:
+    """Numpy nditer with display
+
+    Prints loop counter (plus 1), updates in place, and deletes at end.
+    Nested loops display on one line and update correctly if the inner
+    iterator ends before the outer one is updated.
+    Displays look like:
+        ' ii: (3/5, 6/8,  7/10),'
+
+    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
+
+    Construction
+    ------------
+    DisplayNDIter(name:str, ...)
+    DisplayNDIter(...)
+
+    Parameters
+    ----------
+    name : str, optional
+        Name to display before indices.
+    ...
+        Passed to ``numpy.nditer``.
+
+    Yields
+    ------
+    Whatever the underlying ``nditer`` yields.
+
+    See Also
+    --------
+    numpy.nditer
     """
     return DisplayNDIter(*args, **kwds)
 
 
-def dndenumerate(*args: _it.Args, **kwds: _it.KeyWords):
-    """
+def dndenumerate(*args: _it.Args, **kwds: _it.KeyWords) -> DisplayNDEnumerate:
+    """Numpy ndenumerate with display
+
+    Prints loop counter (plus 1), updates in place, and deletes at end.
+    Nested loops display on one line and update correctly if the inner
+    iterator ends before the outer one is updated.
+    Displays look like:
+        ' ii: (3/5, 6/8,  7/10),'
+
+    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
+
+    Construction
+    ------------
+    DisplayNDEnumerate(name:str, ...)
+    DisplayNDEnumerate(...)
+
+    Parameters
+    ----------
+    name : str, optional
+        Name to display before indices.
+    ...
+        Passed to ``numpy.ndenumerate``.
+
+    Yields
+    ------
+    Whatever the underlying ``ndenumerate`` yields.
+
+    See Also
+    --------
+    numpy.ndenumerate
     """
     return DisplayNDEnumerate(*args, **kwds)

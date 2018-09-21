@@ -9,7 +9,7 @@
 """
 Iterators for convenience and displaying progress.
 
-DisplayCount : class
+iterator : class
     Iterator for displaying loop counters.
 DisplayBatch : class
     Iterator for displaying loop counters, returning slices.
@@ -18,10 +18,21 @@ DisplayEnumerate : class
 DisplayZip : class
     Like `denumerate`, but doesn't return counter value.
 
+Prints loop counter (plus 1), updates in place, and deletes at end.
+Nested loops display on one line and update correctly if the inner
+DisplayCount ends before the outer one is updated.
+Displays look like:
+    ' i: 3/5, j: 6/8, k:  7/10,'
+
+.. warning:: Doesn't display properly on ``qtconsole``, and hence ``Spyder``.
+Instead, use in a console connected to the same kernel:
+``cd`` to the folder, then type: ``jupyter console --existing``, and run your
+code there.
+
 For convenience:
 
 dcount : function
-    Creates a `DisplayCount`.
+    Creates a `iterator`.
 denumerate : function
     Creates a `DisplayEnumerate`.
 dzip: function
@@ -38,11 +49,6 @@ rdcount, rdbatch, rdenumerate, rdzip
     Aliases of `dcount.rev`, `dbatch.rev`, `denumerate.rev`, `dzip.rev`.
 You can set `start` and `stop` in `zenumerate`, `denumerate`, `dzip`, etc,
 but only via keyword arguments.
-
-.. warning:: Doesn't display properly on ``qtconsole``, and hence ``Spyder``.
-Instead, use in a console connected to the same kernel:
-``cd`` to the folder, then type: ``jupyter console --existing``, and run your
-code there.
 
 Examples
 --------
@@ -196,14 +202,14 @@ class DisplayCount(_it.DisplayMixin, Sized):
     Displays look like:
         ' i: 3/5, j: 6/8, k:  7/10,'
 
-    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
     your code there.
 
     Construction
     ------------
-    DisplayCount(name: str, low: int=0, high: int, step: int=1)
+    iterator(name: str, low: int=0, high: int, step: int=1)
 
     DisplayCount(name: str, low: int=0, high: int)
 
@@ -361,7 +367,7 @@ class DisplayBatch(DisplayCount):
     Displays look like:
         ' i: 3/5, j: 6/8(/2), k:  7/10(/5),'
 
-    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
     your code there.
@@ -418,11 +424,11 @@ class DisplayBatch(DisplayCount):
         return slice(counter, counter + abs(self.step))
 
 
-class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):
+class DisplayEnumerate(_it.AddDisplayToIterables, displayer=iterator):
     """Wraps iterator to display progress.
 
-    Like `zenumerate`, but using a `DisplayCount`.
-    Reads maximum couter value from min length of Sized `sequences`.
+    Like ``zenumerate``, but using a ``DisplayCount``.
+    Reads maximum couter value from min length of Sized ``sequences``.
     Prints loop counter (plus 1), updates in place, and deletes at end.
     Returns (loop counter, sequence members) in each loop iteration.
     Nested loops display on one line and update correctly if the inner
@@ -431,7 +437,7 @@ class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):
         ' i: 3/5, j: 6/8, k:  7/10,'
     The output of `next` is a `tuple`: (counter, iter0, iter1, ...)
 
-    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
     your code there.
@@ -445,7 +451,7 @@ class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):
         i.e. ``len(sequence)`` works, e.g. tuple, list, np.ndarray.
         Note: argument is unpacked.
     **kwds
-        Passed to `DisplayCount`
+        Passed to `iterator`
 
     Examples
     --------
@@ -484,8 +490,8 @@ class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):
 class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
     """Wraps iterator to display progress.
 
-    Like `denumerate`, but doesn't return counter value.
-    Reads maximum couter value from min length of Sized `sequences`.
+    Like ``denumerate``, but doesn't return counter value.
+    Reads maximum couter value from min length of Sized ``sequences``.
     Prints loop counter (plus 1), updates in place, and deletes at end.
     Returns sequence members in each loop iteration.
     Nested loops display on one line and update correctly if the inner
@@ -493,7 +499,7 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
     Displays look like:
         ' i: 3/5, j: 6/8, k:  7/10,'
 
-    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
     your code there.
@@ -507,7 +513,7 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
         i.e. ``len(sequence)`` works, e.g. tuple, list, np.ndarray.
         Note: argument is unpacked.
     **kwds
-        Passed to `DisplayCount`
+        Passed to `iterator`
 
     Examples
     --------
@@ -554,8 +560,7 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
 
 
 @_it.and_reverse
-def dcount(*args: _it.DSliceArgs,
-           **kwargs)-> DisplayCount:
+def dcount(*args: _it.DSliceArgs, **kwargs)-> DisplayCount:
     """Produces iterator for displaying loop counters.
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -587,7 +592,7 @@ def dcount(*args: _it.DSliceArgs,
 
     Returns
     -------
-    disp_counter : DisplayCount
+    disp_counter : iterator
         An iterator that displays & returns counter value.
 
     Examples
@@ -654,7 +659,7 @@ def denumerate(*args: _it.DZipArgs, **kwds)-> DisplayEnumerate:
         i.e. ``len(sequence)`` works, e.g. tuple, list, np.ndarray.
         Note: argument is unpacked.
     **kwds
-        Passed to `DisplayCount`
+        Passed to `iterator`
 
     Returns
     -------
@@ -706,7 +711,7 @@ def dzip(*args: _it.DZipArgs, **kwds)-> DisplayZip:
         i.e. ``len(sequence)`` works, e.g. tuple, list, np.ndarray.
         Note: argument is unpacked.
     **kwds
-        Passed to `DisplayCount`
+        Passed to `iterator`
 
     Returns
     -------
@@ -735,8 +740,7 @@ def dzip(*args: _it.DZipArgs, **kwds)-> DisplayZip:
 
 
 @_it.and_reverse
-def dbatch(*args: _it.DSliceArgs,
-           **kwargs) -> DisplayBatch:
+def dbatch(*args: _it.DSliceArgs, **kwargs) -> DisplayBatch:
     """Iterate over batches, with counter display
 
     Similar to `dcount`, except at each iteration it yields a
