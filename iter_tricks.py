@@ -424,7 +424,7 @@ class DisplayBatch(DisplayCount):
         return slice(counter, counter + abs(self.step))
 
 
-class DisplayEnumerate(_it.AddDisplayToIterables, displayer=iterator):
+class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):
     """Wraps iterator to display progress.
 
     Like ``zenumerate``, but using a ``DisplayCount``.
