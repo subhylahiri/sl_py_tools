@@ -58,15 +58,15 @@ def conv_loop_out(obj, attr: str, results: Tuple[Any], outargs: Tuple[Any],
         New tuple of results from ufunc with conversions.
     """
     if attr:
-        def converter(res):
+        def converter(thing):
             """"""""
-            res_out = obj.copy()
-            setattr(res_out, attr, res)
-            return res_out
+            thing_out = obj.copy()
+            setattr(thing_out, attr, thing)
+            return thing_out
     else:
-        def converter(res):
+        def converter(thing):
             """"""
-            return type(obj)(res)
+            return type(obj)(thing)
 
     results_out = []
     for result, outarg, cout in zip(results, outargs, conv):

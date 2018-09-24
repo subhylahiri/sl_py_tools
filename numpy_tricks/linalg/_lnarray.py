@@ -159,6 +159,24 @@ class lnarray(np.ndarray):
 #            return results[0][()]
         return results[0] if len(results) == 1 else results
 
+    def flatter(self, start, stop) -> 'lnarray':
+        """Partial flattening.
+
+        Flattens those axes in the range [start:stop)
+        """
+        newshape = self.shape[:start] + (-1,) + self.shape[stop:]
+        return self.reshape(newshape)
+
+    def expand_dims(self, axis) -> 'lnarray':
+        """Expand the shape of the array
+
+        Alias of numpy.expand_dims.
+        If `axis` is a sequence, axes are added one at a time, left to right.
+        """
+        if isinstance(axis, int):
+            return np.expand_dims(self, axis).view(type(self))
+        return self.expand_dims(axis[0]).expand_dims(axis[1:])
+
     @property
     def t(self) -> 'lnarray':
         """Transpose last two indices.
