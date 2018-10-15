@@ -217,7 +217,7 @@ class Timer(object):
         self.absolute = absolute
         self.begin = datetime.datetime.now(*args, **kwargs)
         if self.absolute:
-            print(dt_format(self.begin), file=self.file)
+            print(dt_format(self.begin), file=self.file, flush=True)
 
     def time(self, subsec: bool = False, *args, **kwargs):
         """Call this after thing you are timing.
@@ -235,9 +235,9 @@ class Timer(object):
             return
         end = datetime.datetime.now(self.begin.tzinfo)
         if self.absolute:
-            print(dt_format(end), file=self.file)
+            print(dt_format(end), file=self.file, flush=True)
         print("That took: " + td_format(end - self.begin, subsec=subsec),
-              file=self.file)
+              file=self.file, flush=True)
         self.begin = end
 
     @classmethod
