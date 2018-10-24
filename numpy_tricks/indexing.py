@@ -55,8 +55,8 @@ def estack(arrays, axis=-1):
 
     According to `np.linalg` broadcasting, `np.stack` combines (lists of)
     matrices into a list of matrices (as default `axis`=0).
-    This function builds up the (list of) matrices from (lists of) vectors or
-    scalars.
+    This function builds up the (list of) matrices/vectors from (lists of)
+    vectors/scalars.
 
     Parameters
     ----------
@@ -75,3 +75,49 @@ def estack(arrays, axis=-1):
     np.stack, np.concatenate
     """
     return np.stack(arrays, axis=axis)
+
+
+def flattish(array, start, stop):
+    """Flatten a subset of axes
+
+    Takes axes in the range [start:stop) and flattens them into one axis.
+
+    Parameters
+    ----------
+    array
+        ndarray to be partially flattened, n-dimensional
+    start
+        axis at which to start flattening (inclusive)
+    stop
+        axis at which to stop flattening (exclusive)
+
+    Returns
+    -------
+    flattish_array
+        array with flattened axes, (n-stop+start+1)-dimensional
+    """
+    return array.reshape(array.shape[:start] + (-1,) + array.shape[stop:])
+
+
+def expand_dims(array, axis):
+    """Expand the shape of the array
+
+    Alias of numpy.expand_dims.
+    If `axis` is a sequence, axes are added one at a time, left to right.
+    The numbering is wrt the shape at each axis addition.
+
+    Parameters
+    ----------
+    array
+        ndarray to be expanded
+    axis
+        Position of added axis. If it is a tuple, axes are added one at a time,
+        left to right. The numbering is wrt the shape at each axis addition.
+    """
+    if isinstance(axis, int):
+        return np.expand_dims(array, axis).view(type(array))
+    elif not isinstance(axis, tuple):
+        raise TypeError("axis must be an int or a tuple of ints")
+    elif len(axis) == 0:
+        return array
+    return expand_dims(expand_dims(array, axis[0]), axis[1:])

@@ -36,9 +36,10 @@ Examples
 from typing import Optional, Tuple
 import numpy as np
 from numpy.lib.mixins import _numeric_methods, NDArrayOperatorsMixin
+from . import convert_loop as cvl
 from . import _linalg as la
 from . import _gufuncs as gf
-from . import convert_loop as cvl
+from ._gufuncs import matmul, rmatmul, solve, rsolve, lstsq_bin, rlstsq_bin
 
 
 # =============================================================================
@@ -103,7 +104,7 @@ class lnarray(np.ndarray):
     `ldarray` : class that provides another interface for matrix division.
     """
     # Set of ufuncs that need special handling of vectors
-    vec_ufuncs = {gf.matmul, gf.solve, gf.lstsq_m, gf.lstsq_n}
+    vec_ufuncs = {matmul, solve, gf.lstsq_m, gf.lstsq_n}
 
     def __new__(cls, input_array):
         # Input array is an already formed ndarray instance
@@ -116,13 +117,13 @@ class lnarray(np.ndarray):
 #        # We are not adding any attributes
 #        pass
 
-    __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(gf.matmul, 'matmul')
+    __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(matmul, 'matmul')
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         args = list(cvl.conv_loop_in(lnarray, inputs))[0]
 
-        to_squeeze = [False, False]
         if ufunc in self.vec_ufuncs:
+            to_squeeze = [False, False]
             if args[0].ndim == 1:
                 args[0] = args[0][..., None, :]
                 to_squeeze[0] = True
@@ -145,21 +146,24 @@ class lnarray(np.ndarray):
         if ufunc.nout == 1:
             results = (results,)
 
-        squeezable_result = results[0]
-        if to_squeeze[0]:
-            squeezable_result = squeezable_result.squeeze(-2)
-        if to_squeeze[1]:
-            squeezable_result = squeezable_result.squeeze(-1)
-        results = (squeezable_result,) + results[1:]
+        if ufunc in self.vec_ufuncs and any(to_squeeze):
+            squeezable_result = results[0]
+            if to_squeeze[0]:
+                squeezable_result = squeezable_result.squeeze(-2)
+            if to_squeeze[1]:
+                squeezable_result = squeezable_result.squeeze(-1)
+            results = (squeezable_result,) + results[1:]
 
         results = tuple((np.asarray(result).view(type(self))
                          if output is None else output)
                         for result, output in zip(results, outputs))
-#        if len(results) == 1 and results[0].ndim == 1:
-#            return results[0][()]
-        return results[0] if len(results) == 1 else results
+        if len(results) == 1:
+            if results[0].ndim == 1:
+                return results[0][()]
+            return results[0]
+        return results
 
-    def flatter(self, start, stop) -> 'lnarray':
+    def flattish(self, start, stop) -> 'lnarray':
         """Partial flattening.
 
         Flattens those axes in the range [start:stop)
@@ -175,6 +179,10 @@ class lnarray(np.ndarray):
         """
         if isinstance(axis, int):
             return np.expand_dims(self, axis).view(type(self))
+        elif not isinstance(axis, tuple):
+            raise TypeError("axis must be an int or a tuple of ints")
+        elif len(axis) == 0:
+            return self
         return self.expand_dims(axis[0]).expand_dims(axis[1:])
 
     @property
@@ -382,16 +390,16 @@ class pinvarray(NDArrayOperatorsMixin):
     # ar1/arg2 = is the first/second argument a pinvarray?
     # ufunc_out = ufunc to use instead
     # out1 = is the first output a pinvarray?
-    _ufunc_map = {gf.matmul: {True: {True: (None, False),  # a^+ b^+
-                                     False: (gf.lstsq_bin, False)},  # a^+ b
-                              False: {True: (gf.rlstsq_bin, False),  # a b^+
-                                      False: (None, False)}},  # never happens
-                  gf.lstsq_m: {True: {True: (gf.rlstsq_bin, False),  # a^++ b^+
-                                      False: (gf.matmul, False)},  # a^++ b
+    _ufunc_map = {matmul: {True: {True: (None, False),  # a^+ b^+
+                                  False: (lstsq_bin, False)},  # a^+ b
+                           False: {True: (rlstsq_bin, False),  # a b^+
+                                   False: (None, False)}},  # never happens
+                  gf.lstsq_m: {True: {True: (rlstsq_bin, False),  # a^++ b^+
+                                      False: (matmul, False)},  # a^++ b
                                False: {True: (None, False),  # a^+ b^+
                                        False: (None, False)}},  # never happens
-                  gf.lstsq_n: {True: {True: (gf.rlstsq_bin, False),  # a^++ b^+
-                                      False: (gf.matmul, False)},  # a^++ b
+                  gf.lstsq_n: {True: {True: (rlstsq_bin, False),  # a^++ b^+
+                                      False: (matmul, False)},  # a^++ b
                                False: {True: (None, False),  # a^+ b^+
                                        False: (None, False)}},  # never happens
                   np.multiply: {True: {True: (None, False),  # a^+ * b^+
@@ -416,7 +424,7 @@ class pinvarray(NDArrayOperatorsMixin):
             self._to_invert = np.asarray(to_invert).view(lnarray)
         self._inverted = None
 
-    __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(gf.matmul, 'matmul')
+    __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(matmul, 'matmul')
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """Handling ufunce with pinvarrays
@@ -663,14 +671,14 @@ class invarray(pinvarray):
     # ar1/arg2 = is the first/second argument an invarray?
     # ufunc_out = ufunc to use instead
     # out1 = is the first output an invarray?
-    _ufunc_map = {gf.matmul: {True: {True: (gf.rmatmul, True),  # a^- b^-
-                                     False: (gf.solve, False)},  # a^- b
-                              False: {True: (gf.rsolve, False),  # a b^-
-                                      False: (None, False)}},  # never happens
-                  gf.solve: {True: {True: (gf.rsolve, False),  # a^-- b^-
-                                    False: (gf.matmul, False)},  # a^-- b
-                             False: {True: (gf.rmatmul, True),  # a^- b^-
-                                     False: (None, False)}},  # never happens
+    _ufunc_map = {matmul: {True: {True: (rmatmul, True),  # a^- b^-
+                                  False: (solve, False)},  # a^- b
+                           False: {True: (rsolve, False),  # a b^-
+                                   False: (None, False)}},  # never happens
+                  solve: {True: {True: (rsolve, False),  # a^-- b^-
+                                 False: (matmul, False)},  # a^-- b
+                          False: {True: (rmatmul, True),  # a^- b^-
+                                  False: (None, False)}},  # never happens
                   np.multiply: {True: {True: (None, False),  # a^- * b^-
                                        False: (np.true_divide, True)},  # a^-*b
                                 False: {True: (gf.rtrue_divide, True),  # a*b^-
