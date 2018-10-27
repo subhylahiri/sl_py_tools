@@ -204,16 +204,10 @@ INIT_OUTER_LOOP_2
 *****************************************************************************
 */
 
-GUFUNC_FUNC_ARRAY_REAL(pdist_ratio);
-GUFUNC_FUNC_ARRAY_REAL(cdist_ratio);
 GUFUNC_FUNC_ARRAY_REAL(matmul);
 GUFUNC_FUNC_ARRAY_REAL(norm);
 
 GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
-    { "pdist_ratio", "(d,m),(d,n)->(),()", pdist_ratio__doc__, 2, 2, 2,
-      FUNC_ARRAY_NAME(pdist_ratio), ufn_types_2_4 },
-    { "cdist_ratio", "(d1,m),(d2,m),(d1,n),(d2,n)->(),()", cdist_ratio__doc__, 2, 4, 2,
-      FUNC_ARRAY_NAME(cdist_ratio), ufn_types_2_6 },
     { "matmul", "(m,n),(n,p)->(m,p)", matmul__doc__, 2, 2, 1,
       FUNC_ARRAY_NAME(matmul), ufn_types_2_3 },
     { "norm", "(n)->()", norm__doc__, 2, 1, 1,

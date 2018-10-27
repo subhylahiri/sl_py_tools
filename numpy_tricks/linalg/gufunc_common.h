@@ -156,19 +156,46 @@ set_fp_invalid_or_clear(int error_occurred)
 **                      Some handy constants                               **
 *****************************************************************************
 */
+typedef f2c_complex       fortran_complex;
+typedef f2c_doublecomplex fortran_doublecomplex;
+typedef union {
+    fortran_complex f;
+    npy_cfloat npy;
+    float array[2];
+} COMPLEX_t;
+
+typedef union {
+    fortran_doublecomplex f;
+    npy_cdouble npy;
+    double array[2];
+} DOUBLECOMPLEX_t;
 
 static float s_one;
 static float s_zero;
 static float s_minus_one;
 static float s_inf;
+static float s_ninf;
 static float s_nan;
 static float s_eps;
 static double d_one;
 static double d_zero;
 static double d_minus_one;
 static double d_inf;
+static double d_ninf;
 static double d_nan;
 static double d_eps;
+static COMPLEX_t c_one;
+static COMPLEX_t c_zero;
+static COMPLEX_t c_minus_one;
+static COMPLEX_t c_inf;
+static COMPLEX_t c_ninf;
+static COMPLEX_t c_nan;
+static DOUBLECOMPLEX_t z_one;
+static DOUBLECOMPLEX_t z_zero;
+static DOUBLECOMPLEX_t z_minus_one;
+static DOUBLECOMPLEX_t z_inf;
+static DOUBLECOMPLEX_t z_ninf;
+static DOUBLECOMPLEX_t z_nan;
 
 static void init_constants(void)
 {
@@ -192,6 +219,32 @@ static void init_constants(void)
     d_ninf = -NPY_INFINITY;
     d_nan = NPY_NAN;
     d_eps = npy_spacing(d_one);
+
+    c_one.array[0]  = 1.0f;
+    c_one.array[1]  = 0.0f;
+    c_zero.array[0] = 0.0f;
+    c_zero.array[1] = 0.0f;
+    c_minus_one.array[0] = -1.0f;
+    c_minus_one.array[1] = 0.0f;
+    c_inf.array[0] = NPY_INFINITYF;
+    c_inf.array[1] = 0.0f;
+    c_ninf.array[0] = -NPY_INFINITYF;
+    c_ninf.array[1] = 0.0f;
+    c_nan.array[0] = NPY_NANF;
+    c_nan.array[1] = NPY_NANF;
+
+    z_one.array[0]  = 1.0;
+    z_one.array[1]  = 0.0;
+    z_zero.array[0] = 0.0;
+    z_zero.array[1] = 0.0;
+    z_minus_one.array[0] = -1.0;
+    z_minus_one.array[1] = 0.0;
+    z_inf.array[0] = NPY_INFINITY;
+    z_inf.array[1] = 0.0;
+    z_ninf.array[0] = -NPY_INFINITY;
+    z_ninf.array[1] = 0.0;
+    z_nan.array[0] = NPY_NAN;
+    z_nan.array[1] = NPY_NAN;
 }
 
 /*
@@ -199,7 +252,7 @@ static void init_constants(void)
 **                             UFUNC DEFINITION                            **
 *****************************************************************************
 */
-static void *null_data_4[] = { (void *)NULL, (void *)NULL, (void *)NULL, (void *)NULL };
+static void *null_data_5[] = { (void *)NULL, (void *)NULL, (void *)NULL, (void *)NULL, (void *)NULL };
 
 static char ufn_types_2_2[] = { NPY_FLOAT, NPY_FLOAT,
                                 NPY_DOUBLE, NPY_DOUBLE };
@@ -212,6 +265,25 @@ static char ufn_types_2_5[] = { NPY_FLOAT, NPY_FLOAT, NPY_FLOAT, NPY_FLOAT, NPY_
 static char ufn_types_2_6[] = { NPY_FLOAT, NPY_FLOAT, NPY_FLOAT, NPY_FLOAT, NPY_FLOAT, NPY_FLOAT,
                                 NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE };
 
+static char ufn_types_3_3[] = { NPY_LONG, NPY_LONG, NPY_LONG,
+                                NPY_FLOAT, NPY_FLOAT, NPY_FLOAT,
+                                NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE };
+
+static char ufn_types_4_2[] = { NPY_FLOAT, NPY_FLOAT,
+                                NPY_DOUBLE, NPY_DOUBLE,
+                                NPY_CFLOAT, NPY_CFLOAT,
+                                NPY_CDOUBLE, NPY_CDOUBLE };
+static char ufn_types_4_3[] = { NPY_FLOAT, NPY_FLOAT, NPY_FLOAT,
+                                NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE,
+                                NPY_CFLOAT, NPY_CFLOAT, NPY_CFLOAT,
+                                NPY_CDOUBLE, NPY_CDOUBLE, NPY_CDOUBLE };
+
+static char ufn_types_5_3[] = { NPY_LONG, NPY_LONG, NPY_LONG,
+                                NPY_FLOAT, NPY_FLOAT, NPY_FLOAT,
+                                NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE,
+                                NPY_CFLOAT, NPY_CFLOAT, NPY_CFLOAT,
+                                NPY_CDOUBLE, NPY_CDOUBLE, NPY_CDOUBLE };
+
 #define FUNC_ARRAY_NAME(NAME) NAME ## _funcs
 
 #define GUFUNC_FUNC_ARRAY_REAL(NAME)                    \
@@ -219,6 +291,33 @@ static char ufn_types_2_6[] = { NPY_FLOAT, NPY_FLOAT, NPY_FLOAT, NPY_FLOAT, NPY_
     FUNC_ARRAY_NAME(NAME)[] = {                         \
         FLOAT_ ## NAME,                                 \
         DOUBLE_ ## NAME                                 \
+    }
+
+#define GUFUNC_FUNC_ARRAY_REAL_INT(NAME)                \
+    static PyUFuncGenericFunction                       \
+    FUNC_ARRAY_NAME(NAME)[] = {                         \
+        LONG_ ## NAME,                                  \
+        FLOAT_ ## NAME,                                 \
+        DOUBLE_ ## NAME                                 \
+    }
+
+#define GUFUNC_FUNC_ARRAY_REAL_COMPLEX(NAME)            \
+    static PyUFuncGenericFunction                       \
+    FUNC_ARRAY_NAME(NAME)[] = {                         \
+        FLOAT_ ## NAME,                                 \
+        DOUBLE_ ## NAME,                                \
+        CFLOAT_ ## NAME,                                \
+        CDOUBLE_ ## NAME                                \
+    }
+
+#define GUFUNC_FUNC_ARRAY_REAL_COMPLEX_INT(NAME)        \
+    static PyUFuncGenericFunction                       \
+    FUNC_ARRAY_NAME(NAME)[] = {                         \
+        LONG_ ## NAME,                                  \
+        FLOAT_ ## NAME,                                 \
+        DOUBLE_ ## NAME,                                \
+        CFLOAT_ ## NAME,                                \
+        CDOUBLE_ ## NAME                                \
     }
 
 typedef struct gufunc_descriptor_struct {

@@ -67,6 +67,20 @@ Copyright/licence info for that file:
 typedef int               fortran_int;
 typedef float             fortran_real;
 typedef double            fortran_doublereal;
+typedef f2c_complex       fortran_complex;
+typedef f2c_doublecomplex fortran_doublecomplex;
+
+typedef union {
+    fortran_complex f;
+    npy_cfloat npy;
+    float array[2];
+} COMPLEX_t;
+
+typedef union {
+    fortran_doublecomplex f;
+    npy_cdouble npy;
+    double array[2];
+} DOUBLECOMPLEX_t;
 
 static NPY_INLINE fortran_int
 fortran_int_min(fortran_int x, fortran_int y) {

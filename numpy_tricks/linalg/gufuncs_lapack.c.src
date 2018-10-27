@@ -175,30 +175,6 @@ FNAME(dgelsd)(int *m, int *n, int *nrhs,
             double *s, double *rcond, int *rank,
             double *work, int *lwork, int *iwork, int *info);
 
-/* eigenvalue decomposition */
-extern int
-FNAME(ssyevd)(char *jobz, char *uplo, int *n,
-            float *a, int *lda, float *w,
-            float *work, int *lwork, int *iwork, int *liwork, int *info);
-
-extern int
-FNAME(dsyevd)(char *jobz, char *uplo, int *n,
-            double *a, int *lda, double *w,
-            double *work, int *lwork, int *iwork, int *liwork, int *info);
-
-/* singular value decomposition */
-extern int
-FNAME(sgesdd)(char *jobz, int *m, int *n,
-            float *a, int *lda, float *s,
-            float *u, int *ldu, float *v, int *ldv,
-            float *work, int *lwork, int *iwork, int *info);
-
-extern int
-FNAME(dgesdd)(char *jobz, int *m, int *n,
-            double *a, int *lda, double *s,
-            double *u, int *ldu, double *v, int *ldv,
-            double *work, int *lwork, int *iwork, int *info);
-
 /*
 *****************************************************************************
 **                    DATA REARRANGEMENT FUNCTIONS                         **
@@ -211,7 +187,6 @@ FNAME(dgesdd)(char *jobz, int *m, int *n,
     #TYPE = FLOAT, DOUBLE#
     #typ = float, double#
     #copy = scopy, dcopy#
-    #scal = sscal, dscal#
     #zero = s_zero, d_zero#
     #nan = s_nan, d_nan#
 */
