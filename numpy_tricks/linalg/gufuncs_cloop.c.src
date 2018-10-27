@@ -38,7 +38,6 @@ Copyright/licence info for that file:
 69.  Docstrings
 134. Structs used for array iteration
 164. UFUNC LOOPS
-    177. pdist ratio and cdist_ratio
     324. matmul
     382. norm
 417. Ufunc definition
@@ -98,17 +97,16 @@ PyDoc_STRVAR(norm__doc__,
 *****************************************************************************
 */
 
-/**begin repeat
-    #TYPE=FLOAT,DOUBLE#
-    #typ=npy_float,npy_double#
-    #sqrt=npy_sqrtf,npy_sqrt#
-    #zero=s_zero,d_zero#
-    #inf=s_inf,d_inf#
-*/
-
 /* **********************************
             MATMUL
 ********************************** */
+
+/**begin repeat
+    #TYPE=LONG,FLOAT,DOUBLE,CFLOAT,CDOUBLE#
+    #typ=npy_long,npy_float,npy_double,npy_cfloat,npy_cdouble#
+    #zero=0,s_zero,d_zero,c_zero,z_zero#
+*/
+
 // matmul_signature = "(m,n),(n,p)->(m,p)";
 
 static void
@@ -164,9 +162,19 @@ INIT_OUTER_LOOP_3
     END_OUTER_LOOP_3
 }
 
+/**end repeat**/
+
 /* **********************************
             NORM
 ********************************** */
+
+/**begin repeat
+    #TYPE=FLOAT,DOUBLE#
+    #typ=npy_float,npy_double#
+    #sqrt=npy_sqrtf,npy_sqrt#
+    #zero=s_zero,d_zero#
+*/
+
 // norm_signature = "(n)->()";
 
 static void
@@ -198,20 +206,66 @@ INIT_OUTER_LOOP_2
 
 /**end repeat**/
 
+/**begin repeat
+    #TYPE=CFLOAT,CDOUBLE#
+    #typ=npy_cfloat,npy_cdouble#
+    #rtyp=npy_float,npy_double#
+    #sqrt=npy_sqrtf,npy_sqrt#
+    #zero=s_zero,d_zero#
+*/
+
+// norm_signature = "(n)->()";
+
+static void
+@TYPE@_norm(char **args, npy_intp *dimensions, npy_intp *steps,
+              void *NPY_UNUSED(func))
+{
+INIT_OUTER_LOOP_2
+
+    npy_intp len_n = *dimensions++;  // dimensions of inner
+    npy_intp stride_n = *steps++;
+    npy_intp n;
+    @rtyp@ normsq;
+    @typ@ *cmpt;
+
+    BEGIN_OUTER_LOOP
+
+        const char *ip_x= args[0];  //  1st arg
+        char *op_r = args[1];       //  output
+        normsq = @zero@;
+
+        for (n = 0; n < len_n; n++) {
+            cmpt = (@typ@ *)ip_x;
+            normsq += cmpt->array[0] * cmpt->array[0] + cmpt->array[1] * cmpt->array[1];
+
+            ip_x += stride_n;
+        }
+        *(@rtyp@ *)op_r = @sqrt@(normsq);
+
+    END_OUTER_LOOP_2
+}
+
+/**end repeat**/
+
 /*
 *****************************************************************************
 **                             UFUNC DEFINITION                            **
 *****************************************************************************
 */
 
-GUFUNC_FUNC_ARRAY_REAL(matmul);
-GUFUNC_FUNC_ARRAY_REAL(norm);
+static char ufn_types_norm[] = { NPY_FLOAT, NPY_FLOAT,
+                                NPY_DOUBLE, NPY_DOUBLE,
+                                NPY_CFLOAT, NPY_FLOAT,
+                                NPY_CDOUBLE, NPY_DOUBLE };
+
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX_INT(matmul);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(norm);
 
 GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
-    { "matmul", "(m,n),(n,p)->(m,p)", matmul__doc__, 2, 2, 1,
-      FUNC_ARRAY_NAME(matmul), ufn_types_2_3 },
-    { "norm", "(n)->()", norm__doc__, 2, 1, 1,
-      FUNC_ARRAY_NAME(norm), ufn_types_2_2 }
+    { "matmul", "(m,n),(n,p)->(m,p)", matmul__doc__, 5, 2, 1,
+      FUNC_ARRAY_NAME(matmul), ufn_types_5_3 },
+    { "norm", "(n)->()", norm__doc__, 4, 1, 1,
+      FUNC_ARRAY_NAME(norm), ufn_types_norm }
 };
 
 /*

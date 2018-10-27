@@ -38,7 +38,6 @@ Copyright/licence info for that file:
 70.  Docstrings
 135. BLAS/LAPACK calling macros
 164. Data rearrangement functions
-332. PDIST RATIO AND CDIST_RATIO
 592. NORM
 677. MATMUL
 829. Ufunc definition
@@ -99,44 +98,31 @@ PyDoc_STRVAR(norm__doc__,
 *****************************************************************************
 */
 
+/**begin repeat
+    #typ = float, double, f2c_complex, f2c_doublecomplex#
+    #rtyp = float, double, float, double#
+    #copy = scopy, dcopy, ccopy, zcopy#
+    #nrm2 = snrm2, dnrm2, scnrm2, dznrm2#
+    #gemm = sgemm, dgemm, cgemm, zgemm#
+*/
+
 /* copy vector x into y */
 extern int
-FNAME(scopy)(int *n,
-             float *sx, int *incx,
-             float *sy, int *incy);
-extern int
-FNAME(dcopy)(int *n,
-             double *sx, int *incx,
-             double *sy, int *incy);
-
-/* y -> y + a x */
-extern int
-FNAME(saxpy)(int *n, float *sa,
-             float sx[], int *inc_x,
-             float sy[], int *inc_y);
-
-extern int
-FNAME(daxpy)(int *n, double *da,
-             double dx[], int *inc_x,
-             double dy[], int *inc_y);
+FNAME(@copy@)(int *n,
+            @typ@ *sx, int *incx,
+            @typ@ *sy, int *incy);
 
 /* x -> sqrt(x'*x) */
-extern float
-FNAME(snrm2)(int *n, float sx[], int *inc_x);
-
-extern double
-FNAME(dnrm2)(int *n, double dx[], int *inc_x);
+extern @rtyp@
+FNAME(@nrm2@)(int *n, @typ@ sx[], int *inc_x);
 
 /* z -> a x*y + b z */
 extern int
-FNAME(sgemm)(char tra[], char trb[], int *m, int *n, int *k,
-    float *alpha, float a[], int *lda, float b[], int *ldb,
-    float *beta, float c[], int *ldc);
+FNAME(@gemm@)(char tra[], char trb[], int *m, int *n, int *k,
+    @typ@ *alpha, @typ@ a[], int *lda, @typ@ b[], int *ldb,
+    @typ@ *beta, float c[], int *ldc);
 
-extern int
-FNAME(dgemm)(char *transa, char *transb, int *m, int *n, int *k,
-    double *alpha, double *a, int *lda, double *b, int *ldb,
-    double *beta, double *c, int *ldc);
+/**end repeat**/
 
 /*
 *****************************************************************************
@@ -147,9 +133,9 @@ FNAME(dgemm)(char *transa, char *transb, int *m, int *n, int *k,
              /* rearranging of 2D matrices using blas */
 
 /**begin repeat
-    #TYPE = FLOAT, DOUBLE#
-    #typ = float, double#
-    #copy = scopy, dcopy#
+    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
+    #typ = float, double, COMPLEX_t, DOUBLECOMPLEX_t#
+    #copy = scopy, dcopy, ccopy, zcopy#
 */
 static NPY_INLINE void *
 linearize_@TYPE@_vec(void *dst_in,
@@ -305,25 +291,22 @@ typedef struct nrm2_params_struct
 } NRM2_PARAMS_t;
 
 /**begin repeat
-   #TYPE = FLOAT, DOUBLE#
-   #typ = npy_float, npy_double#
-   #ftyp = fortran_real, fortran_doublereal#
-   #diff = saxpy, daxpy#
-   #norm = snrm2, dnrm2#
-   #zero = s_zero, d_zero#
-   #minus_one = s_minus_one, d_minus_one#
-   #infty=s_inf,d_inf#
+    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
+    #typ = float, double, COMPLEX_t, DOUBLECOMPLEX_t#
+    #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
+    #rtyp = float, double, float, double#
+    #norm = snrm2, dnrm2, scnrm2, dznrm2#
 */
 
 /* *************************************************
 * Calling BLAS/Lapack function _nrm2
 *************************************************** */
 
-static NPY_INLINE @typ@
+static NPY_INLINE @rtyp@
 call_@norm@(NRM2_PARAMS_t *params)
 {
   // Y carries difference
-    return LAPACK(@norm@)(&params->N, params->X, &params->INCX);
+    return BLAS(@norm@)(&params->N, params->X, &params->INCX);
 }
 
 /* *****************************************************************
@@ -390,8 +373,8 @@ INIT_OUTER_LOOP_2
 
         BEGIN_OUTER_LOOP
 
-            linearize_@TYPE@_vec(params.Y, args[0], &y_in);
-            *(@typ@ *)args[1] = call_@norm@(&params);
+            linearize_@TYPE@_vec(params.X, args[0], &y_in);
+            *(@rtyp@ *)args[1] = call_@norm@(&params);
 
         END_OUTER_LOOP_2
         release_@TYPE@_nrm2(&params);
@@ -425,12 +408,12 @@ typedef struct gemm_params_struct
 } GEMM_PARAMS_t;
 
 /**begin repeat
-   #TYPE = FLOAT, DOUBLE#
-   #typ = npy_float, npy_double#
-   #ftyp = fortran_real, fortran_doublereal#
-   #matm = sgemm, dgemm#
-   #zero = s_zero, d_zero#
-   #one = s_one, d_one#
+    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
+    #typ = float, double, COMPLEX_t, DOUBLECOMPLEX_t#
+    #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
+    #matm = sgemm, dgemm, sgemm, dgemm#
+    #zero = s_zero, d_zero, c_zero, z_zero#
+    #one = s_one, d_one, c_one, z_one#
 */
 
 /* **************************************
@@ -440,7 +423,7 @@ typedef struct gemm_params_struct
 static NPY_INLINE @typ@
 call_@matm@(GEMM_PARAMS_t *params)
 {
-    LAPACK(@matm@)(&params->TRANSX, &params->TRANSY,
+    BLAS(@matm@)(&params->TRANSX, &params->TRANSY,
        &params->M, &params->N, &params->K,
        params->A,  params->X, &params->LDX, params->Y, &params->LDY,
        params->B, params->Z, &params->LDZ);
@@ -553,21 +536,92 @@ INIT_OUTER_LOOP_3
 
 /**end repeat**/
 
+/* Can't use BLAS for ints. MATMUL is the only function for which it makes sense
+*/
+
+/**begin repeat
+    #TYPE=LONG#
+    #typ=npy_long#
+    #zero=0#
+*/
+
+// matmul_signature = "(m,n),(n,p)->(m,p)";
+
+static void
+@TYPE@_matmul(char **args, npy_intp *dimensions, npy_intp *steps,
+              void *NPY_UNUSED(func))
+{
+INIT_OUTER_LOOP_3
+
+    npy_intp len_m = *dimensions++;  // dimensions of left
+    npy_intp len_n = *dimensions++;  // dimensions of inner
+    npy_intp len_p = *dimensions++;  // dimensions of right
+    npy_intp stride_x_m = *steps++;  // 1st arg
+    npy_intp stride_x_n = *steps++;
+    npy_intp stride_y_n = *steps++;  // 2nd arg
+    npy_intp stride_y_p = *steps++;
+    npy_intp stride_z_m = *steps++;  // output
+    npy_intp stride_z_p = *steps++;
+    npy_intp m, n, p;
+    npy_intp iback_x_n = len_n * stride_x_n;  // step back at end of loop
+    npy_intp iback_y_n = len_n * stride_y_n;
+    npy_intp iback_y_p = len_p * stride_y_p;  // step back at end of loop
+    npy_intp iback_z_p = len_p * stride_z_p;
+
+    BEGIN_OUTER_LOOP
+
+        const char *ip_x= args[0];  //  1st arg
+        const char *ip_y= args[1];  //  2nd arg
+        char *op_z = args[2];       //  output
+
+        for (m = 0; m < len_m; m++) {
+            for (p = 0; p < len_p; p++) {
+                *(@typ@ *)op_z = @zero@;
+
+                for (n = 0; n < len_n; n++) {
+                    *(@typ@ *)op_z += (*(@typ@ *)ip_x) * (*(@typ@ *)ip_y);
+
+                    ip_x += stride_x_n;
+                    ip_y += stride_y_n;
+                }
+                ip_x -= iback_x_n;
+                ip_y -= iback_y_n;
+
+                ip_y += stride_y_p;
+                op_z += stride_z_p;
+            }
+            ip_y -= iback_y_p;
+            op_z -= iback_z_p;
+
+            ip_x += stride_x_m;
+            op_z += stride_z_m;
+        }
+
+    END_OUTER_LOOP_3
+}
+
+/**end repeat**/
+
 /*
 *****************************************************************************
 **                             UFUNC DEFINITION                            **
 *****************************************************************************
 */
 
- GUFUNC_FUNC_ARRAY_REAL(matmul);
- GUFUNC_FUNC_ARRAY_REAL(norm);
+static char ufn_types_norm[] = { NPY_FLOAT, NPY_FLOAT,
+                                NPY_DOUBLE, NPY_DOUBLE,
+                                NPY_CFLOAT, NPY_FLOAT,
+                                NPY_CDOUBLE, NPY_DOUBLE };
 
- GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
-     { "matmul", "(m,n),(n,p)->(m,p)", matmul__doc__, 2, 2, 1,
-       FUNC_ARRAY_NAME(matmul), ufn_types_2_3 },
-     { "norm", "(n)->()", norm__doc__, 2, 1, 1,
-       FUNC_ARRAY_NAME(norm), ufn_types_2_2 }
- };
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX_INT(matmul);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(norm);
+
+GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
+    { "matmul", "(m,n),(n,p)->(m,p)", matmul__doc__, 5, 2, 1,
+      FUNC_ARRAY_NAME(matmul), ufn_types_5_3 },
+    { "norm", "(n)->()", norm__doc__, 4, 1, 1,
+      FUNC_ARRAY_NAME(norm), ufn_types_norm }
+};
 
 /*
 *****************************************************************************

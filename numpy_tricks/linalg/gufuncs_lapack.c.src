@@ -119,61 +119,60 @@ PyDoc_STRVAR(lstsq__doc__,
 *                    BLAS/LAPACK calling macros                             *
 *****************************************************************************
 */
+/**begin repeat
+    #typ = float, double, f2c_complex, f2c_doublecomplex#
+    #copy = scopy, dcopy, ccopy, zcopy#
+    #geqrf = sgeqrf, dgeqrf, cgeqrf, zgeqrf#
+    #orgqr = sorgqr, dgorqr, cungqr, zungqr#
+    #gesv = sgesv, dgesv, cgesv, zgesv#
+*/
 
 /* copy vector x into y */
 extern int
-FNAME(scopy)(int *n,
-            float *sx, int *incx,
-            float *sy, int *incy);
-extern int
-FNAME(dcopy)(int *n,
-            double *sx, int *incx,
-            double *sy, int *incy);
+FNAME(@copy@)(int *n,
+            @typ@ *sx, int *incx,
+            @typ@ *sy, int *incy);
 
 /* qr decomposition of a */
 /* a -> r, v, tau */
 extern int
-FNAME(sgeqrf)(int *m, int *n, float *a, int *lda, float *tau,
-            float *work, int * lwork, int *info);
-
-extern int
-FNAME(dgeqrf)(int *m, int *n, double *a, int *lda, double *tau,
-            double *work, int * lwork, int *info);
-
+FNAME(@geqrf@)(int *m, int *n, @typ@ *a, int *lda, @typ@ *tau,
+            @typ@ *work, int * lwork, int *info);
 /* v, tau -> q */
 extern int
-FNAME(sorgqr)(int *m, int *n, int *k,
-            float *a, int *lda, float *tau,
-            float *work, int * lwork, int *info);
-
-extern int
-FNAME(dorgqr)(int *m, int *n, int *k,
-            double *a, int *lda, double *tau,
-            double *work, int * lwork, int *info);;
+FNAME(@orgqr@)(int *m, int *n, int *k,
+            @typ@ *a, int *lda, @typ@ *tau,
+            @typ@ *work, int * lwork, int *info);
 
 /* solve a x = b for x */
 extern int
-FNAME(sgesv)(int *n, int *nrhs,
-            float *a, int *lda, int * ipiv,
-            float *b, int *ldb, int *info);
+FNAME(@gesv@)(int *n, int *nrhs,
+            @typ@ *a, int *lda, int * ipiv,
+            @typ@ *b, int *ldb, int *info);
 
-extern int
-FNAME(dgesv)(int *n, int *nrhs,
-            double *a, int *lda, int * ipiv,
-            double *b, int *ldb, int *info);
+/**end repeat**/
+
+/**begin repeat
+    #typ = f2c_complex, f2c_doublecomplex#
+    #rtyp = float, double#
+    #gelsd = sgelsd, dgelsd#
+    #gclsd = cgelsd, zgelsd#
+*/
 
 /* least square solution of a x = b for x */
 extern int
-FNAME(sgelsd)(int *m, int *n, int *nrhs,
-            float *a, int *lda, float *b, int *ldb,
-            float *s, float *rcond, int *rank,
-            float *work, int *lwork, int *iwork, int *info);
+FNAME(@gelsd@)(int *m, int *n, int *nrhs,
+            @rtyp@ *a, int *lda, @rtyp@ *b, int *ldb,
+            @rtyp@ *s, @rtyp@ *rcond, int *rank,
+            @rtyp@ *work, int *lwork, int *iwork, int *info);
 
 extern int
-FNAME(dgelsd)(int *m, int *n, int *nrhs,
-            double *a, int *lda, double *b, int *ldb,
-            double *s, double *rcond, int *rank,
-            double *work, int *lwork, int *iwork, int *info);
+FNAME(@gclsd@)(int *m, int *n, int *nrhs,
+            @typ@ *a, int *lda, @typ@ *b, int *ldb,
+            @rtyp@ *s, @rtyp@ *rcond, int *rank, @typ@ *work,
+            int *lwork, @rtyp@ *rwork, int *iwork, int *info);
+
+/**end repeat**/
 
 /*
 *****************************************************************************
@@ -184,11 +183,11 @@ FNAME(dgelsd)(int *m, int *n, int *nrhs,
               /* rearranging of 2D matrices using blas */
 
 /**begin repeat
-    #TYPE = FLOAT, DOUBLE#
-    #typ = float, double#
-    #copy = scopy, dcopy#
-    #zero = s_zero, d_zero#
-    #nan = s_nan, d_nan#
+    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
+    #typ = float, double, COMPLEX_t, DOUBLECOMPLEX_t#
+    #copy = scopy, dcopy, ccopy, zcopy#
+    #zero = s_zero, d_zero, c_zero, z_zero#
+    #nan = s_nan, d_nan, c_nan, z_nan#
 */
 
 static NPY_INLINE void *
@@ -423,7 +422,7 @@ nan_@TYPE@_vec(void *dst_in, const LINEARIZE_VDATA_t* data)
     }
 }
 
- /**end repeat**/
+/**end repeat**/
 
 /*
 *****************************************************************************
@@ -452,12 +451,11 @@ typedef struct geqrf_params_struct
 } GEQRF_PARAMS_t;
 
 /**begin repeat
-    #TYPE = FLOAT, DOUBLE#
-    #typ = npy_float, npy_double#
-    #ftyp = fortran_real, fortran_doublereal#
-    #geqrf = sgeqrf, dgeqrf#
-    #orgqr = sorgqr, dorgqr#
-    #nan = s_nan, d_nan#
+    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
+    #typ = npy_float, npy_double, npy_cfloat, npy_cdouble#
+    #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
+    #geqrf = sgeqrf, dgeqrf, cgeqrf, zgeqrf#
+    #orgqr = sorgqr, dorgqr, cungqr, zungqr#
 */
 
 /* ************************************************
@@ -693,10 +691,9 @@ typedef struct gesv_params_struct
 } GESV_PARAMS_t;
 
 /**begin repeat
-    #TYPE = FLOAT, DOUBLE#
-    #typ = npy_float, npy_double#
-    #ftyp = fortran_real, fortran_doublereal#
-    #gesv = sgesv, dgesv#
+    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
+    #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
+    #gesv = sgesv, dgesv, cgesv, zgesv#
 */
 
 /* ************************************************
@@ -831,6 +828,7 @@ typedef struct gels_params_struct
     void *A; /* A is (N,N) of base type */
     void *B; /* B is (N,NRHS) of base type */
     void *W; /* W is (LW,) of base type, work for _geqrf */
+    void *RW; /* RW is (LRW,) of base type, work for _geqrf */
     void *S; /* S is (MN,) of base type, work for _geqrf */
     void *RCOND; /* RCOND is scalar of base type */
     fortran_int *RANK; /* RANK is scalar of int type */
@@ -846,16 +844,16 @@ typedef struct gels_params_struct
 } GELS_PARAMS_t;
 
 /**begin repeat
-    #TYPE = FLOAT, DOUBLE#
-    #typ = npy_float, npy_double#
     #ftyp = fortran_real, fortran_doublereal#
+    #cftyp = fortran_complex, fortran_doublecomplex#
     #gels = sgelsd, dgelsd#
+    #gcls = cgelsd, zgelsd#
     #eps = s_eps, d_eps#
 */
 
- /* ************************************************
-  * Calling BLAS/Lapack functions _gelsd
-  *************************************************** */
+/* ************************************************
+* Calling BLAS/Lapack functions _gelsd
+*************************************************** */
 
 static NPY_INLINE void
 call_@gels@(GELS_PARAMS_t *params)
@@ -867,10 +865,20 @@ call_@gels@(GELS_PARAMS_t *params)
                    params->W, &params->LW, params->IW, &params->INFO);
 }
 
- /* *************************************************************************
-  * Initialize the parameters to use in the lapack functions _gelsd
-  * Handles buffer allocation
-  ************************************************************************** */
+static NPY_INLINE void
+call_@gcls@(GELS_PARAMS_t *params)
+{
+    // A,B are modified by ?GELS to carry LU info & X
+    LAPACK(@gcls@)(&params->M, &params->N, &params->NRHS,
+                   params->A, &params->LDA, params->B, &params->LDB,
+                   params->S, params->RCOND, params->RANK, params->W,
+                   &params->LW, params->RW, params->IW, &params->INFO);
+}
+
+/* *************************************************************************
+* Initialize the parameters to use in the lapack functions _gelsd
+* Handles buffer allocation
+************************************************************************** */
 static NPY_INLINE int
 init_@gels@(GELS_PARAMS_t *params,
             npy_intp M_in, npy_intp N_in, npy_intp NRHS_in)
@@ -957,6 +965,106 @@ init_@gels@(GELS_PARAMS_t *params,
     return 0;
 }
 
+static NPY_INLINE int
+init_@gcls@(GELS_PARAMS_t *params,
+            npy_intp M_in, npy_intp N_in, npy_intp NRHS_in)
+{
+    npy_uint8 *mem_buff = NULL;
+    npy_uint8 *mem_buff2 = NULL;
+    npy_uint8 *a, *b, *c, *d, *e;
+    fortran_int M, N, NRHS, MNn, MNx, LW, LIW, LRW, lda, ldb, iwork_size;
+    size_t safe_M, safe_N, safe_NRHS, safe_MN, safe_MNn, safe_MNx, safe_LW, safe_LIW, safe_LRW;
+    @cftyp@ work_size;
+    @ftyp@ rwork_size;
+
+    M = (fortran_int)M_in;
+    N = (fortran_int)N_in;
+    NRHS = (fortran_int)NRHS_in;
+    MNn = fortran_int_min(M, N);
+    MNx = fortran_int_max(M, N);
+    lda = fortran_int_max(M, 1);
+    ldb = fortran_int_max(MNx, 1);
+    safe_M = M_in;
+    safe_N = N_in;
+    safe_NRHS = NRHS_in;
+    safe_MNn = MNn;
+    safe_MNx = MNx;
+
+    mem_buff = malloc(safe_M * safe_N * sizeof(@cftyp@)
+                    + safe_MNx * safe_NRHS * sizeof(@cftyp@)
+                    + safe_MNn  * sizeof(@ftyp@)
+                    + sizeof(@ftyp@) + sizeof(fortran_int));
+    if (!mem_buff) {
+        goto error;
+    }
+    a = mem_buff;
+    b = a + safe_M * safe_N * sizeof(@cftyp@);
+    c = b + safe_MNx * safe_NRHS * sizeof(@cftyp@);
+    d = c + safe_MNn * sizeof(@ftyp@);
+    e = d + sizeof(@ftyp@);
+
+    params->A = a;
+    params->B = b;
+    params->S = c;
+    params->RCOND = d;
+    params->RANK = (fortran_int*)e;
+    params->W = &work_size;
+    params->RW = &rwork_size;
+    params->IW = &iwork_size;
+    params->M = M;
+    params->N = N;
+    params->NRHS = NRHS;
+    params->LDA = lda;
+    params->LDB = ldb;
+    params->LW = -1;
+    params->INFO = 0;
+
+    *(@ftyp@ *)params->RCOND = MNx * @eps@;
+
+    call_@gcls@(params);
+    if (params->INFO) {
+        goto error;
+    }
+    LW = (fortran_int)work_size;
+    LRW = (fortran_int)rwork_size;
+    LIW = iwork_size;
+    safe_LW = LW;
+    safe_LRW = LRW;
+    safe_LIW = LIW;
+
+    mem_buff2 = malloc(safe_LW * sizeof(@cftyp@)
+                    + safe_LRW * sizeof(@ftyp@)
+                    + safe_LIW * sizeof(fortran_int));
+    if (!mem_buff2) {
+        goto error;
+    }
+    a = mem_buff2;
+    b = a + safe_LW * sizeof(@cftyp@);
+    c = b + safe_LRW * sizeof(@ftyp@);
+
+    params->W = a;
+    params->RW = b;
+    params->IW = (fortran_int*)c;
+    params->LW = LW;
+
+    return 1;
+
+  error:
+    free(mem_buff);
+    free(mem_buff2);
+    memset(params, 0, sizeof(*params));
+    PyErr_NoMemory();
+
+    return 0;
+}
+
+/**end repeat**/
+
+/**begin repeat
+    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
+    #gels = sgelsd, dgelsd, cgelsd, zgelsd#
+*/
+
 /* ********************
 * Deallocate buffer
 *********************** */
@@ -1028,20 +1136,20 @@ INIT_OUTER_LOOP_3
 */
 
 
-GUFUNC_FUNC_ARRAY_REAL(qr_m);
-GUFUNC_FUNC_ARRAY_REAL(qr_n);
-GUFUNC_FUNC_ARRAY_REAL(solve);
-GUFUNC_FUNC_ARRAY_REAL(lstsq);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(qr_m);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(qr_n);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(solve);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq);
 
 GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
-    { "qr_m", "(m,n)->(m,m),(m,n)", qr__doc__, 2, 1, 2,
-        FUNC_ARRAY_NAME(qr_m), ufn_types_2_3 },
-    { "qr_n", "(m,n)->(m,n),(n,n)", qr__doc__, 2, 1, 2,
-        FUNC_ARRAY_NAME(qr_n), ufn_types_2_3 },
-    { "solve", "(n,n),(n,nrhs)->(n,nrhs)", solve__doc__, 2, 2, 1,
-        FUNC_ARRAY_NAME(solve), ufn_types_2_3 },
-    { "lstsq", "(m,n),(m,nrhs)->(n,nrhs)", lstsq__doc__, 2, 2, 1,
-        FUNC_ARRAY_NAME(lstsq), ufn_types_2_3 }
+    { "qr_m", "(m,n)->(m,m),(m,n)", qr__doc__, 4, 1, 2,
+        FUNC_ARRAY_NAME(qr_m), ufn_types_4_3 },
+    { "qr_n", "(m,n)->(m,n),(n,n)", qr__doc__, 4, 1, 2,
+        FUNC_ARRAY_NAME(qr_n), ufn_types_4_3 },
+    { "solve", "(n,n),(n,nrhs)->(n,nrhs)", solve__doc__, 4, 2, 1,
+        FUNC_ARRAY_NAME(solve), ufn_types_4_3 },
+    { "lstsq", "(m,n),(m,nrhs)->(n,nrhs)", lstsq__doc__, 4, 2, 1,
+        FUNC_ARRAY_NAME(lstsq), ufn_types_4_3 }
 };
 
 /*
