@@ -1,0 +1,625 @@
+/* Basic GUFuncs with BLAS
+*/
+/*
+Adapted from https://github.com/numpy/numpy/numpy/linalg/umath_linalg.c.src
+Copyright/licence info for that file:
+* Copyright (c) 2005-2017, NumPy Developers.
+* All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions
+* are met:
+*   - Redistributions of source code must retain the above
+*     copyright notice, this list of conditions and the
+*     following disclaimer.
+*   - Redistributions in binary form must reproduce the above copyright
+*     notice, this list of conditions and the following disclaimer
+*     in the documentation and/or other materials provided with the
+*     distribution.
+*   - Neither the name of the author nor the names of its
+*     contributors may be used to endorse or promote products derived
+*     from this software without specific prior written permission.
+*
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+* "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+* LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+* A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+* OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+* SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+* LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+* DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+* THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*              Table of Contents
+50.  Includes
+70.  Docstrings
+135. BLAS/LAPACK calling macros
+164. Data rearrangement functions
+332. PDIST RATIO AND CDIST_RATIO
+592. NORM
+677. MATMUL
+829. Ufunc definition
+851. Module initialization stuff
+*/
+
+/*
+*****************************************************************************
+**                            INCLUDES                                     **
+*****************************************************************************
+*/
+#define NPY_NO_DEPRECATED_API NPY_API_VERSION
+
+#include "Python.h"
+#include "numpy/ndarraytypes.h"
+#include "numpy/arrayobject.h"
+#include "numpy/ufuncobject.h"
+#include "numpy/npy_math.h"
+#include "numpy/npy_3kcompat.h"
+// #include "npy_config.h"
+
+#include "gufunc_common.h"
+#include "gufunc_fortran.h"
+
+static const char* gufuncs_blas_version_string = "0.1.1";
+
+/*
+*****************************************************************************
+**                   Doc string for Python functions                       **
+*****************************************************************************
+*/
+
+PyDoc_STRVAR(matmul__doc__,
+//"matmul(X: ndarray, Y: ndarray) -> (Z: ndarray)\n\n"
+"Matrix-matrix product.\n\n"
+"Parameters\n-----------\n"
+"X: ndarray (M,N)\n"
+"    Matrix multiplying from left.\n"
+"Y: ndarray (N,P)\n"
+"    Matrix multiplying from right.\n\n"
+"Returns\n-------\n"
+"Z: ndarray (M,P)\n"
+"    Result of matrix multiplication.");
+
+PyDoc_STRVAR(norm__doc__,
+//"matmul(X: ndarray, Y: ndarray) -> (Z: ndarray)\n\n"
+"Euclidean norm of a vector.\n\n"
+"Parameters\n-----------\n"
+"X: ndarray (...,N)\n"
+"    Vector, or array of vectors.\n\n"
+"Returns\n-------\n"
+"Z: float\n"
+"    Euclidean norm of X.");
+
+/*
+*****************************************************************************
+*                    BLAS/LAPACK calling macros                             *
+*****************************************************************************
+*/
+
+/* copy vector x into y */
+extern int
+FNAME(scopy)(int *n,
+             float *sx, int *incx,
+             float *sy, int *incy);
+extern int
+FNAME(dcopy)(int *n,
+             double *sx, int *incx,
+             double *sy, int *incy);
+
+/* y -> y + a x */
+extern int
+FNAME(saxpy)(int *n, float *sa,
+             float sx[], int *inc_x,
+             float sy[], int *inc_y);
+
+extern int
+FNAME(daxpy)(int *n, double *da,
+             double dx[], int *inc_x,
+             double dy[], int *inc_y);
+
+/* x -> sqrt(x'*x) */
+extern float
+FNAME(snrm2)(int *n, float sx[], int *inc_x);
+
+extern double
+FNAME(dnrm2)(int *n, double dx[], int *inc_x);
+
+/* z -> a x*y + b z */
+extern int
+FNAME(sgemm)(char tra[], char trb[], int *m, int *n, int *k,
+    float *alpha, float a[], int *lda, float b[], int *ldb,
+    float *beta, float c[], int *ldc);
+
+extern int
+FNAME(dgemm)(char *transa, char *transb, int *m, int *n, int *k,
+    double *alpha, double *a, int *lda, double *b, int *ldb,
+    double *beta, double *c, int *ldc);
+
+/*
+*****************************************************************************
+**                    DATA REARRANGEMENT FUNCTIONS                         **
+*****************************************************************************
+*/
+
+             /* rearranging of 2D matrices using blas */
+
+/**begin repeat
+    #TYPE = FLOAT, DOUBLE#
+    #typ = float, double#
+    #copy = scopy, dcopy#
+*/
+static NPY_INLINE void *
+linearize_@TYPE@_vec(void *dst_in,
+                     void *src_in,
+                     const LINEARIZE_VDATA_t *data)
+{
+    @typ@ *src = (@typ@ *) src_in;
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    if (dst) {
+        @typ@* rv = dst;
+        fortran_int len = (fortran_int)data->len;
+        fortran_int strides = (fortran_int)(data->strides/sizeof(@typ@));
+        fortran_int one = 1;
+        if (strides > 0) {
+            FNAME(@copy@)(&len,
+                          (void*)src, &strides,
+                          (void*)dst, &one);
+        }
+        else if (strides < 0) {
+            FNAME(@copy@)(&len,
+                          (void*)((@typ@*)src + (len-1)*strides),
+                          &strides,
+                          (void*)dst, &one);
+        }
+        else {
+            /*
+             * Zero stride has undefined behavior in some BLAS
+             * implementations (e.g. OSX Accelerate), so do it
+             * manually
+             */
+            int j;
+            for (j = 0; j < len; ++j) {
+                memcpy((@typ@*)dst + j, (@typ@*)src, sizeof(@typ@));
+            }
+        }
+        return rv;
+    } else {
+        return src;
+    }
+}
+
+static NPY_INLINE void *
+linearize_@TYPE@_matrix(void *dst_in,
+                        void *src_in,
+                        const LINEARIZE_DATA_t* data)
+{
+    @typ@ *src = (@typ@ *) src_in;
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    if (dst) {
+        int i, j;
+        @typ@* rv = dst;
+        fortran_int columns = (fortran_int)data->columns;
+        fortran_int column_strides =
+            (fortran_int)(data->column_strides/sizeof(@typ@));
+        fortran_int one = 1;
+        for (i = 0; i < data->rows; i++) {
+            if (column_strides > 0) {
+                FNAME(@copy@)(&columns,
+                              (void*)src, &column_strides,
+                              (void*)dst, &one);
+            }
+            else if (column_strides < 0) {
+                FNAME(@copy@)(&columns,
+                              (void*)((@typ@*)src + (columns-1)*column_strides),
+                              &column_strides,
+                              (void*)dst, &one);
+            }
+            else {
+                /*
+                 * Zero stride has undefined behavior in some BLAS
+                 * implementations (e.g. OSX Accelerate), so do it
+                 * manually
+                 */
+                for (j = 0; j < columns; ++j) {
+                    memcpy((@typ@*)dst + j, (@typ@*)src, sizeof(@typ@));
+                }
+            }
+            src += data->row_strides/sizeof(@typ@);
+            dst += data->output_lead_dim;
+        }
+        return rv;
+    } else {
+        return src;
+    }
+}
+
+static NPY_INLINE void *
+delinearize_@TYPE@_matrix(void *dst_in,
+                          void *src_in,
+                          const LINEARIZE_DATA_t* data)
+{
+    @typ@ *src = (@typ@ *) src_in;
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    if (src) {
+        int i;
+        @typ@ *rv = src;
+        fortran_int columns = (fortran_int)data->columns;
+        fortran_int column_strides =
+            (fortran_int)(data->column_strides/sizeof(@typ@));
+        fortran_int one = 1;
+        for (i = 0; i < data->rows; i++) {
+            if (column_strides > 0) {
+                FNAME(@copy@)(&columns,
+                              (void*)src, &one,
+                              (void*)dst, &column_strides);
+            }
+            else if (column_strides < 0) {
+                FNAME(@copy@)(&columns,
+                              (void*)src, &one,
+                              (void*)((@typ@*)dst + (columns-1)*column_strides),
+                              &column_strides);
+            }
+            else {
+                /*
+                 * Zero stride has undefined behavior in some BLAS
+                 * implementations (e.g. OSX Accelerate), so do it
+                 * manually
+                 */
+                if (columns > 0) {
+                    memcpy((@typ@*)dst,
+                           (@typ@*)src + (columns-1),
+                           sizeof(@typ@));
+                }
+            }
+            src += data->output_lead_dim;
+            dst += data->row_strides/sizeof(@typ@);
+        }
+
+        return rv;
+    } else {
+        return src;
+    }
+}
+
+
+/**end repeat**/
+
+/*
+******************************************************************************
+**                              NORM                                        **
+******************************************************************************
+*/
+
+typedef struct nrm2_params_struct
+{
+    void *X; /* X is (N,) of base type */
+
+    fortran_int N;
+    fortran_int INCX;
+} NRM2_PARAMS_t;
+
+/**begin repeat
+   #TYPE = FLOAT, DOUBLE#
+   #typ = npy_float, npy_double#
+   #ftyp = fortran_real, fortran_doublereal#
+   #diff = saxpy, daxpy#
+   #norm = snrm2, dnrm2#
+   #zero = s_zero, d_zero#
+   #minus_one = s_minus_one, d_minus_one#
+   #infty=s_inf,d_inf#
+*/
+
+/* *************************************************
+* Calling BLAS/Lapack function _nrm2
+*************************************************** */
+
+static NPY_INLINE @typ@
+call_@norm@(NRM2_PARAMS_t *params)
+{
+  // Y carries difference
+    return LAPACK(@norm@)(&params->N, params->X, &params->INCX);
+}
+
+/* *****************************************************************
+* Initialize the parameters to use in for the lapack function _nrm2
+* Handles buffer allocation
+******************************************************************* */
+
+static NPY_INLINE int
+init_@TYPE@_nrm2(NRM2_PARAMS_t *params, npy_intp N_in)
+{
+    npy_uint8 *mem_buff = NULL;
+    npy_uint8 *a;
+    size_t safe_N = N_in;
+    fortran_int N = (fortran_int)N_in;
+
+    mem_buff = malloc(safe_N * sizeof(@ftyp@));
+    if (!mem_buff) {
+        goto error;
+    }
+    a = mem_buff;
+
+    params->X = a;
+    params->N = N;
+    params->INCX = 1;
+
+    return 1;
+ error:
+    free(mem_buff);
+    memset(params, 0, sizeof(*params));
+    PyErr_NoMemory();
+
+    return 0;
+}
+
+/* *********************
+* Deallocate buffer
+************************ */
+
+static NPY_INLINE void
+release_@TYPE@_nrm2(NRM2_PARAMS_t *params)
+{
+    /* memory block base is in Y */
+    free(params->X);
+    memset(params, 0, sizeof(*params));
+}
+
+/* **************************
+* Inner GUfunc loop
+***************************** */
+
+static void
+@TYPE@_norm(char **args, npy_intp *dimensions, npy_intp *steps,
+              void *NPY_UNUSED(func))
+{
+INIT_OUTER_LOOP_2
+
+    npy_intp len_n = *dimensions++;  // dimensions of inner
+    npy_intp stride_n = *steps++;  // 1st arg
+    NRM2_PARAMS_t params;
+    LINEARIZE_VDATA_t y_in;
+
+    if(init_@TYPE@_nrm2(&params, len_n)) {
+        init_linearize_vdata(&y_in, len_n, stride_n);
+
+        BEGIN_OUTER_LOOP
+
+            linearize_@TYPE@_vec(params.Y, args[0], &y_in);
+            *(@typ@ *)args[1] = call_@norm@(&params);
+
+        END_OUTER_LOOP_2
+        release_@TYPE@_nrm2(&params);
+    }
+
+}
+
+/**end repeat**/
+
+/*
+******************************************************************************
+**                                  MATMUL                                  **
+******************************************************************************
+*/
+typedef struct gemm_params_struct
+{
+  void *A; /* A is scalar of base type */
+  void *B; /* B is scalar of base type */
+  void *X; /* X is (M,K) of base type */
+  void *Y; /* Y is (K,N) of base type */
+  void *Z; /* Z is (M,N) of base type */
+
+  fortran_int M;
+  fortran_int N;
+  fortran_int K;
+  fortran_int LDX;
+  fortran_int LDY;
+  fortran_int LDZ;
+  char TRANSX;
+  char TRANSY;
+} GEMM_PARAMS_t;
+
+/**begin repeat
+   #TYPE = FLOAT, DOUBLE#
+   #typ = npy_float, npy_double#
+   #ftyp = fortran_real, fortran_doublereal#
+   #matm = sgemm, dgemm#
+   #zero = s_zero, d_zero#
+   #one = s_one, d_one#
+*/
+
+/* **************************************
+* Calling BLAS/Lapack function _gemm
+***************************************** */
+
+static NPY_INLINE @typ@
+call_@matm@(GEMM_PARAMS_t *params)
+{
+    LAPACK(@matm@)(&params->TRANSX, &params->TRANSY,
+       &params->M, &params->N, &params->K,
+       params->A,  params->X, &params->LDX, params->Y, &params->LDY,
+       params->B, params->Z, &params->LDZ);
+}
+
+/* ******************************************************************
+* Initialize the parameters to use in for the lapack function _gemm
+* Handles buffer allocation
+********************************************************************* */
+
+static NPY_INLINE int
+init_@TYPE@_matm(GEMM_PARAMS_t *params, npy_intp M_in, npy_intp N_in, npy_intp K_in)
+{
+    npy_uint8 *mem_buff = NULL;
+    npy_uint8 *a, *b, *c;
+    fortran_int M, N, K, ldx, ldy, ldz;
+    size_t safe_M, safe_N, safe_K;
+
+    M = (fortran_int)M_in;
+    N = (fortran_int)N_in;
+    K = (fortran_int)K_in;
+    safe_M = M_in;
+    safe_N = N_in;
+    safe_K = K_in;
+    ldx = fortran_int_max(M, 1);
+    ldy = fortran_int_max(K, 1);
+    ldz = fortran_int_max(M, 1);
+
+    mem_buff = malloc(safe_M * safe_K * sizeof(@ftyp@)
+                      + safe_K * safe_N * sizeof(@ftyp@)
+                      + safe_M * safe_N * sizeof(@ftyp@));
+    if (!mem_buff) {
+        goto error;
+    }
+    a = mem_buff;
+    b = a + safe_M * safe_K * sizeof(@ftyp@);
+    c = b + safe_K * safe_N * sizeof(@ftyp@);
+
+    params->TRANSX = 'N';
+    params->TRANSY = 'N';
+    params->A = &@one@;
+    params->B = &@zero@;
+    params->X = a;
+    params->Y = b;
+    params->Z = c;
+    params->M = M;
+    params->N = N;
+    params->K = K;
+    params->LDX = ldx;
+    params->LDY = ldy;
+    params->LDZ = ldz;
+
+    return 1;
+ error:
+    free(mem_buff);
+    memset(params, 0, sizeof(*params));
+    PyErr_NoMemory();
+
+    return 0;
+}
+
+/* *********************************
+* Deallocate buffer
+************************************* */
+
+static NPY_INLINE void
+release_@TYPE@_matm(GEMM_PARAMS_t *params)
+{
+    /* memory block base is in X */
+    free(params->X);
+    memset(params, 0, sizeof(*params));
+}
+
+/* ***************************
+* Inner GUfunc loop
+****************************** */
+
+static void
+@TYPE@_matmul(char **args, npy_intp *dimensions, npy_intp *steps,
+              void *NPY_UNUSED(func))
+{
+INIT_OUTER_LOOP_3
+
+    npy_intp len_m = *dimensions++;  // dimensions of left
+    npy_intp len_k = *dimensions++;  // dimensions of inner
+    npy_intp len_n = *dimensions++;  // dimensions of right
+    npy_intp stride_x_m = *steps++;  // 1st arg
+    npy_intp stride_x_k = *steps++;
+    npy_intp stride_y_k = *steps++;  // 2nd arg
+    npy_intp stride_y_n = *steps++;
+    npy_intp stride_z_m = *steps++;  // output
+    npy_intp stride_z_n = *steps++;
+    GEMM_PARAMS_t params;
+    LINEARIZE_DATA_t x_in, y_in, z_out;
+
+    if(init_@TYPE@_matm(&params, len_m, len_n, len_k)) {
+        init_linearize_data(&x_in, len_k, len_m, stride_x_k, stride_x_m);
+        init_linearize_data(&y_in, len_n, len_k, stride_y_n, stride_y_k);
+        init_linearize_data(&z_out, len_n, len_m, stride_z_n, stride_z_m);
+
+        BEGIN_OUTER_LOOP
+            linearize_@TYPE@_matrix(params.X, args[0], &x_in);
+            linearize_@TYPE@_matrix(params.Y, args[1], &y_in);
+            call_@matm@(&params);
+            delinearize_@TYPE@_matrix(args[2], params.Z, &z_out);
+        END_OUTER_LOOP_3
+        release_@TYPE@_matm(&params);
+    }
+}
+
+/**end repeat**/
+
+/*
+*****************************************************************************
+**                             UFUNC DEFINITION                            **
+*****************************************************************************
+*/
+
+ GUFUNC_FUNC_ARRAY_REAL(matmul);
+ GUFUNC_FUNC_ARRAY_REAL(norm);
+
+ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
+     { "matmul", "(m,n),(n,p)->(m,p)", matmul__doc__, 2, 2, 1,
+       FUNC_ARRAY_NAME(matmul), ufn_types_2_3 },
+     { "norm", "(n)->()", norm__doc__, 2, 1, 1,
+       FUNC_ARRAY_NAME(norm), ufn_types_2_2 }
+ };
+
+/*
+*****************************************************************************
+**               Module initialization stuff                               **
+*****************************************************************************
+*/
+
+static PyMethodDef GUfuncs_BLAS_Methods[] = {
+    {NULL, NULL, 0, NULL}        /* Sentinel */
+};
+
+static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "_gufuncs_blas",
+        NULL,
+        -1,
+        GUfuncs_BLAS_Methods,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+};
+
+PyObject *PyInit__gufuncs_blas(void)
+{
+    PyObject *m;
+    PyObject *d;
+    PyObject *version;
+
+    init_constants();
+    m = PyModule_Create(&moduledef);
+    if (m == NULL) {
+        return NULL;
+    }
+
+    import_array();
+    import_ufunc();
+
+    d = PyModule_GetDict(m);
+
+    version = PyString_FromString(gufuncs_blas_version_string);
+    PyDict_SetItemString(d, "__version__", version);
+    Py_DECREF(version);
+
+    /* Load the ufunc operators into the module's namespace */
+    int failure = addUfuncs(d, gufunc_descriptors, 4);
+
+    if (PyErr_Occurred() || failure) {
+        PyErr_SetString(PyExc_RuntimeError,
+                        "cannot load _gufuncs_blas module.");
+        return NULL;
+    }
+
+    return m;
+}
