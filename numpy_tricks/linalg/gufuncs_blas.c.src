@@ -73,12 +73,24 @@ PyDoc_STRVAR(matmul__doc__,
 //"matmul(X: ndarray, Y: ndarray) -> (Z: ndarray)\n\n"
 "Matrix-matrix product.\n\n"
 "Parameters\n-----------\n"
-"X: ndarray (M,N)\n"
+"X: ndarray (...,M,N)\n"
 "    Matrix multiplying from left.\n"
-"Y: ndarray (N,P)\n"
+"Y: ndarray (...,N,P)\n"
 "    Matrix multiplying from right.\n\n"
 "Returns\n-------\n"
-"Z: ndarray (M,P)\n"
+"Z: ndarray (...,M,P)\n"
+"    Result of matrix multiplication.");
+
+PyDoc_STRVAR(rmatmul__doc__,
+//"matmul(Y: ndarray, X: ndarray) -> (Z: ndarray)\n\n"
+"Reversed matrix-matrix product.\n\n"
+"Parameters\n-----------\n"
+"Y: ndarray (...,N,P)\n"
+"    Matrix multiplying from right.\n"
+"X: ndarray (...,M,N)\n"
+"    Matrix multiplying from left.\n\n"
+"Returns\n-------\n"
+"Z: ndarray (...,M,P)\n"
 "    Result of matrix multiplication.");
 
 PyDoc_STRVAR(norm__doc__,
@@ -533,9 +545,43 @@ INIT_OUTER_LOOP_3
     }
 }
 
+//"(k,n),(m,k)->(m,n)"
+
+@TYPE@_rmatmul(char **args, npy_intp *dimensions, npy_intp *steps,
+              void *NPY_UNUSED(func))
+{
+INIT_OUTER_LOOP_3
+
+    npy_intp len_k = *dimensions++;  // dimensions of inner
+    npy_intp len_n = *dimensions++;  // dimensions of right
+    npy_intp len_m = *dimensions++;  // dimensions of left
+    npy_intp stride_y_k = *steps++;  // 2nd arg
+    npy_intp stride_y_n = *steps++;
+    npy_intp stride_x_m = *steps++;  // 1st arg
+    npy_intp stride_x_k = *steps++;
+    npy_intp stride_z_m = *steps++;  // output
+    npy_intp stride_z_n = *steps++;
+    GEMM_PARAMS_t params;
+    LINEARIZE_DATA_t x_in, y_in, z_out;
+
+    if(init_@TYPE@_matm(&params, len_m, len_n, len_k)) {
+        init_linearize_data(&x_in, len_k, len_m, stride_x_k, stride_x_m);
+        init_linearize_data(&y_in, len_n, len_k, stride_y_n, stride_y_k);
+        init_linearize_data(&z_out, len_n, len_m, stride_z_n, stride_z_m);
+
+        BEGIN_OUTER_LOOP
+            linearize_@TYPE@_matrix(params.X, args[1], &x_in);
+            linearize_@TYPE@_matrix(params.Y, args[0], &y_in);
+            call_@matm@(&params);
+            delinearize_@TYPE@_matrix(args[2], params.Z, &z_out);
+        END_OUTER_LOOP_3
+        release_@TYPE@_matm(&params);
+    }
+}
+
 /**end repeat**/
 
-/* Can't use BLAS for ints. MATMUL is the only function for which it makes sense
+/* Can't use BLAS for ints. MATMUL is the only function for which ints makes sense
 */
 
 /**begin repeat
@@ -598,6 +644,58 @@ INIT_OUTER_LOOP_3
 
     END_OUTER_LOOP_3
 }
+static void
+@TYPE@_rmatmul(char **args, npy_intp *dimensions, npy_intp *steps,
+              void *NPY_UNUSED(func))
+{
+INIT_OUTER_LOOP_3
+
+    npy_intp len_n = *dimensions++;  // dimensions of inner
+    npy_intp len_p = *dimensions++;  // dimensions of right
+    npy_intp len_m = *dimensions++;  // dimensions of left
+    npy_intp stride_y_n = *steps++;  // 2nd arg
+    npy_intp stride_y_p = *steps++;
+    npy_intp stride_x_m = *steps++;  // 1st arg
+    npy_intp stride_x_n = *steps++;
+    npy_intp stride_z_m = *steps++;  // output
+    npy_intp stride_z_p = *steps++;
+    npy_intp m, n, p;
+    npy_intp iback_x_n = len_n * stride_x_n;  // step back at end of loop
+    npy_intp iback_y_n = len_n * stride_y_n;
+    npy_intp iback_y_p = len_p * stride_y_p;  // step back at end of loop
+    npy_intp iback_z_p = len_p * stride_z_p;
+
+    BEGIN_OUTER_LOOP
+
+        const char *ip_x= args[1];  //  1st arg
+        const char *ip_y= args[0];  //  2nd arg
+        char *op_z = args[2];       //  output
+
+        for (m = 0; m < len_m; m++) {
+            for (p = 0; p < len_p; p++) {
+                *(@typ@ *)op_z = @zero@;
+
+                for (n = 0; n < len_n; n++) {
+                    *(@typ@ *)op_z += (*(@typ@ *)ip_x) * (*(@typ@ *)ip_y);
+
+                    ip_x += stride_x_n;
+                    ip_y += stride_y_n;
+                }
+                ip_x -= iback_x_n;
+                ip_y -= iback_y_n;
+
+                ip_y += stride_y_p;
+                op_z += stride_z_p;
+            }
+            ip_y -= iback_y_p;
+            op_z -= iback_z_p;
+
+            ip_x += stride_x_m;
+            op_z += stride_z_m;
+        }
+
+    END_OUTER_LOOP_3
+}
 
 /**end repeat**/
 
@@ -613,11 +711,14 @@ static char ufn_types_norm[] = { NPY_FLOAT, NPY_FLOAT,
                                 NPY_CDOUBLE, NPY_DOUBLE };
 
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX_INT(matmul);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX_INT(rmatmul);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(norm);
 
 GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
-    { "matmul", "(m,n),(n,p)->(m,p)", matmul__doc__, 5, 2, 1,
+    { "matmul", "(m,k),(k,n)->(m,n)", matmul__doc__, 5, 2, 1,
       FUNC_ARRAY_NAME(matmul), ufn_types_5_3 },
+    { "rmatmul", "(k,n),(m,k)->(m,n)", rmatmul__doc__, 5, 2, 1,
+      FUNC_ARRAY_NAME(rmatmul), ufn_types_5_3 },
     { "norm", "(n)->()", norm__doc__, 4, 1, 1,
       FUNC_ARRAY_NAME(norm), ufn_types_norm }
 };
@@ -666,7 +767,7 @@ PyObject *PyInit__gufuncs_blas(void)
     Py_DECREF(version);
 
     /* Load the ufunc operators into the module's namespace */
-    int failure = addUfuncs(d, gufunc_descriptors, 2);
+    int failure = addUfuncs(d, gufunc_descriptors, 3);
 
     if (PyErr_Occurred() || failure) {
         PyErr_SetString(PyExc_RuntimeError,
