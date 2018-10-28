@@ -81,6 +81,18 @@ PyDoc_STRVAR(matmul__doc__,
 "Z: ndarray (...,M,P)\n"
 "    Result of matrix multiplication.");
 
+PyDoc_STRVAR(rmatmul__doc__,
+//"matmul(Y: ndarray, X: ndarray) -> (Z: ndarray)\n\n"
+"Reversed matrix-matrix product.\n\n"
+"Parameters\n-----------\n"
+"Y: ndarray (...,N,P)\n"
+"    Matrix multiplying from right.\n"
+"X: ndarray (...,M,N)\n"
+"    Matrix multiplying from left.\n\n"
+"Returns\n-------\n"
+"Z: ndarray (...,M,P)\n"
+"    Result of matrix multiplication.");
+
 PyDoc_STRVAR(norm__doc__,
 //"matmul(X: ndarray, Y: ndarray) -> (Z: ndarray)\n\n"
 "Euclidean norm of a vector.\n\n"
@@ -90,6 +102,18 @@ PyDoc_STRVAR(norm__doc__,
 "Returns\n-------\n"
 "Z: float\n"
 "    Euclidean norm of X.");
+
+PyDoc_STRVAR(rtruedivide__doc__,
+//"matmul(Y: ndarray, X: ndarray) -> (Z: ndarray)\n\n"
+"Reversed division Z = Y \ X.\n\n"
+"Parameters\n-----------\n"
+"Y: ndarray (...,)\n"
+"    Denominator.\n"
+"X: ndarray (...,)\n"
+"    Numerator.\n\n"
+"Returns\n-------\n"
+"Z: ndarray (...,M,P)\n"
+"    Result of division.");
 
 /*
 *****************************************************************************
@@ -186,56 +210,95 @@ INIT_OUTER_LOOP_3
     END_OUTER_LOOP_3
 }
 
+// rmatmul_signature = "(n,p),(m,n)->(m,p)";
+
+static void
+@TYPE@_rmatmul(char **args, npy_intp *dimensions, npy_intp *steps,
+              void *NPY_UNUSED(func))
+{
+INIT_OUTER_LOOP_3
+
+    npy_intp len_n = *dimensions++;  // dimensions of inner
+    npy_intp len_p = *dimensions++;  // dimensions of right
+    npy_intp len_m = *dimensions++;  // dimensions of left
+    npy_intp stride_y_n = *steps++;  // 2nd arg
+    npy_intp stride_y_p = *steps++;
+    npy_intp stride_x_m = *steps++;  // 1st arg
+    npy_intp stride_x_n = *steps++;
+    npy_intp stride_z_m = *steps++;  // output
+    npy_intp stride_z_p = *steps++;
+    npy_intp m, n, p;
+    npy_intp iback_x_n = len_n * stride_x_n;  // step back at end of loop
+    npy_intp iback_y_n = len_n * stride_y_n;
+    npy_intp iback_y_p = len_p * stride_y_p;  // step back at end of loop
+    npy_intp iback_z_p = len_p * stride_z_p;
+
+    BEGIN_OUTER_LOOP
+
+        const char *ip_x= args[1];  //  1st arg
+        const char *ip_y= args[0];  //  2nd arg
+        char *op_z = args[2];       //  output
+
+        for (m = 0; m < len_m; m++) {
+            for (p = 0; p < len_p; p++) {
+                *(@typ@ *)op_z = @zero@;
+
+                for (n = 0; n < len_n; n++) {
+                    @TYPE@_add_product_scalar((@typ@ *)ip_x, (@typ@ *)ip_y, (@typ@ *)op_z);
+
+                    ip_x += stride_x_n;
+                    ip_y += stride_y_n;
+                }
+                ip_x -= iback_x_n;
+                ip_y -= iback_y_n;
+
+                ip_y += stride_y_p;
+                op_z += stride_z_p;
+            }
+            ip_y -= iback_y_p;
+            op_z -= iback_z_p;
+
+            ip_x += stride_x_m;
+            op_z += stride_z_m;
+        }
+
+    END_OUTER_LOOP_3
+}
+
 /**end repeat**/
 
 /* **********************************
             NORM
 ********************************** */
-
 /**begin repeat
     #TYPE=FLOAT,DOUBLE#
     #typ=npy_float,npy_double#
-    #sqrt=npy_sqrtf,npy_sqrt#
-    #zero=s_zero,d_zero#
 */
-
-// norm_signature = "(n)->()";
-
 static void
-@TYPE@_norm(char **args, npy_intp *dimensions, npy_intp *steps,
-              void *NPY_UNUSED(func))
+@TYPE@_add_abs_sq(const @typ@ *x_in, @typ@ *r_out)
 {
-INIT_OUTER_LOOP_2
-
-    npy_intp len_n = *dimensions++;  // dimensions of inner
-    npy_intp stride_n = *steps++;
-    npy_intp n;
-    @typ@ normsq;
-
-    BEGIN_OUTER_LOOP
-
-        const char *ip_x= args[0];  //  1st arg
-        char *op_r = args[1];       //  output
-        normsq = @zero@;
-
-        for (n = 0; n < len_n; n++) {
-            normsq += *(@typ@ *)ip_x * *(@typ@ *)ip_x;
-
-            ip_x += stride_n;
-        }
-        *(@typ@ *)op_r = @sqrt@(normsq);
-
-    END_OUTER_LOOP_2
+    *r_out += *x_in * *x_in;
 }
-
 /**end repeat**/
 
 /**begin repeat
     #TYPE=CFLOAT,CDOUBLE#
     #typ=COMPLEX_t,DOUBLECOMPLEX_t#
     #rtyp=npy_float,npy_double#
-    #sqrt=npy_sqrtf,npy_sqrt#
-    #zero=s_zero,d_zero#
+*/
+static void
+@TYPE@_add_abs_sq(const @typ@ *x_in, @rtyp@ *r_out)
+{
+    *r_out += x_in->array[0] * x_in->array[0] + x_in->array[1] * x_in->array[1];
+}
+/**end repeat**/
+
+/**begin repeat
+    #TYPE=FLOAT,DOUBLE,CFLOAT,CDOUBLE#
+    #typ=npy_float,npy_double,COMPLEX_t,DOUBLECOMPLEX_t#
+    #rtyp=npy_float,npy_double,npy_float,npy_double#
+    #sqrt=npy_sqrtf,npy_sqrt,npy_sqrtf,npy_sqrt#
+    #zero=s_zero,d_zero,s_zero,d_zero#
 */
 
 // norm_signature = "(n)->()";
@@ -250,7 +313,6 @@ INIT_OUTER_LOOP_2
     npy_intp stride_n = *steps++;
     npy_intp n;
     @rtyp@ normsq;
-    @typ@ *cmpt;
 
     BEGIN_OUTER_LOOP
 
@@ -259,14 +321,63 @@ INIT_OUTER_LOOP_2
         normsq = @zero@;
 
         for (n = 0; n < len_n; n++) {
-            cmpt = (@typ@ *)ip_x;
-            normsq += cmpt->array[0] * cmpt->array[0] + cmpt->array[1] * cmpt->array[1];
+            @TYPE@_add_abs_sq((@typ@ *)ip_x, &normsq);
 
             ip_x += stride_n;
         }
         *(@rtyp@ *)op_r = @sqrt@(normsq);
 
     END_OUTER_LOOP_2
+}
+
+/**end repeat**/
+/*
+*****************************************************************************
+**                               RTRUEDIVIDE                               **
+*****************************************************************************
+*/
+/**begin repeat
+    #TYPE=FLOAT,DOUBLE#
+    #typ=npy_float,npy_double#
+*/
+static void
+@TYPE@_div(const @typ@ *x_in, const @typ@ *y_in, @typ@ *r_out)
+{
+    *r_out = *x_in / *x_in;
+}
+/**end repeat**/
+
+/**begin repeat
+    #TYPE=CFLOAT,CDOUBLE#
+    #typ=COMPLEX_t,DOUBLECOMPLEX_t#
+    #rtyp=npy_float,npy_double#
+*/
+static void
+@TYPE@_div(const @typ@ *x_in, const @typ@ *y_in, @typ@ *r_out)
+{
+    @rtyp@ abs_y = y_in->array[0] * y_in->array[0] + y_in->array[1] * y_in->array[1];
+    r_out->array[0] = x_in->array[0] * y_in->array[0];
+    r_out->array[0] += x_in->array[1] * y_in->array[1];
+    r_out->array[0] /= abs_y;
+    r_out->array[1] = x_in->array[1] * y_in->array[0];
+    r_out->array[1] -= x_in->array[0] * y_in->array[1];
+    r_out->array[1] /= abs_y;
+}
+/**end repeat**/
+
+/**begin repeat
+    #TYPE=FLOAT,DOUBLE,CFLOAT,CDOUBLE#
+    #typ=npy_float,npy_double,COMPLEX_t,DOUBLECOMPLEX_t#
+*/
+
+static void
+@TYPE@_rtruedivide(char **args, npy_intp *dimensions, npy_intp *steps,
+              void *NPY_UNUSED(func))
+{
+    INIT_OUTER_LOOP_3
+    BEGIN_OUTER_LOOP
+        @TYPE@_div((@typ@ *)args[1], (@typ@ *)args[0], (@typ@ *)args[2]);
+    END_OUTER_LOOP_3
 }
 
 /**end repeat**/
@@ -283,13 +394,19 @@ static char ufn_types_norm[] = { NPY_FLOAT, NPY_FLOAT,
                                 NPY_CDOUBLE, NPY_DOUBLE };
 
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX_INT(matmul);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX_INT(rmatmul);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(norm);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rtruedivide);
 
 GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
     { "matmul", "(m,n),(n,p)->(m,p)", matmul__doc__, 5, 2, 1,
       FUNC_ARRAY_NAME(matmul), ufn_types_5_3 },
+    { "rmatmul", "(n,p),(m,n)->(m,p)", rmatmul__doc__, 5, 2, 1,
+      FUNC_ARRAY_NAME(rmatmul), ufn_types_5_3 },
     { "norm", "(n)->()", norm__doc__, 4, 1, 1,
-      FUNC_ARRAY_NAME(norm), ufn_types_norm }
+      FUNC_ARRAY_NAME(norm), ufn_types_norm },
+    { "rtruedivide", NULL, matmul__doc__, 4, 2, 1,
+      FUNC_ARRAY_NAME(rtruedivide), ufn_types_4_3 }
 };
 
 /*
