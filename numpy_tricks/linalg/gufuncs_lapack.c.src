@@ -1451,7 +1451,7 @@ PyObject *PyInit__gufuncs_lapack(void)
     Py_DECREF(version);
 
     /* Load the ufunc operators into the module's namespace */
-    int failure = addUfuncs(d, gufunc_descriptors, 7);
+    int failure = addUfuncs(d, gufunc_descriptors, 8);
 
     if (PyErr_Occurred() || failure) {
         PyErr_SetString(PyExc_RuntimeError,
