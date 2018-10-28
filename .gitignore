@@ -99,3 +99,6 @@ ENV/
 
 # mypy
 .mypy_cache/
+numpy_tricks/linalg/gufuncs_blas.c
+numpy_tricks/linalg/gufuncs_cloop.c
+numpy_tricks/linalg/gufuncs_lapack.c
