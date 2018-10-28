@@ -41,6 +41,7 @@ Copyright/licence info for that file:
 #ifndef GUF_INCLUDE
 #define GUF_INCLUDE
 
+#undef NO_FORTRAN
 /*
 *****************************************************************************
 **                         To use BLAS/LAPACK                              **
@@ -63,6 +64,8 @@ Copyright/licence info for that file:
 **                         To use BLAS/LAPACK                              **
 *****************************************************************************
 */
+typedef struct { float r, i; } f2c_complex;
+typedef struct { double r, i; } f2c_doublecomplex;
 
 typedef int               fortran_int;
 typedef float             fortran_real;
@@ -81,6 +84,7 @@ typedef union {
     npy_cdouble npy;
     double array[2];
 } DOUBLECOMPLEX_t;
+
 
 static NPY_INLINE fortran_int
 fortran_int_min(fortran_int x, fortran_int y) {
@@ -179,5 +183,7 @@ init_linearize_vdata(LINEARIZE_VDATA_t *lin_data,
     lin_data->len = len;
     lin_data->strides = strides;
 }
+
+#include "gufunc_common.h"
 
 #endif

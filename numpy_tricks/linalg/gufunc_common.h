@@ -156,19 +156,17 @@ set_fp_invalid_or_clear(int error_occurred)
 **                      Some handy constants                               **
 *****************************************************************************
 */
-typedef f2c_complex       fortran_complex;
-typedef f2c_doublecomplex fortran_doublecomplex;
+#ifdef NO_FORTRAN
 typedef union {
-    fortran_complex f;
     npy_cfloat npy;
     float array[2];
 } COMPLEX_t;
 
 typedef union {
-    fortran_doublecomplex f;
     npy_cdouble npy;
     double array[2];
 } DOUBLECOMPLEX_t;
+#endif
 
 static float s_one;
 static float s_zero;
@@ -252,7 +250,7 @@ static void init_constants(void)
 **                             UFUNC DEFINITION                            **
 *****************************************************************************
 */
-static void *null_data_5[] = { (void *)NULL, (void *)NULL, (void *)NULL, (void *)NULL, (void *)NULL };
+static void *null_data_array[] = { (void *)NULL, (void *)NULL, (void *)NULL, (void *)NULL, (void *)NULL };
 
 static char ufn_types_2_2[] = { NPY_FLOAT, NPY_FLOAT,
                                 NPY_DOUBLE, NPY_DOUBLE };
@@ -338,7 +336,7 @@ addUfuncs(PyObject *dictionary, const GUFUNC_DESCRIPTOR_t guf_descriptors[],
     int i;
     for (i = 0; i < gufunc_count; i++) {
         const GUFUNC_DESCRIPTOR_t* d = &guf_descriptors[i];
-        f = PyUFunc_FromFuncAndDataAndSignature(d->funcs, null_data_4, d->types,
+        f = PyUFunc_FromFuncAndDataAndSignature(d->funcs, null_data_array, d->types,
                                                 d->ntypes, d->nin, d->nout, PyUFunc_None,
                                                 d->name, d->doc, 0, d->signature);
         if (f == NULL) {

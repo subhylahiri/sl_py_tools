@@ -58,7 +58,7 @@ Copyright/licence info for that file:
 #include "numpy/npy_math.h"
 #include "numpy/npy_3kcompat.h"
 // #include "npy_config.h"
-
+#define NO_FORTRAN
 #include "gufunc_common.h"
 
 static const char* gufuncs_cloop_version_string = "0.1.1";
@@ -100,10 +100,34 @@ PyDoc_STRVAR(norm__doc__,
 /* **********************************
             MATMUL
 ********************************** */
+/**begin repeat
+    #TYPE=LONG,FLOAT,DOUBLE#
+    #typ=npy_long,npy_float,npy_double#
+*/
+static @typ@
+@TYPE@_add_product_scalar(const @typ@ *x_in, const @typ@ *y_in, @typ@ *z_out)
+{
+    *z_out += *x_in * *y_in;
+}
+/**end repeat**/
+
+/**begin repeat
+    #TYPE=CFLOAT,CDOUBLE#
+    #typ=COMPLEX_t,DOUBLECOMPLEX_t#
+*/
+static @typ@
+@TYPE@_add_product_scalar(const @typ@ *x_in, const @typ@ *y_in, @typ@ *z_out)
+{
+    z_out->array[0] += x_in->array[0] * y_in->array[0];
+    z_out->array[0] -= x_in->array[1] * y_in->array[1];
+    z_out->array[1] += x_in->array[0] * y_in->array[1];
+    z_out->array[1] += x_in->array[1] * y_in->array[0];
+}
+/**end repeat**/
 
 /**begin repeat
     #TYPE=LONG,FLOAT,DOUBLE,CFLOAT,CDOUBLE#
-    #typ=npy_long,npy_float,npy_double,npy_cfloat,npy_cdouble#
+    #typ=npy_long,npy_float,npy_double,COMPLEX_t,DOUBLECOMPLEX_t#
     #zero=0,s_zero,d_zero,c_zero,z_zero#
 */
 
@@ -141,7 +165,7 @@ INIT_OUTER_LOOP_3
                 *(@typ@ *)op_z = @zero@;
 
                 for (n = 0; n < len_n; n++) {
-                    *(@typ@ *)op_z += (*(@typ@ *)ip_x) * (*(@typ@ *)ip_y);
+                    @TYPE@_add_product_scalar((@typ@ *)ip_x, (@typ@ *)ip_y, (@typ@ *)op_z);
 
                     ip_x += stride_x_n;
                     ip_y += stride_y_n;
@@ -208,7 +232,7 @@ INIT_OUTER_LOOP_2
 
 /**begin repeat
     #TYPE=CFLOAT,CDOUBLE#
-    #typ=npy_cfloat,npy_cdouble#
+    #typ=COMPLEX_t,DOUBLECOMPLEX_t#
     #rtyp=npy_float,npy_double#
     #sqrt=npy_sqrtf,npy_sqrt#
     #zero=s_zero,d_zero#

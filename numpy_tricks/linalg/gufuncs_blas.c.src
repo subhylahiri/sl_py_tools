@@ -59,7 +59,6 @@ Copyright/licence info for that file:
 #include "numpy/npy_3kcompat.h"
 // #include "npy_config.h"
 
-#include "gufunc_common.h"
 #include "gufunc_fortran.h"
 
 static const char* gufuncs_blas_version_string = "0.1.1";
@@ -411,7 +410,7 @@ typedef struct gemm_params_struct
     #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
     #typ = float, double, COMPLEX_t, DOUBLECOMPLEX_t#
     #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
-    #matm = sgemm, dgemm, sgemm, dgemm#
+    #matm = sgemm, dgemm, cgemm, zgemm#
     #zero = s_zero, d_zero, c_zero, z_zero#
     #one = s_one, d_one, c_one, z_one#
 */
@@ -420,7 +419,7 @@ typedef struct gemm_params_struct
 * Calling BLAS/Lapack function _gemm
 ***************************************** */
 
-static NPY_INLINE @typ@
+static NPY_INLINE void
 call_@matm@(GEMM_PARAMS_t *params)
 {
     BLAS(@matm@)(&params->TRANSX, &params->TRANSY,
