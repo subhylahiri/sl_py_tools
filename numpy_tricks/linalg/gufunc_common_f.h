@@ -1,4 +1,4 @@
-/* Common code for calling BLAS/Lapack from GUFuncs
+/* Common code for creating GUFuncs and calling BLAS/Lapack
 */
 /*
 Adapted from https://github.com/numpy/numpy/numpy/linalg/umath_linalg.c.src
