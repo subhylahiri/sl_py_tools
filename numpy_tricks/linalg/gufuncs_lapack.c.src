@@ -789,20 +789,6 @@ INIT_OUTER_LOOP_3
 }
 
 static void
-@TYPE@_qr_m(char **args, npy_intp *dimensions, npy_intp *steps,
-        void *NPY_UNUSED(func))
-{
-    @TYPE@_qr(args, dimensions, steps, 1);
-}
-
-static void
-@TYPE@_qr_n(char **args, npy_intp *dimensions, npy_intp *steps,
-        void *NPY_UNUSED(func))
-{
-    @TYPE@_qr(args, dimensions, steps, 0);
-}
-
-static void
 @TYPE@_qr_r(char **args, npy_intp *dimensions, npy_intp *steps, int complete)
 {
 INIT_OUTER_LOOP_2
@@ -846,20 +832,6 @@ INIT_OUTER_LOOP_2
         }
     }
     set_fp_invalid_or_clear(error_occurred);
-}
-
-static void
-@TYPE@_qr_rm(char **args, npy_intp *dimensions, npy_intp *steps,
-        void *NPY_UNUSED(func))
-{
-    @TYPE@_qr_r(args, dimensions, steps, 1);
-}
-
-static void
-@TYPE@_qr_rn(char **args, npy_intp *dimensions, npy_intp *steps,
-        void *NPY_UNUSED(func))
-{
-    @TYPE@_qr_r(args, dimensions, steps, 0);
 }
 
 static void
@@ -913,6 +885,34 @@ INIT_OUTER_LOOP_3
     }
     set_fp_invalid_or_clear(error_occurred);
 }
+
+static void
+@TYPE@_qr_m(char **args, npy_intp *dimensions, npy_intp *steps,
+    void *NPY_UNUSED(func))
+    {
+        @TYPE@_qr(args, dimensions, steps, 1);
+    }
+
+static void
+@TYPE@_qr_n(char **args, npy_intp *dimensions, npy_intp *steps,
+    void *NPY_UNUSED(func))
+    {
+        @TYPE@_qr(args, dimensions, steps, 0);
+    }
+
+static void
+@TYPE@_qr_rm(char **args, npy_intp *dimensions, npy_intp *steps,
+    void *NPY_UNUSED(func))
+    {
+        @TYPE@_qr_r(args, dimensions, steps, 1);
+    }
+
+static void
+@TYPE@_qr_rn(char **args, npy_intp *dimensions, npy_intp *steps,
+    void *NPY_UNUSED(func))
+    {
+        @TYPE@_qr_r(args, dimensions, steps, 0);
+    }
 
 static void
 @TYPE@_qr_rawm(char **args, npy_intp *dimensions, npy_intp *steps,
@@ -1037,8 +1037,7 @@ release_@gesv@(GESV_PARAMS_t *params)
 // solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
 
 static void
-@TYPE@_solve(char **args, npy_intp *dimensions, npy_intp *steps,
- void *NPY_UNUSED(func))
+@TYPE@_solve_loop(char **args, npy_intp *dimensions, npy_intp *steps)
 {
 INIT_OUTER_LOOP_3
     npy_intp len_n = *dimensions++;  // rows
@@ -1076,6 +1075,15 @@ INIT_OUTER_LOOP_3
     set_fp_invalid_or_clear(error_occurred);
 }
 
+// solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
+
+static void
+@TYPE@_solve(char **args, npy_intp *dimensions, npy_intp *steps,
+ void *NPY_UNUSED(func))
+{
+    @TYPE@_solve_loop(args, dimensions, steps);
+}
+
 // solve_signature = (nrhs,n),(n,n)->(nrhs,n)"
 
 static void
@@ -1083,43 +1091,26 @@ static void
  void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_3
-    //swap (A,B) for (B^T,A^T)
-    //a,b here are not the same as A,B  in docstring: a=B^T, b=A^T
-    npy_intp len_nrhs = *dimensions++;  // rows
-    npy_intp len_n = *dimensions++;  // columns
-    //swap a<->b and row<->column strides
-    npy_intp stride_b_c = *steps++;
-    npy_intp stride_b_r = *steps++;  // rows
-    npy_intp stride_a_c = *steps++;
-    npy_intp stride_a_r = *steps++;  // rows
-    npy_intp stride_x_c = *steps++;
-    npy_intp stride_x_r = *steps++;  // rows
+    /*swap (A,B) for (B^T,A^T)
+    a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
+    char *rargs[] = {args[1], args[0], args[2]};
+    // dimensions = {N, len_nrhs, len_n};
+    // rdimensions[] = {N, len_n, len_nrhs};
+    npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[1]};
+    // steps = {strides_b, strides_a, strides_x,
+    //     strides_b_c, strides_b_r,
+    //     strides_a_c, strides_a_r,
+    //     strides_x_c, strides_x_r, };
+    // rsteps = {strides_a, strides_b, strides_x,
+    //     strides_a_r, strides_a_c,
+    //     strides_b_r, strides_b_c,
+    //     strides_x_r, strides_x_c, };
+    npy_intp rsteps[] = {steps[1], steps[0], steps[2],
+            steps[6], steps[5],
+            steps[4], steps[3],
+            steps[8], steps[7]};
     //now that we've swapped a,b and transposed, proceed as if we're in solve
-    int error_occurred = get_fp_invalid_and_clear();
-    GESV_PARAMS_t params;
-    LINEARIZE_DATA_t a_in, b_in, x_out;
-
-    if(init_@gesv@(&params, len_n, len_nrhs)){
-        init_linearize_data(&a_in, len_n, len_n, stride_a_c, stride_a_r);
-        init_linearize_data(&b_in, len_nrhs, len_n, stride_b_c, stride_b_r);
-        init_linearize_data(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r);
-
-        BEGIN_OUTER_LOOP
-            int not_ok;
-            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
-            linearize_@TYPE@_matrix(params.B, args[1], &b_in);
-            call_@gesv@(&params);
-            not_ok = params.INFO;
-            if (not_ok) {
-                error_occurred = 1;
-                nan_@TYPE@_matrix(args[2], &x_out);
-            } else {
-                delinearize_@TYPE@_matrix(args[2], params.B, &x_out);
-            }
-        END_OUTER_LOOP_3
-        release_@gesv@(&params);
-    }
-    set_fp_invalid_or_clear(error_occurred);
+    @TYPE@_solve_loop(rargs, rdimensions, rsteps);
 }
 
 /**end repeat**/
@@ -1270,7 +1261,7 @@ init_@gels@(GELS_PARAMS_t *params,
 {
     npy_uint8 *mem_buff2 = NULL;
     npy_uint8 *a, *b;
-    fortran_int LW, LIW, iwork_size;
+    fortran_int LW, iwork_size;
     size_t safe_LW, safe_LIW;
     @ftyp@ work_size;
 
@@ -1280,9 +1271,8 @@ init_@gels@(GELS_PARAMS_t *params,
         goto error;
     }
     LW = (fortran_int)work_size;
-    LIW = iwork_size;
     safe_LW = LW;
-    safe_LIW = LIW;
+    safe_LIW = iwork_size;
 
     mem_buff2 = malloc(safe_LW * sizeof(@ftyp@)
                     + safe_LIW * sizeof(fortran_int));
@@ -1313,7 +1303,7 @@ init_@gcls@(GELS_PARAMS_t *params,
 {
     npy_uint8 *mem_buff2 = NULL;
     npy_uint8 *a, *b, *c;
-    fortran_int LW, LRW, LIW, iwork_size;
+    fortran_int LW, iwork_size;
     size_t safe_LW, safe_LRW, safe_LIW;
     @cftyp@ work_size;
     @ftyp@ rwork_size;
@@ -1325,11 +1315,9 @@ init_@gcls@(GELS_PARAMS_t *params,
         goto error;
     }
     LW = (fortran_int)work_size.r;
-    LRW = (fortran_int)rwork_size;
-    LIW = iwork_size;
     safe_LW = LW;
-    safe_LRW = LRW;
-    safe_LIW = LIW;
+    safe_LRW = (size_t)rwork_size;
+    safe_LIW = iwork_size;
 
     mem_buff2 = malloc(safe_LW * sizeof(@cftyp@)
                     + safe_LRW * sizeof(@ftyp@)
@@ -1385,8 +1373,7 @@ release_@gels@(GELS_PARAMS_t *params)
 // lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
 
 static void
-@TYPE@_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
-void *NPY_UNUSED(func))
+@TYPE@_lstsq_loop(char **args, npy_intp *dimensions, npy_intp *steps)
 {
 INIT_OUTER_LOOP_3
     npy_intp len_m = *dimensions++;  // rows of a, b
@@ -1426,52 +1413,41 @@ INIT_OUTER_LOOP_3
     set_fp_invalid_or_clear(error_occurred);
 }
 
+// lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
+
+static void
+@TYPE@_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
+void *NPY_UNUSED(func))
+{
+    @TYPE@_lstsq_loop(args, dimensions, steps);
+}
+
 // lstsq_signature = "(nrhs,m),(n,m)->(nrhs,n)"
 
 static void
 @TYPE@_rlstsq(char **args, npy_intp *dimensions, npy_intp *steps,
 void *NPY_UNUSED(func))
 {
-INIT_OUTER_LOOP_3
-    //swap (A,B) for (B^T,A^T)
-    //a,b here are not the same as A,B  in docstring: a=B^T, b=A^T
-    npy_intp len_nrhs = *dimensions++;  // columns of x, b
-    npy_intp len_m = *dimensions++;  // rows of a, b
-    npy_intp len_n = *dimensions++;  // columns of a, rows of x
-    //swap a<->b and row<->column strides
-    npy_intp stride_b_c = *steps++;
-    npy_intp stride_b_r = *steps++;  // rows
-    npy_intp stride_a_c = *steps++;
-    npy_intp stride_a_r = *steps++;  // rows
-    npy_intp stride_x_c = *steps++;
-    npy_intp stride_x_r = *steps++;  // rows
+    /*swap (A,B) for (B^T,A^T)
+    a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
+    char *rargs[] = {args[1], args[0], args[2]};
+    // dimensions = {N, len_nrhs, len_m, len_n};
+    // rdimensions[] = {N, len_m, len_n, len_nrhs};
+    npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[3], dimensions[1]};
+    // steps = {strides_b, strides_a, strides_x,
+    //     strides_b_c, strides_b_r,
+    //     strides_a_c, strides_a_r,
+    //     strides_x_c, strides_x_r, };
+    // rsteps = {strides_a, strides_b, strides_x,
+    //     strides_a_r, strides_a_c,
+    //     strides_b_r, strides_b_c,
+    //     strides_x_r, strides_x_c, };
+    npy_intp rsteps[] = {steps[1], steps[0], steps[2],
+        steps[6], steps[5],
+        steps[4], steps[3],
+        steps[8], steps[7]};
     //now that we've swapped a,b and transposed, proceed as if we're in lstsq
-    int error_occurred = get_fp_invalid_and_clear();
-    GELS_PARAMS_t params;
-    LINEARIZE_DATA_t a_in, b_in, x_out;
-    npy_intp len_mn = len_m > len_n ? len_m : len_n; // max
-
-    if(init_@gels@(&params, len_m, len_n, len_nrhs)){
-        init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
-        init_linearize_data_ex(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn);
-        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
-
-        BEGIN_OUTER_LOOP
-            int not_ok;
-            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
-            linearize_@TYPE@_matrix(params.B, args[1], &b_in);
-            call_@gels@(&params);
-            not_ok = params.INFO;
-            if (not_ok) {
-                error_occurred = 1;
-                nan_@TYPE@_matrix(args[2], &x_out);
-            } else {
-                delinearize_@TYPE@_matrix(args[2], params.B, &x_out);
-            }
-        END_OUTER_LOOP_3
-        release_@gels@(&params);
-    }
-    set_fp_invalid_or_clear(error_occurred);
+    @TYPE@_lstsq_loop(rargs, rdimensions, rsteps);
 }
 
 /**end repeat**/

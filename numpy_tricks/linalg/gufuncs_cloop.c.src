@@ -151,8 +151,7 @@ static @typ@
 // matmul_signature = "(m,n),(n,p)->(m,p)";
 
 static void
-@TYPE@_matmul(char **args, npy_intp *dimensions, npy_intp *steps,
-              void *NPY_UNUSED(func))
+@TYPE@_matmul_loop(char **args, npy_intp *dimensions, npy_intp *steps)
 {
 INIT_OUTER_LOOP_3
 
@@ -203,59 +202,41 @@ INIT_OUTER_LOOP_3
     END_OUTER_LOOP_3
 }
 
+// matmul_signature = "(m,n),(n,p)->(m,p)";
+
+static void
+@TYPE@_matmul(char **args, npy_intp *dimensions, npy_intp *steps,
+              void *NPY_UNUSED(func))
+{
+    @TYPE@_matmul_loop(args, dimensions, steps);
+}
+
 // rmatmul_signature = "(n,p),(m,n)->(m,p)";
 
 static void
 @TYPE@_rmatmul(char **args, npy_intp *dimensions, npy_intp *steps,
               void *NPY_UNUSED(func))
 {
-INIT_OUTER_LOOP_3
-
-    npy_intp len_n = *dimensions++;  // dimensions of inner
-    npy_intp len_p = *dimensions++;  // dimensions of right
-    npy_intp len_m = *dimensions++;  // dimensions of left
-    npy_intp stride_y_n = *steps++;  // 2nd arg
-    npy_intp stride_y_p = *steps++;
-    npy_intp stride_x_m = *steps++;  // 1st arg
-    npy_intp stride_x_n = *steps++;
-    npy_intp stride_z_m = *steps++;  // output
-    npy_intp stride_z_p = *steps++;
-    npy_intp m, n, p;
-    npy_intp iback_x_n = len_n * stride_x_n;  // step back at end of loop
-    npy_intp iback_y_n = len_n * stride_y_n;
-    npy_intp iback_y_p = len_p * stride_y_p;  // step back at end of loop
-    npy_intp iback_z_p = len_p * stride_z_p;
-
-    BEGIN_OUTER_LOOP
-
-        const char *ip_x= args[1];  //  1st arg
-        const char *ip_y= args[0];  //  2nd arg
-        char *op_z = args[2];       //  output
-
-        for (m = 0; m < len_m; m++) {
-            for (p = 0; p < len_p; p++) {
-                *(@typ@ *)op_z = @zero@;
-
-                for (n = 0; n < len_n; n++) {
-                    @TYPE@_add_product_scalar((@typ@ *)ip_x, (@typ@ *)ip_y, (@typ@ *)op_z);
-
-                    ip_x += stride_x_n;
-                    ip_y += stride_y_n;
-                }
-                ip_x -= iback_x_n;
-                ip_y -= iback_y_n;
-
-                ip_y += stride_y_p;
-                op_z += stride_z_p;
-            }
-            ip_y -= iback_y_p;
-            op_z -= iback_z_p;
-
-            ip_x += stride_x_m;
-            op_z += stride_z_m;
-        }
-
-    END_OUTER_LOOP_3
+    /*swap (X,Y) for (Y,X)
+    x,y here are not the same as X,Y  in docstring: x=Y, y=X */
+    char *rargs[] = {args[1], args[0], args[2]};
+    // dimensions = {N, len_n, len_p, len_m};
+    // rdimensions[] = {N, len_m, len_n, len_p};
+    npy_intp rdimensions[] = {dimensions[0], dimensions[3], dimensions[1], dimensions[2]};
+    // steps = {strides_y, strides_x, strides_z,
+    //     strides_y_r, strides_y_c,
+    //     strides_x_r, strides_x_c,
+    //     strides_z_r, strides_z_c, };
+    // rsteps = {strides_x, strides_y, strides_z,
+    //     strides_x_r, strides_x_c,
+    //     strides_y_r, strides_y_c,
+    //     strides_z_r, strides_z_c, };
+    npy_intp rsteps[] = {steps[1], steps[0], steps[2],
+        steps[5], steps[6],
+        steps[3], steps[4],
+        steps[7], steps[8]};
+    //now that we've swapped a,b and transposed, proceed as if we're in lstsq
+    @TYPE@_matmul_loop(rargs, rdimensions, rsteps);
 }
 
 /**end repeat**/
