@@ -54,15 +54,7 @@ Copyright/licence info for that file:
 */
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
 
-#include "Python.h"
-#include "numpy/ndarraytypes.h"
-#include "numpy/arrayobject.h"
-#include "numpy/ufuncobject.h"
-#include "numpy/npy_math.h"
-#include "numpy/npy_3kcompat.h"
-// #include "npy_config.h"
-
-#include "gufunc_fortran.h"
+#include "gufunc_common_f.h"
 
 static const char* gufuncs_lapack_version_string = "0.1.0";
 
@@ -135,11 +127,11 @@ PyDoc_STRVAR(solve__doc__,
 PyDoc_STRVAR(rsolve__doc__,
 //"solve(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
 "Solve reversed linear system.\n\n"
-"Solve the equation `XA = B` for `X`.\n\n"
+"Solve the equation `A = XB` for `X`.\n\n"
 "Parameters\n-----------\n"
-"A: ndarray (...,N,N)\n"
+"A: ndarray (...,NRHS,N)\n"
 "    Matrix of coefficients.\n"
-"B: ndarray (...,NRHS,N)\n"
+"B: ndarray (...,N,N)\n"
 "    Matrix of result vectors.\n\n"
 "Returns\n-------\n"
 "X: ndarray (...,NRHS,N)\n"
@@ -164,17 +156,17 @@ PyDoc_STRVAR(lstsq__doc__,
 PyDoc_STRVAR(rlstsq__doc__,
 //"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
 "Least-square solution of reversed linear system.\n\n"
-"Find the least-square solution of the equation `XA = B` for `X`. \n"
+"Find the least-square solution of the equation `A = XB` for `X`. \n"
 "Unlike `numpy.linalg.lstsq`, this version does not return `residuals`, \n"
 "rank or singuar values, and uses the default value for `rcond`. \n"
 "It is intended for use in binary operators.\n\n"
 "Parameters\n-----------\n"
-"A: ndarray (...,M,N)\n"
+"A: ndarray (...,NRHS,M)\n"
 "    Matrix of coefficients.\n"
-"B: ndarray (...,NRHS,N)\n"
+"B: ndarray (...,N,M)\n"
 "    Matrix of result vectors.\n\n"
 "Returns\n-------\n"
-"X: ndarray (...,NRHS,M)\n"
+"X: ndarray (...,NRHS,N)\n"
 "    Matrix of solution vectors.\n");
 
 /*
@@ -569,15 +561,13 @@ call_@orgqr@(GEQRF_PARAMS_t *params)
 * Second: initialize for _geqrf and _orgqr
 ************************************************************************** */
 static NPY_INLINE int
-init_@geqrf@(GEQRF_PARAMS_t *params,
+init_@geqrf@_both(GEQRF_PARAMS_t *params,
                 npy_intp M_in, npy_intp N_in, npy_intp NC_in)
 {
     npy_uint8 *mem_buff = NULL;
-    npy_uint8 *mem_buff2 = NULL;
-    npy_uint8 *a, *b, *c;
-    fortran_int M, N, NC, K, LWR, ld;
-    size_t safe_M, safe_N, safe_NC, safe_K, safe_LWR;
-    @ftyp@ work_size;
+    npy_uint8 *a, *b;
+    fortran_int M, N, NC, K, ld;
+    size_t safe_M, safe_NC, safe_K;
 
     M = (fortran_int)M_in;
     N = (fortran_int)N_in;
@@ -585,7 +575,6 @@ init_@geqrf@(GEQRF_PARAMS_t *params,
     K = fortran_int_min(M, N);
     ld = fortran_int_max(M, 1);
     safe_M = M;
-    safe_N = N;
     safe_NC = fortran_int_max(NC, N);
     safe_K = K;
 
@@ -599,8 +588,6 @@ init_@geqrf@(GEQRF_PARAMS_t *params,
 
     params->A = a;
     params->T = b;
-    params->WR = &work_size;
-    params->WQ = NULL;
     params->M = M;
     params->N = N;
     params->K = K;
@@ -612,6 +599,30 @@ init_@geqrf@(GEQRF_PARAMS_t *params,
 
     call_@geqrf@(params);
     if (params->INFO < 0) {
+        goto error;
+    }
+    return 1;
+  error:
+    free(mem_buff);
+    memset(params, 0, sizeof(*params));
+    // PyErr_NoMemory();
+
+    return 0;
+}
+
+static NPY_INLINE int
+init_@geqrf@(GEQRF_PARAMS_t *params,
+                npy_intp M_in, npy_intp N_in, npy_intp NC_in)
+{
+    npy_uint8 *mem_buff2 = NULL;
+    npy_uint8 *c;
+    fortran_int LWR;
+    size_t safe_LWR;
+    @ftyp@ work_size;
+
+    params->WR = &work_size;
+    params->WQ = NULL;
+    if (!init_@geqrf@_both(params, M_in, N_in, NC_in)) {
         goto error;
     }
     LWR = @TYPE@_to_int(work_size);
@@ -629,10 +640,10 @@ init_@geqrf@(GEQRF_PARAMS_t *params,
 
     return 1;
   error:
-    free(mem_buff);
+    free(params->A);
     free(mem_buff2);
     memset(params, 0, sizeof(*params));
-    PyErr_NoMemory();
+    // PyErr_NoMemory();
 
     return 0;
 }
@@ -641,46 +652,15 @@ static NPY_INLINE int
 init_@orgqr@(GEQRF_PARAMS_t *params,
                 npy_intp M_in, npy_intp N_in, npy_intp NC_in)
 {
-    npy_uint8 *mem_buff = NULL;
     npy_uint8 *mem_buff2 = NULL;
-    npy_uint8 *a, *b, *c, *d;
-    fortran_int M, N, NC, K, LWR, LWQ, ld;
-    size_t safe_M, safe_N, safe_NC, safe_K, safe_LWR, safe_LWQ;
+    npy_uint8 *c, *d;
+    fortran_int LWR, LWQ;
+    size_t safe_LWR, safe_LWQ;
     @ftyp@ work_size;
 
-    M = (fortran_int)M_in;
-    N = (fortran_int)N_in;
-    NC = (fortran_int)NC_in;
-    K = fortran_int_min(M, N);
-    ld = fortran_int_max(M, 1);
-    safe_M = M;
-    safe_N = N;
-    safe_NC = fortran_int_max(NC, N);
-    safe_K = K;
-
-    mem_buff = malloc(safe_M * safe_NC * sizeof(@ftyp@)
-                   + safe_K * sizeof(@ftyp@));
-    if (!mem_buff) {
-        goto error;
-    }
-    a = mem_buff;
-    b = a + safe_M * safe_NC * sizeof(@ftyp@);
-
-    params->A = a;
-    params->T = b;
     params->WR = &work_size;
     params->WQ = &work_size;
-    params->M = M;
-    params->N = N;
-    params->K = K;
-    params->NC = NC;
-    params->LDA = ld;
-    params->LWR = -1;
-    params->LWQ = -1;
-    params->INFO = 0;
-
-    call_@geqrf@(params);
-    if (params->INFO < 0) {
+    if (!init_@geqrf@_both(params, M_in, N_in, NC_in)) {
         goto error;
     }
     LWR = @TYPE@_to_int(work_size);
@@ -709,10 +689,10 @@ init_@orgqr@(GEQRF_PARAMS_t *params,
 
     return 1;
   error:
-    free(mem_buff);
+    free(params->A);
     free(mem_buff2);
     memset(params, 0, sizeof(*params));
-    PyErr_NoMemory();
+    // PyErr_NoMemory();
 
     return 0;
 }
@@ -1032,7 +1012,7 @@ init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in)
   error:
     free(mem_buff);
     memset(params, 0, sizeof(*params));
-    PyErr_NoMemory();
+    // PyErr_NoMemory();
 
     return 0;
 }
@@ -1053,6 +1033,8 @@ release_@gesv@(GESV_PARAMS_t *params)
 /* ********************
 * Inner GUfunc loop
 *********************** */
+
+// solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
 
 static void
 @TYPE@_solve(char **args, npy_intp *dimensions, npy_intp *steps,
@@ -1094,27 +1076,33 @@ INIT_OUTER_LOOP_3
     set_fp_invalid_or_clear(error_occurred);
 }
 
+// solve_signature = (nrhs,n),(n,n)->(nrhs,n)"
+
 static void
 @TYPE@_rsolve(char **args, npy_intp *dimensions, npy_intp *steps,
  void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_3
-    npy_intp len_n = *dimensions++;  // rows
-    npy_intp len_nrhs = *dimensions++;  // columns
-    npy_intp stride_a_r = *steps++;  // rows
-    npy_intp stride_a_c = *steps++;
-    npy_intp stride_b_r = *steps++;  // rows
+    //swap (A,B) for (B^T,A^T)
+    //a,b here are not the same as A,B  in docstring: a=B^T, b=A^T
+    npy_intp len_nrhs = *dimensions++;  // rows
+    npy_intp len_n = *dimensions++;  // columns
+    //swap a<->b and row<->column strides
     npy_intp stride_b_c = *steps++;
-    npy_intp stride_x_r = *steps++;  // rows
+    npy_intp stride_b_r = *steps++;  // rows
+    npy_intp stride_a_c = *steps++;
+    npy_intp stride_a_r = *steps++;  // rows
     npy_intp stride_x_c = *steps++;
+    npy_intp stride_x_r = *steps++;  // rows
+    //now that we've swapped a,b and transposed, proceed as if we're in solve
     int error_occurred = get_fp_invalid_and_clear();
     GESV_PARAMS_t params;
     LINEARIZE_DATA_t a_in, b_in, x_out;
 
     if(init_@gesv@(&params, len_n, len_nrhs)){
-        init_linearize_data(&a_in, len_n, len_n, stride_a_r, stride_a_c);
-        init_linearize_data(&b_in, len_n, len_nrhs, stride_b_r, stride_b_c);
-        init_linearize_data(&x_out, len_n, len_nrhs, stride_x_r, stride_x_c);
+        init_linearize_data(&a_in, len_n, len_n, stride_a_c, stride_a_r);
+        init_linearize_data(&b_in, len_nrhs, len_n, stride_b_c, stride_b_r);
+        init_linearize_data(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r);
 
         BEGIN_OUTER_LOOP
             int not_ok;
@@ -1142,7 +1130,7 @@ INIT_OUTER_LOOP_3
 ******************************************************************************
 */
 
-char *lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
+// char *lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
 
 typedef struct gels_params_struct
 {
@@ -1164,10 +1152,40 @@ typedef struct gels_params_struct
     fortran_int INFO;
 } GELS_PARAMS_t;
 
+/* ************************************************
+* Calling BLAS/Lapack functions _gelsd
+*************************************************** */
+
+/**begin repeat
+    #gels = sgelsd, dgelsd#
+    #gcls = cgelsd, zgelsd#
+*/
+static NPY_INLINE void
+call_@gels@(GELS_PARAMS_t *params)
+{
+    // A,B are modified by ?GELS to carry LU info & X
+    LAPACK(@gels@)(&params->M, &params->N, &params->NRHS,
+                   params->A, &params->LDA, params->B, &params->LDB,
+                   params->S, params->RCOND, params->RANK,
+                   params->W, &params->LW, params->IW, &params->INFO);
+}
+
+static NPY_INLINE void
+call_@gcls@(GELS_PARAMS_t *params)
+{
+    // A,B are modified by ?GELS to carry LU info & X
+    LAPACK(@gcls@)(&params->M, &params->N, &params->NRHS,
+                   params->A, &params->LDA, params->B, &params->LDB,
+                   params->S, params->RCOND, params->RANK, params->W,
+                   &params->LW, params->RW, params->IW, &params->INFO);
+}
+/**end repeat**/
+
 /* *************************************************************************
 * Initialize the parameters to use in the lapack functions _gelsd
 * Handles buffer allocation
 ************************************************************************** */
+
 /**begin repeat
     #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
     #rftyp = fortran_real, fortran_doublereal, fortran_real, fortran_doublereal#
@@ -1176,7 +1194,6 @@ typedef struct gels_params_struct
 */
 static NPY_INLINE int
 init_@gels@_both(GELS_PARAMS_t *params,
-            @ftyp@ *work_size, fortran_int *iwork_size,
             npy_intp M_in, npy_intp N_in, npy_intp NRHS_in)
 {
     npy_uint8 *mem_buff = NULL;
@@ -1215,8 +1232,6 @@ init_@gels@_both(GELS_PARAMS_t *params,
     params->S = c;
     params->RCOND = d;
     params->RANK = (fortran_int*)e;
-    params->W = work_size;
-    params->IW = iwork_size;
     params->M = M;
     params->N = N;
     params->NRHS = NRHS;
@@ -1227,53 +1242,27 @@ init_@gels@_both(GELS_PARAMS_t *params,
 
     *(@rftyp@ *)params->RCOND = MNx * @eps@;
 
+    call_@gels@(params);
+    if (params->INFO) {
+        goto error;
+    }
     return 1;
 
   error:
     free(mem_buff);
     memset(params, 0, sizeof(*params));
-    PyErr_NoMemory();
+    // PyErr_NoMemory();
 
     return 0;
-}/**end repeat**/
+}
+/**end repeat**/
 
 /**begin repeat
-    #CTYPE = CFLOAT, CDOUBLE#
     #ftyp = fortran_real, fortran_doublereal#
     #cftyp = fortran_complex, fortran_doublecomplex#
     #gels = sgelsd, dgelsd#
     #gcls = cgelsd, zgelsd#
-    #eps = s_eps, d_eps#
 */
-
-/* ************************************************
-* Calling BLAS/Lapack functions _gelsd
-*************************************************** */
-
-static NPY_INLINE void
-call_@gels@(GELS_PARAMS_t *params)
-{
-    // A,B are modified by ?GELS to carry LU info & X
-    LAPACK(@gels@)(&params->M, &params->N, &params->NRHS,
-                   params->A, &params->LDA, params->B, &params->LDB,
-                   params->S, params->RCOND, params->RANK,
-                   params->W, &params->LW, params->IW, &params->INFO);
-}
-
-static NPY_INLINE void
-call_@gcls@(GELS_PARAMS_t *params)
-{
-    // A,B are modified by ?GELS to carry LU info & X
-    LAPACK(@gcls@)(&params->M, &params->N, &params->NRHS,
-                   params->A, &params->LDA, params->B, &params->LDB,
-                   params->S, params->RCOND, params->RANK, params->W,
-                   &params->LW, params->RW, params->IW, &params->INFO);
-}
-
-/* *************************************************************************
-* Initialize the parameters to use in the lapack functions _gelsd
-* Handles buffer allocation
-************************************************************************** */
 
 static NPY_INLINE int
 init_@gels@(GELS_PARAMS_t *params,
@@ -1285,10 +1274,9 @@ init_@gels@(GELS_PARAMS_t *params,
     size_t safe_LW, safe_LIW;
     @ftyp@ work_size;
 
-    init_@gels@_both(params, &work_size, &iwork_size, M_in, N_in, NRHS_in);
-
-    call_@gels@(params);
-    if (params->INFO) {
+    params->W = &work_size;
+    params->IW = &iwork_size;
+    if (!init_@gels@_both(params, M_in, N_in, NRHS_in)) {
         goto error;
     }
     LW = (fortran_int)work_size;
@@ -1330,11 +1318,10 @@ init_@gcls@(GELS_PARAMS_t *params,
     @cftyp@ work_size;
     @ftyp@ rwork_size;
 
-    init_@gels@_both(params, &work_size, &iwork_size, M_in, N_in, NRHS_in);
+    params->W = &work_size;
     params->RW = &rwork_size;
-
-    call_@gcls@(params);
-    if (params->INFO) {
+    params->IW = &iwork_size;
+    if (!init_@gcls@_both(params, M_in, N_in, NRHS_in)) {
         goto error;
     }
     LW = (fortran_int)work_size.r;
@@ -1395,6 +1382,8 @@ release_@gels@(GELS_PARAMS_t *params)
 * Inner GUfunc loop
 *********************** */
 
+// lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
+
 static void
 @TYPE@_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
 void *NPY_UNUSED(func))
@@ -1437,29 +1426,35 @@ INIT_OUTER_LOOP_3
     set_fp_invalid_or_clear(error_occurred);
 }
 
+// lstsq_signature = "(nrhs,m),(n,m)->(nrhs,n)"
+
 static void
 @TYPE@_rlstsq(char **args, npy_intp *dimensions, npy_intp *steps,
 void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_3
+    //swap (A,B) for (B^T,A^T)
+    //a,b here are not the same as A,B  in docstring: a=B^T, b=A^T
+    npy_intp len_nrhs = *dimensions++;  // columns of x, b
     npy_intp len_m = *dimensions++;  // rows of a, b
     npy_intp len_n = *dimensions++;  // columns of a, rows of x
-    npy_intp len_nrhs = *dimensions++;  // columns of x, b
-    npy_intp stride_a_r = *steps++;  // rows
-    npy_intp stride_a_c = *steps++;
-    npy_intp stride_b_r = *steps++;  // rows
+    //swap a<->b and row<->column strides
     npy_intp stride_b_c = *steps++;
-    npy_intp stride_x_r = *steps++;  // rows
+    npy_intp stride_b_r = *steps++;  // rows
+    npy_intp stride_a_c = *steps++;
+    npy_intp stride_a_r = *steps++;  // rows
     npy_intp stride_x_c = *steps++;
+    npy_intp stride_x_r = *steps++;  // rows
+    //now that we've swapped a,b and transposed, proceed as if we're in lstsq
     int error_occurred = get_fp_invalid_and_clear();
     GELS_PARAMS_t params;
     LINEARIZE_DATA_t a_in, b_in, x_out;
     npy_intp len_mn = len_m > len_n ? len_m : len_n; // max
 
-    if(init_@gels@(&params, len_n, len_m, len_nrhs)){
-        init_linearize_data(&a_in, len_m, len_n, stride_a_r, stride_a_c);
-        init_linearize_data_ex(&b_in, len_n, len_nrhs, stride_b_r, stride_b_c, len_mn);
-        init_linearize_data_ex(&x_out, len_m, len_nrhs, stride_x_r, stride_x_c, len_mn);
+    if(init_@gels@(&params, len_m, len_n, len_nrhs)){
+        init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
+        init_linearize_data_ex(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn);
+        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
 
         BEGIN_OUTER_LOOP
             int not_ok;
@@ -1516,11 +1511,11 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
         FUNC_ARRAY_NAME(qr_rawn), ufn_types_4_3 },
     { "solve", "(n,n),(n,nrhs)->(n,nrhs)", solve__doc__, 4, 2, 1,
         FUNC_ARRAY_NAME(solve), ufn_types_4_3 },
-    { "rsolve", "(n,n),(nrhs,n)->(nrhs,n)", solve__doc__, 4, 2, 1,
+    { "rsolve", "(nrhs,n),(n,n)->(nrhs,n)", solve__doc__, 4, 2, 1,
         FUNC_ARRAY_NAME(solve), ufn_types_4_3 },
     { "lstsq", "(m,n),(m,nrhs)->(n,nrhs)", lstsq__doc__, 4, 2, 1,
         FUNC_ARRAY_NAME(lstsq), ufn_types_4_3 },
-    { "rlstsq", "(m,n),(nrhs,n)->(nrhs,m)", lstsq__doc__, 4, 2, 1,
+    { "rlstsq", "(nrhs,m),(n,m)->(nrhs,n)", lstsq__doc__, 4, 2, 1,
         FUNC_ARRAY_NAME(lstsq), ufn_types_4_3 }
 };
 

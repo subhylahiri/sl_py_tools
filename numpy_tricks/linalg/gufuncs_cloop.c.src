@@ -51,14 +51,6 @@ Copyright/licence info for that file:
 */
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
 
-#include "Python.h"
-#include "numpy/ndarraytypes.h"
-#include "numpy/arrayobject.h"
-#include "numpy/ufuncobject.h"
-#include "numpy/npy_math.h"
-#include "numpy/npy_3kcompat.h"
-// #include "npy_config.h"
-#define NO_FORTRAN
 #include "gufunc_common.h"
 
 static const char* gufuncs_cloop_version_string = "0.1.1";
@@ -95,7 +87,8 @@ PyDoc_STRVAR(rmatmul__doc__,
 
 PyDoc_STRVAR(norm__doc__,
 //"matmul(X: ndarray, Y: ndarray) -> (Z: ndarray)\n\n"
-"Euclidean norm of a vector.\n\n"
+"Euclidean norm of a vector.\n"
+"Unlike `numpy.linalg.norm`, it only computes the vector 2-norm.\n\n"
 "Parameters\n-----------\n"
 "X: ndarray (...,N)\n"
 "    Vector, or array of vectors.\n\n"
@@ -105,14 +98,14 @@ PyDoc_STRVAR(norm__doc__,
 
 PyDoc_STRVAR(rtruedivide__doc__,
 //"matmul(Y: ndarray, X: ndarray) -> (Z: ndarray)\n\n"
-"Reversed division Z = Y \ X.\n\n"
+"Reversed division Z = X \ Y.\n\n"
 "Parameters\n-----------\n"
-"Y: ndarray (...,)\n"
+"X: ndarray (...)\n"
 "    Denominator.\n"
-"X: ndarray (...,)\n"
+"Y: ndarray (...)\n"
 "    Numerator.\n\n"
 "Returns\n-------\n"
-"Z: ndarray (...,M,P)\n"
+"Z: ndarray (...)\n"
 "    Result of division.");
 
 /*

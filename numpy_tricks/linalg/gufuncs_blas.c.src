@@ -51,15 +51,7 @@ Copyright/licence info for that file:
 */
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
 
-#include "Python.h"
-#include "numpy/ndarraytypes.h"
-#include "numpy/arrayobject.h"
-#include "numpy/ufuncobject.h"
-#include "numpy/npy_math.h"
-#include "numpy/npy_3kcompat.h"
-// #include "npy_config.h"
-
-#include "gufunc_fortran.h"
+#include "gufunc_common_f.h"
 
 static const char* gufuncs_blas_version_string = "0.1.1";
 
@@ -82,7 +74,7 @@ PyDoc_STRVAR(matmul__doc__,
 "    Result of matrix multiplication.");
 
 PyDoc_STRVAR(rmatmul__doc__,
-//"matmul(Y: ndarray, X: ndarray) -> (Z: ndarray)\n\n"
+//"rmatmul(Y: ndarray, X: ndarray) -> (Z: ndarray)\n\n"
 "Reversed matrix-matrix product.\n\n"
 "Parameters\n-----------\n"
 "Y: ndarray (...,N,P)\n"
@@ -94,8 +86,9 @@ PyDoc_STRVAR(rmatmul__doc__,
 "    Result of matrix multiplication.");
 
 PyDoc_STRVAR(norm__doc__,
-//"matmul(X: ndarray, Y: ndarray) -> (Z: ndarray)\n\n"
-"Euclidean norm of a vector.\n\n"
+//"norm(X: ndarray) -> (Z: ndarray)\n\n"
+"Euclidean norm of a vector.\n"
+"Unlike `numpy.linalg.norm`, it only computes the vector 2-norm.\n\n"
 "Parameters\n-----------\n"
 "X: ndarray (...,N)\n"
 "    Vector, or array of vectors.\n\n"
@@ -512,6 +505,8 @@ release_@TYPE@_matm(GEMM_PARAMS_t *params)
 * Inner GUfunc loop
 ****************************** */
 
+// matmul_signature = "(m,k),(k,n)->(m,n)";
+
 static void
 @TYPE@_matmul(char **args, npy_intp *dimensions, npy_intp *steps,
               void *NPY_UNUSED(func))
@@ -545,7 +540,7 @@ INIT_OUTER_LOOP_3
     }
 }
 
-//"(k,n),(m,k)->(m,n)"
+// rmatmul_signature = "(k,n),(m,k)->(m,n)"
 
 @TYPE@_rmatmul(char **args, npy_intp *dimensions, npy_intp *steps,
               void *NPY_UNUSED(func))
@@ -581,6 +576,11 @@ INIT_OUTER_LOOP_3
 
 /**end repeat**/
 
+/*
+******************************************************************************
+**                               MATMUL (int)                               **
+******************************************************************************
+*/
 /* Can't use BLAS for ints. MATMUL is the only function for which ints makes sense
 */
 
@@ -644,6 +644,9 @@ INIT_OUTER_LOOP_3
 
     END_OUTER_LOOP_3
 }
+
+// rmatmul_signature = "(n,p),(m,n)->(m,p)"
+
 static void
 @TYPE@_rmatmul(char **args, npy_intp *dimensions, npy_intp *steps,
               void *NPY_UNUSED(func))
