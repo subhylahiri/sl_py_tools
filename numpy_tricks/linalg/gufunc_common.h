@@ -156,7 +156,7 @@ set_fp_invalid_or_clear(int error_occurred)
 **                      Some handy constants                               **
 *****************************************************************************
 */
-#ifdef NO_FORTRAN
+#ifndef FORTRAN_TYPES
 typedef union {
     npy_cfloat npy;
     float array[2];

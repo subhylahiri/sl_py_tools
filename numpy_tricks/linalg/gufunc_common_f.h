@@ -55,7 +55,6 @@ Copyright/licence info for that file:
 #include "numpy/arrayobject.h"
 #include "numpy/ufuncobject.h"
 #include "numpy/npy_math.h"
-
 #include "numpy/npy_3kcompat.h"
 // #include "npy_config.h"
 
@@ -85,6 +84,8 @@ typedef union {
     double array[2];
 } DOUBLECOMPLEX_t;
 
+#define FORTRAN_TYPES 1
+#include "gufunc_common.h"
 
 static NPY_INLINE fortran_int
 fortran_int_min(fortran_int x, fortran_int y) {
@@ -183,7 +184,5 @@ init_linearize_vdata(LINEARIZE_VDATA_t *lin_data,
     lin_data->len = len;
     lin_data->strides = strides;
 }
-
-#include "gufunc_common.h"
 
 #endif
