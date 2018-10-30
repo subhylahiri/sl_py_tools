@@ -36,7 +36,7 @@ ldarray
 
 Functions
 ---------
-trnsp
+transpose
     Transpose last two indices.
 col
     Treat multi-dim array as a stack of column vectors.
@@ -70,12 +70,12 @@ Examples
 
 from ._lnarray import lnarray, pinvarray, invarray, lnmatrix
 from ._ldarray import ldarray
-from ._linalg import trnsp, col, row, scal, matldiv, matrdiv
-from ._gufuncs import (matmul, solve, rsolve, lstsq, rlstsq, qr, qr_tall,
-                       lstsq_m, lstsq_n)
+from ._linalg import transpose, col, row, scal, matldiv, matrdiv, qr
+from .gufuncs import matmul, solve, rsolve, lstsq, rlstsq
+from . import gufuncs
 from . import _ln_wrap as wrappers
 from ._ln_creation import *
 from ._ln_manipulation import *
 # import _ld_wrap as wrappers
 # from ._ld_creation import *
-from . import convert_loop
+# from . import convert_loop

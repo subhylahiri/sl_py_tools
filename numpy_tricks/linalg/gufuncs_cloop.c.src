@@ -345,7 +345,7 @@ static void
 */
 
 static void
-@TYPE@_rtruedivide(char **args, npy_intp *dimensions, npy_intp *steps,
+@TYPE@_rtrue_divide(char **args, npy_intp *dimensions, npy_intp *steps,
               void *NPY_UNUSED(func))
 {
     INIT_OUTER_LOOP_3
@@ -370,7 +370,7 @@ static char ufn_types_norm[] = { NPY_FLOAT, NPY_FLOAT,
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX_INT(matmul);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX_INT(rmatmul);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(norm);
-GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rtruedivide);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rtrue_divide);
 
 GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
     { "matmul", "(m,n),(n,p)->(m,p)", matmul__doc__, 5, 2, 1,
@@ -379,8 +379,8 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
       FUNC_ARRAY_NAME(rmatmul), ufn_types_5_3 },
     { "norm", "(n)->()", norm__doc__, 4, 1, 1,
       FUNC_ARRAY_NAME(norm), ufn_types_norm },
-    { "rtruedivide", NULL, matmul__doc__, 4, 2, 1,
-      FUNC_ARRAY_NAME(rtruedivide), ufn_types_4_3 }
+    { "rtrue_divide", NULL, matmul__doc__, 4, 2, 1,
+      FUNC_ARRAY_NAME(rtrue_divide), ufn_types_4_3 }
 };
 
 /*

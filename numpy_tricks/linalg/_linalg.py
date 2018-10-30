@@ -8,7 +8,7 @@ Linear algebra routines.
 
 Functions
 ---------
-trnsp
+transpose
     Transpose last two indices.
 col
     Treat multi-dim array as a stack of column vectors.
@@ -25,32 +25,13 @@ matmul
 """
 
 import numpy as np
+from numpy.linalg.linalg import transpose
 from typing import Tuple
-from . import _gufuncs as gf
+from . import gufuncs as gf
 
 # =============================================================================
 # Reshaping for linear algebra
 # =============================================================================
-
-
-def trnsp(a: np.ndarray) -> np.ndarray:
-    """Transpose last two indices.
-
-    Transposing last two indices fits better with `np.linalg`'s broadcasting,
-    which treats multi-dim arrays as stacks of matrices.
-
-    Parameters
-    ----------
-    a : np.ndarray, (..., M, N)
-
-    Returns
-    -------
-    transposed : np.ndarray, (..., N, M)
-    """
-    if a.ndim > 1:
-        return a.swapaxes(-1, -2)
-    else:
-        return a
 
 
 def col(a: np.ndarray) -> np.ndarray:
@@ -207,4 +188,50 @@ def matrdiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
     `np.linalg.solve` : performs exact matrix division.
     `np.linalg.lstsq` : performs least-square matrix division.
     """
-    return trnsp(matldiv(trnsp(y), trnsp(x), *args, **kwargs))
+    return transpose(matldiv(transpose(y), transpose(x), *args, **kwargs))
+
+
+qr_modes = {'reduced': (gf.qr_m, gf.qr_n),
+            'complete': (gf.qr_m, gf.qr_m),
+            'r': (gf.qr_rm, gf.qr_rn),
+            'raw': (gf.qr_rawm, gf.qr_rawn)}
+
+
+def qr(x: np.ndarray, mode: str = 'reduced') -> (np.ndarray, np.ndarray):
+    """QR decomposition.
+
+    Factor a matrix as `A = QR` with `Q` orthogonal and `R` upper-triangular.
+    `K = min(M,N)`, except for mode `complete`, where `K = M`.
+
+    Parameters
+    -----------
+    A: ndarray (...,M,N)
+        Matrix to be factored.
+    mode: str, chosen from:
+        reduced
+            default, use minimum inner dimensionality,
+        complete
+            use maximum inner dimensionality
+        r
+            return `R` only,
+        raw
+            return `H`, containing both Householder reflectors and `R`,
+            and `tau` containing scaling factors.
+
+    Returns
+    -------
+    Q: ndarray (...,M,K)
+        Matrix with orthonormal columns. Modes: reduced, complete.
+    R: ndarray (...,K,N)
+        Matrix with zeros below the diagonal. Modes: reduced, complete, r.
+    H: ndarray (...,N,M)
+        Transpose of matrix for use in Fortran. Above and on the diagonal: `R`.
+        Below the diagonal: the Householder reflectors `v`. Modes: raw.
+    tau: ndarray (...,K,)
+        Scaling factors for Householder reflectors. Modes: raw.
+    """
+    if mode not in qr_modes.keys():
+        raise ValueError('Modes known to qr: reduced, complete, r, raw.\n'
+                         + 'Unknown mode: ' + mode)
+    ufunc = qr_modes[mode][x.shape[-2] > x.shape[-1]]
+    return ufunc[x]

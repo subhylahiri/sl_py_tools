@@ -33,13 +33,90 @@ Examples
 >>> v = (x.r @ y.t).ur
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Any
 import numpy as np
 from numpy.lib.mixins import _numeric_methods, NDArrayOperatorsMixin
-from . import convert_loop as cvl
 from . import _linalg as la
-from . import _gufuncs as gf
-from ._gufuncs import matmul, rmatmul, solve, rsolve, lstsq_bin, rlstsq_bin
+from .gufuncs import matmul, rmatmul, solve, rsolve, lstsq, rlstsq, rtrue_divide
+
+
+# =============================================================================
+# Helper functions
+# =============================================================================
+
+
+def conv_loop_in(cls, tup: Tuple[Any]) -> (Tuple[Any], List[bool]):
+    """Process inputs in an __array_ufunc__ method
+
+    Parameters
+    ----------
+    cls
+        The type of object that needs converting via ``view`` method.
+    tup: Tuple[Any]
+        Tuple of inputs to ufunc (or ``out`` argument)
+    Returns
+    -------
+    out: Tuple[Any]
+        New tuple of inputs to ufunc (or ``out`` argument) with conversions.
+    conv: List[bool]
+        List of bools telling us if each input was converted.
+    """
+    out = []
+    conv = []
+    for obj in tup:
+        if isinstance(obj, cls):
+            out.append(obj.view(np.ndarray))
+            conv.append(True)
+        else:
+            out.append(obj)
+            conv.append(False)
+    return tuple(out), conv
+
+
+def conv_loop_out(obj, attr: str, results: Tuple[Any], outargs: Tuple[Any],
+                  conv: List[bool]) -> Tuple[Any]:
+    """Process outputs in an __array_ufunc__ method
+
+    Parameters
+    ----------
+    obj
+        The template object for conversions.
+    attr: str
+        The name of the ``type(obj)`` attribute returned in place of class.
+        Set it to '' to convert via constructor
+    results: Tuple[Any]
+        Tuple of outputs from ufunc
+    outargs: Tuple[Any]
+        ``out`` argument of ufunc, or tuple of ``None``.
+    conv: List[bool]
+        List of bools telling us if each input was converted.
+
+    Returns
+    -------
+    results: Tuple[Any]
+        New tuple of results from ufunc with conversions.
+    """
+    if attr:
+        def converter(thing):
+            """"""""
+            thing_out = obj.copy()
+            setattr(thing_out, attr, thing)
+            return thing_out
+    else:
+        def converter(thing):
+            """"""
+            return type(obj)(thing)
+
+    results_out = []
+    for result, outarg, cout in zip(results, outargs, conv):
+        if outarg is None:
+            if cout:
+                results_out.append(converter(result))
+            else:
+                results_out.append(result)
+        else:
+            results_out.append(outarg)
+    return tuple(results_out)
 
 
 # =============================================================================
@@ -104,7 +181,7 @@ class lnarray(np.ndarray):
     `ldarray` : class that provides another interface for matrix division.
     """
     # Set of ufuncs that need special handling of vectors
-    vec_ufuncs = {matmul, solve, gf.lstsq_m, gf.lstsq_n}
+    vec_ufuncs = {matmul, solve, lstsq, rmatmul, rsolve, rlstsq}
 
     def __new__(cls, input_array):
         # Input array is an already formed ndarray instance
@@ -120,7 +197,7 @@ class lnarray(np.ndarray):
     __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(matmul, 'matmul')
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        args = list(cvl.conv_loop_in(lnarray, inputs))[0]
+        args = list(conv_loop_in(lnarray, inputs))[0]
 
         if ufunc in self.vec_ufuncs:
             to_squeeze = [False, False]
@@ -134,7 +211,7 @@ class lnarray(np.ndarray):
 
         outputs = kwargs.pop('out', None)
         if outputs:
-            out_args = cvl.conv_loop_in(lnarray, outputs)[0]
+            out_args = conv_loop_in(lnarray, outputs)[0]
             kwargs['out'] = tuple(out_args)
         else:
             outputs = (None,) * ufunc.nout
@@ -277,11 +354,11 @@ class lnarray(np.ndarray):
         ValueError
             If a.shape[-2] != 1 or a.shape[-1] != 1
         """
-        return self.squeeze(axis=-2).squeeze(axis=-1)
+        return self.squeeze(axis=(-2, -1))
 
     @property
     def pinv(self) -> 'pinvarray':
-        """Lazy matrix inverse
+        """Lazy matrix pseudoinverse
 
         Parameters/Results
         ------------------
@@ -391,25 +468,25 @@ class pinvarray(NDArrayOperatorsMixin):
     # ufunc_out = ufunc to use instead
     # out1 = is the first output a pinvarray?
     _ufunc_map = {matmul: {True: {True: (None, False),  # a^+ b^+
-                                  False: (lstsq_bin, False)},  # a^+ b
-                           False: {True: (rlstsq_bin, False),  # a b^+
+                                  False: (lstsq, False)},  # a^+ b
+                           False: {True: (rlstsq, False),  # a b^+
                                    False: (None, False)}},  # never happens
-                  gf.lstsq_m: {True: {True: (rlstsq_bin, False),  # a^++ b^+
-                                      False: (matmul, False)},  # a^++ b
-                               False: {True: (None, False),  # a^+ b^+
-                                       False: (None, False)}},  # never happens
-                  gf.lstsq_n: {True: {True: (rlstsq_bin, False),  # a^++ b^+
-                                      False: (matmul, False)},  # a^++ b
-                               False: {True: (None, False),  # a^+ b^+
-                                       False: (None, False)}},  # never happens
+                  lstsq: {True: {True: (rlstsq, False),  # a^++ b^+
+                                 False: (matmul, False)},  # a^++ b
+                          False: {True: (None, False),  # a^+ b^+
+                                  False: (None, False)}},  # never happens
                   np.multiply: {True: {True: (None, False),  # a^+ * b^+
                                        False: (np.true_divide, True)},  # a^+*b
-                                False: {True: (gf.rtrue_divide, True),  # a*b^+
+                                False: {True: (rtrue_divide, True),  # a*b^+
                                         False: (None, False)}},  # never happen
                   np.true_divide: {True: {True: (None, False),  # a^+/b^+
                                           False: (np.multiply, True)},  # a^+/b
                                    False: {True: (None, False),  # a/b^+
-                                           False: (None, False)}}}  # never hap
+                                           False: (None, False)}},  # never hap
+                  rlstsq: {True: {True: (lstsq, False),  # a^+ b^++
+                                  False: (None, False)},  # a^+ b^+
+                           False: {True: (matmul, False),  # a b^++
+                                   False: (None, False)}}}  # never happens
 
     # these ufuncs are passed on to self._to_invert
     _unary_ufuncs = {np.positive, np.negative}
@@ -431,7 +508,7 @@ class pinvarray(NDArrayOperatorsMixin):
         """
         # which inputs are we converting?
         # For most inputs, we swap multiplication & division instead of inverse
-        args, pinv_in = cvl.conv_loop_in(pinvarray, inputs)
+        args, pinv_in = conv_loop_in(pinvarray, inputs)
 
         pinv_out = [False] * ufunc.nout  # which outputs need converting back?
         if ufunc in self._ufunc_map.keys():
@@ -441,7 +518,7 @@ class pinvarray(NDArrayOperatorsMixin):
             # Already converted input; just need to convert output
             pinv_out[0] = True
         else:
-            ufunc = None
+            return NotImplemented
         if ufunc is None:
             return NotImplemented
         # Alternative: other ufuncs use implicit inversion.
@@ -458,7 +535,7 @@ class pinvarray(NDArrayOperatorsMixin):
 
         outputs = kwargs.pop('out', None)
         if outputs:
-            out_args, pinv_out = cvl.conv_loop_in(pinvarray, outputs)
+            out_args, pinv_out = conv_loop_in(pinvarray, outputs)
             kwargs['out'] = tuple(out_args)
         else:
             outputs = (None,) * ufunc.nout
@@ -472,7 +549,7 @@ class pinvarray(NDArrayOperatorsMixin):
         if ufunc.nout == 1:
             results = (results,)
 
-        results = cvl.conv_loop_out(self, '', results, outputs, pinv_out)
+        results = conv_loop_out(self, '', results, outputs, pinv_out)
 
         return results[0] if len(results) == 1 else results
 
@@ -681,12 +758,16 @@ class invarray(pinvarray):
                                   False: (None, False)}},  # never happens
                   np.multiply: {True: {True: (None, False),  # a^- * b^-
                                        False: (np.true_divide, True)},  # a^-*b
-                                False: {True: (gf.rtrue_divide, True),  # a*b^-
+                                False: {True: (rtrue_divide, True),  # a*b^-
                                         False: (None, False)}},  # never happen
                   np.true_divide: {True: {True: (None, False),  # a^-/b^-
                                           False: (np.multiply, True)},  # a^-/b
                                    False: {True: (None, False),  # a/b^-
-                                           False: (None, False)}}}  # never hap
+                                           False: (None, False)}},  # never hap
+                  rsolve: {True: {True: (solve, False),  # a^- b^--
+                                  False: (rmatmul, True)},  # a^- b^-
+                           False: {True: (matmul, False),  # a b^--
+                                   False: (None, False)}}}  # never happens
 
     def __init__(self, to_invert: lnarray):
         super().__init__(to_invert)

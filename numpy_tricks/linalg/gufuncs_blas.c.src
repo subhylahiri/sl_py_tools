@@ -390,7 +390,7 @@ INIT_OUTER_LOOP_2
 
 /*
 ******************************************************************************
-**                                  MATMUL                                  **
+**                               MATMUL (BLAS)                              **
 ******************************************************************************
 */
 typedef struct gemm_params_struct
@@ -539,16 +539,6 @@ INIT_OUTER_LOOP_3
     }
 }
 
-// matmul_signature = "(m,k),(k,n)->(m,n)";
-
-static void
-@TYPE@_matmul(char **args, npy_intp *dimensions, npy_intp *steps,
-              void *NPY_UNUSED(func))
-{
-    @TYPE@_matmul_loop(args, dimensions, steps);
-}
-
-
 /**end repeat**/
 
 /*
@@ -598,7 +588,7 @@ INIT_OUTER_LOOP_3
                 *(@typ@ *)op_z = @zero@;
 
                 for (n = 0; n < len_n; n++) {
-                    @TYPE@_add_product_scalar((@typ@ *)ip_x, (@typ@ *)ip_y, (@typ@ *)op_z);
+                    *(@typ@ *)op_z += *(@typ@ *)ip_x * *(@typ@ *)ip_y;
 
                     ip_x += stride_x_n;
                     ip_y += stride_y_n;
@@ -619,7 +609,19 @@ INIT_OUTER_LOOP_3
     END_OUTER_LOOP_3
 }
 
-// matmul_signature = "(m,n),(n,p)->(m,p)";
+/**end repeat**/
+
+/*
+******************************************************************************
+**                              (R)MATMUL                                   **
+******************************************************************************
+*/
+
+/**begin repeat
+    #TYPE = LONG, FLOAT, DOUBLE, CFLOAT, CDOUBLE#
+*/
+
+// matmul_signature = "(m,k),(k,n)->(m,n)";
 
 static void
 @TYPE@_matmul(char **args, npy_intp *dimensions, npy_intp *steps,
@@ -627,20 +629,6 @@ static void
 {
     @TYPE@_matmul_loop(args, dimensions, steps);
 }
-
-/**end repeat**/
-
-/*
-******************************************************************************
-**                                 RMATMUL                                  **
-******************************************************************************
-*/
-/**begin repeat
-*/
-
-/**begin repeat
-    #TYPE = LONG, FLOAT, DOUBLE, CFLOAT, CDOUBLE#
-*/
 
 // rmatmul_signature = "(k,n),(m,k)->(m,n)"
 
