@@ -6,6 +6,7 @@
 # =============================================================================
 """
 Generalized ufunc versions of `numpy.linalg` routines:
+
 matmul
     Matrix multiplication.
 rmatmul
@@ -21,7 +22,11 @@ rlstsq
 norm
     Vector 2-norm.
 qr_*
-    QR factorization in various forms.
+    QR factorization in various forms - {m,n,rm,rn,rawm,rawn}.
+        m: #(rows) < #(columns)
+        n: #(rows) > #(columns)
+        r: only return R
+        raw: return H and tau, from which Q and R can be computed
 
 They raise ValueError instead of LinAlgError
 

@@ -20,8 +20,8 @@ matldiv
     Matrix division from left.
 matrdiv
     Matrix division from right.
-matmul
-    Matrix multiplication with better type flexibility.
+qr
+    QR decomposition with broadcasting and subclass passing.
 """
 
 import numpy as np
@@ -109,8 +109,7 @@ def return_shape_mat(x: np.ndarray, y: np.ndarray) -> Tuple[int, ...]:
 # =============================================================================
 
 
-def matldiv(x: np.ndarray, y: np.ndarray, rcond=None,
-            *args, **kwargs) -> np.ndarray:
+def matldiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
     """Matrix division from left.
 
     Computes :math:`z = x \\ y = x^{-1} y` for square `x`, or :math:`x^+ y`
@@ -125,8 +124,6 @@ def matldiv(x: np.ndarray, y: np.ndarray, rcond=None,
         Divisor or Denominator.
     y : {(..., N), (..., N, K)} array_like
         Dividend or Numerator.
-    rcond : optional float = None
-        passed to `numpy.linalg.lstsq`
     out : {(..., M), (..., M, K), (..., N), (..., N, K)} np.ndarray
         array to store the output in.
 
@@ -150,7 +147,7 @@ def matldiv(x: np.ndarray, y: np.ndarray, rcond=None,
         return gf.solve(x, y, *args, **kwargs)
     except (np.linalg.LinAlgError, ValueError):
         pass
-    return gf.lstsq(x, y, rcond, *args, **kwargs)[0]
+    return gf.lstsq(x, y, *args, **kwargs)
 
 
 def matrdiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
@@ -167,8 +164,6 @@ def matrdiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
         Dividend or Numerator.
     y : {(..., M, N), (..., M, M)} array_like
         Divisor or Denominator.
-    rcond : float = 1e-15
-        passed to `numpy.linalg.lstsq`
     out : {(..., N), (..., K, N), (..., M), (..., K, M)} np.ndarray
         array to store the output in.
 
@@ -215,8 +210,8 @@ def qr(x: np.ndarray, mode: str = 'reduced') -> (np.ndarray, np.ndarray):
         r
             return `R` only,
         raw
-            return `H`, containing both Householder reflectors and `R`,
-            and `tau` containing scaling factors.
+            return `H`, containing both Householder reflectors `v` and `R`,
+            and `tau`, containing scaling factors, from which `Q` can be found.
 
     Returns
     -------

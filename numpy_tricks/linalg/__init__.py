@@ -48,9 +48,11 @@ matldiv
     Matrix division from left.
 matrdiv
     Matrix division from right.
-Also includes `gufunc`s, or wrappers thereof, for `matmul`, `solve`, `rsolve`,
-`lstsq`, `rlstsq`, `qr`, `qr_tall`, `lstsq_m`, `lstsq_n`, as well as versions
-of most `numpy` array creation routines.
+qr
+    QR decomposition with broadcasting and subclass passing.
+Also includes `gufuncs` for `matmul`, `solve`, `rsolve`, `lstsq`, `rlstsq`,
+`qr_{m,n,rm,rn,rawm,rawn}`, as well as versions of most `numpy` array creation
+and manipulation routines and `wrappers` for converting `numpy` functions.
 
 Examples
 --------
@@ -78,4 +80,4 @@ from ._ln_creation import *
 from ._ln_manipulation import *
 # import _ld_wrap as wrappers
 # from ._ld_creation import *
-# from . import convert_loop
+# from ._ld_manipulation import *

@@ -197,7 +197,7 @@ class lnarray(np.ndarray):
     __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(matmul, 'matmul')
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        args = list(conv_loop_in(lnarray, inputs))[0]
+        args = list(conv_loop_in(lnarray, inputs)[0])
 
         if ufunc in self.vec_ufuncs:
             to_squeeze = [False, False]
