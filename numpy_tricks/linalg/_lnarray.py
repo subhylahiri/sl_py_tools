@@ -35,6 +35,7 @@ Examples
 
 from typing import Optional, Tuple, List, Any
 import numpy as np
+from numpy import multiply, true_divide
 from numpy.lib.mixins import _numeric_methods, NDArrayOperatorsMixin
 from . import _linalg as la
 from .gufuncs import matmul, rmatmul, solve, rsolve, lstsq, rlstsq, rtrue_divide
@@ -469,24 +470,19 @@ class pinvarray(NDArrayOperatorsMixin):
     # out1 = is the first output a pinvarray?
     _ufunc_map = {matmul: {True: {True: (None, False),  # a^+ b^+
                                   False: (lstsq, False)},  # a^+ b
-                           False: {True: (rlstsq, False),  # a b^+
-                                   False: (None, False)}},  # never happens
+                           False: {True: (rlstsq, False)}},  # a b^+
                   lstsq: {True: {True: (rlstsq, False),  # a^++ b^+
                                  False: (matmul, False)},  # a^++ b
-                          False: {True: (None, False),  # a^+ b^+
-                                  False: (None, False)}},  # never happens
-                  np.multiply: {True: {True: (None, False),  # a^+ * b^+
-                                       False: (np.true_divide, True)},  # a^+*b
-                                False: {True: (rtrue_divide, True),  # a*b^+
-                                        False: (None, False)}},  # never happen
-                  np.true_divide: {True: {True: (None, False),  # a^+/b^+
-                                          False: (np.multiply, True)},  # a^+/b
-                                   False: {True: (None, False),  # a/b^+
-                                           False: (None, False)}},  # never hap
+                          False: {True: (None, False)}},  # a^+ b^+
+                  multiply: {True: {True: (None, False),  # a^+ * b^+
+                                    False: (true_divide, True)},  # a^+*b
+                             False: {True: (rtrue_divide, True)}},  # a*b^+
+                  true_divide: {True: {True: (None, False),  # a^+/b^+
+                                       False: (multiply, True)},  # a^+/b
+                                False: {True: (None, False)}},  # a/b^+
                   rlstsq: {True: {True: (lstsq, False),  # a^+ b^++
                                   False: (None, False)},  # a^+ b^+
-                           False: {True: (matmul, False),  # a b^++
-                                   False: (None, False)}}}  # never happens
+                           False: {True: (matmul, False)}}}  # a b^++
 
     # these ufuncs are passed on to self._to_invert
     _unary_ufuncs = {np.positive, np.negative}
@@ -750,24 +746,19 @@ class invarray(pinvarray):
     # out1 = is the first output an invarray?
     _ufunc_map = {matmul: {True: {True: (rmatmul, True),  # a^- b^-
                                   False: (solve, False)},  # a^- b
-                           False: {True: (rsolve, False),  # a b^-
-                                   False: (None, False)}},  # never happens
+                           False: {True: (rsolve, False)}},  # a b^-
                   solve: {True: {True: (rsolve, False),  # a^-- b^-
                                  False: (matmul, False)},  # a^-- b
-                          False: {True: (rmatmul, True),  # a^- b^-
-                                  False: (None, False)}},  # never happens
-                  np.multiply: {True: {True: (None, False),  # a^- * b^-
-                                       False: (np.true_divide, True)},  # a^-*b
-                                False: {True: (rtrue_divide, True),  # a*b^-
-                                        False: (None, False)}},  # never happen
-                  np.true_divide: {True: {True: (None, False),  # a^-/b^-
-                                          False: (np.multiply, True)},  # a^-/b
-                                   False: {True: (None, False),  # a/b^-
-                                           False: (None, False)}},  # never hap
+                          False: {True: (rmatmul, True)}},  # a^- b^-
+                  multiply: {True: {True: (None, False),  # a^- * b^-
+                                    False: (true_divide, True)},  # a^-*b
+                             False: {True: (rtrue_divide, True)}},  # a*b^-
+                  true_divide: {True: {True: (None, False),  # a^-/b^-
+                                       False: (multiply, True)},  # a^-/b
+                                False: {True: (None, False)}},  # a/b^-
                   rsolve: {True: {True: (solve, False),  # a^- b^--
                                   False: (rmatmul, True)},  # a^- b^-
-                           False: {True: (matmul, False),  # a b^--
-                                   False: (None, False)}}}  # never happens
+                           False: {True: (matmul, False)}}}  # a b^--
 
     def __init__(self, to_invert: lnarray):
         super().__init__(to_invert)

@@ -143,10 +143,11 @@ def matldiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
     `np.linalg.solve` : performs exact matrix division.
     `np.linalg.lstsq` : performs least-square matrix division.
     """
-    try:
-        return gf.solve(x, y, *args, **kwargs)
-    except (np.linalg.LinAlgError, ValueError):
-        pass
+    if x.shape[-1] == x.shape[-2]:
+        try:
+            return gf.solve(x, y, *args, **kwargs)
+        except (np.linalg.LinAlgError, ValueError):
+            pass
     return gf.lstsq(x, y, *args, **kwargs)
 
 
@@ -202,28 +203,24 @@ def qr(x: np.ndarray, mode: str = 'reduced') -> (np.ndarray, np.ndarray):
     -----------
     A: ndarray (...,M,N)
         Matrix to be factored.
-    mode: str, chosen from:
-        reduced
-            default, use minimum inner dimensionality,
-        complete
-            use maximum inner dimensionality
-        r
-            return `R` only,
-        raw
-            return `H`, containing both Householder reflectors `v` and `R`,
-            and `tau`, containing scaling factors, from which `Q` can be found.
+    mode: str
+        chosen from:
+        **reduced** - default, use minimum inner dimensionality,
+        **complete** - use maximum inner dimensionality,
+        **r** - return `R` only,
+        **raw** - return `H,tau`, which determine `Q` and `R` (see below).
 
     Returns
     -------
     Q: ndarray (...,M,K)
-        Matrix with orthonormal columns. Modes: reduced, complete.
+        Matrix with orthonormal columns. Modes: `reduced, complete`.
     R: ndarray (...,K,N)
-        Matrix with zeros below the diagonal. Modes: reduced, complete, r.
+        Matrix with zeros below the diagonal. Modes: `reduced, complete, r`.
     H: ndarray (...,N,M)
         Transpose of matrix for use in Fortran. Above and on the diagonal: `R`.
-        Below the diagonal: the Householder reflectors `v`. Modes: raw.
+        Below the diagonal: the Householder reflectors `v`. Modes: `raw`.
     tau: ndarray (...,K,)
-        Scaling factors for Householder reflectors. Modes: raw.
+        Scaling factors for Householder reflectors. Modes: `raw`.
     """
     if mode not in qr_modes.keys():
         raise ValueError('Modes known to qr: reduced, complete, r, raw.\n'
