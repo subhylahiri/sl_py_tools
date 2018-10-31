@@ -29,7 +29,7 @@ They raise ValueError instead of LinAlgError
 see `lnarray` class).
 """
 
-from ._gufuncs_cloop import norm, rtruedivide  # matmul, rmatmul
+from ._gufuncs_cloop import norm, rtrue_divide  # matmul, rmatmul
 from ._gufuncs_blas import matmul, rmatmul  # norm
 from ._gufuncs_lapack import solve, rsolve, lstsq, rlstsq
 from ._gufuncs_lapack import qr_m, qr_n, qr_rm, qr_rn, qr_rawm, qr_rawn
