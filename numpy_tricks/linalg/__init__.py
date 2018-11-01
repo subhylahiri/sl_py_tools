@@ -51,8 +51,8 @@ matrdiv
 qr
     QR decomposition with broadcasting and subclass passing.
 Also includes `gufuncs` for `matmul`, `solve`, `rsolve`, `lstsq`, `rlstsq`,
-`qr_{m,n,rm,rn,rawm,rawn}`, as well as versions of most `numpy` array creation
-and manipulation routines and `wrappers` for converting `numpy` functions.
+`norm`, `qr_{m,n,rm,rn,rawm,rawn}`, as well as versions of most `numpy` array
+creation and manipulation routines and `wrappers` for converting the rest.
 
 Examples
 --------
@@ -73,7 +73,7 @@ Examples
 from ._lnarray import lnarray, pinvarray, invarray, lnmatrix
 from ._ldarray import ldarray
 from ._linalg import transpose, col, row, scal, matldiv, matrdiv, qr
-from .gufuncs import matmul, solve, rsolve, lstsq, rlstsq
+from .gufuncs import matmul, solve, rsolve, lstsq, rlstsq, norm
 from . import gufuncs
 from . import _ln_wrap as wrappers
 from ._ln_creation import *
