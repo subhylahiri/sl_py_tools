@@ -33,91 +33,18 @@ Examples
 >>> v = (x.r @ y.t).ur
 """
 
-from typing import Optional, Tuple, List, Any
+from typing import Optional, Tuple
 import numpy as np
 from numpy import multiply, true_divide
 from numpy.lib.mixins import _numeric_methods, NDArrayOperatorsMixin
 from . import _linalg as la
 from .gufuncs import matmul, rmatmul, solve, rsolve, lstsq, rlstsq, rtrue_divide
+from . import convert_loop as cv
 
 
 # =============================================================================
 # Helper functions
 # =============================================================================
-
-
-def conv_loop_in(cls, tup: Tuple[Any]) -> (Tuple[Any], List[bool]):
-    """Process inputs in an __array_ufunc__ method
-
-    Parameters
-    ----------
-    cls
-        The type of object that needs converting via ``view`` method.
-    tup: Tuple[Any]
-        Tuple of inputs to ufunc (or ``out`` argument)
-    Returns
-    -------
-    out: Tuple[Any]
-        New tuple of inputs to ufunc (or ``out`` argument) with conversions.
-    conv: List[bool]
-        List of bools telling us if each input was converted.
-    """
-    out = []
-    conv = []
-    for obj in tup:
-        if isinstance(obj, cls):
-            out.append(obj.view(np.ndarray))
-            conv.append(True)
-        else:
-            out.append(obj)
-            conv.append(False)
-    return tuple(out), conv
-
-
-def conv_loop_out(obj, attr: str, results: Tuple[Any], outargs: Tuple[Any],
-                  conv: List[bool]) -> Tuple[Any]:
-    """Process outputs in an __array_ufunc__ method
-
-    Parameters
-    ----------
-    obj
-        The template object for conversions.
-    attr: str
-        The name of the ``type(obj)`` attribute returned in place of class.
-        Set it to '' to convert via constructor
-    results: Tuple[Any]
-        Tuple of outputs from ufunc
-    outargs: Tuple[Any]
-        ``out`` argument of ufunc, or tuple of ``None``.
-    conv: List[bool]
-        List of bools telling us if each input was converted.
-
-    Returns
-    -------
-    results: Tuple[Any]
-        New tuple of results from ufunc with conversions.
-    """
-    if attr:
-        def converter(thing):
-            """"""""
-            thing_out = obj.copy()
-            setattr(thing_out, attr, thing)
-            return thing_out
-    else:
-        def converter(thing):
-            """"""
-            return type(obj)(thing)
-
-    results_out = []
-    for result, outarg, cout in zip(results, outargs, conv):
-        if outarg is None:
-            if cout:
-                results_out.append(converter(result))
-            else:
-                results_out.append(result)
-        else:
-            results_out.append(outarg)
-    return tuple(results_out)
 
 
 # =============================================================================
@@ -198,7 +125,7 @@ class lnarray(np.ndarray):
     __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(matmul, 'matmul')
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        args = list(conv_loop_in(lnarray, inputs)[0])
+        args = list(cv.conv_loop_in(lnarray, inputs)[0])
 
         if ufunc in self.vec_ufuncs:
             to_squeeze = [False, False]
@@ -212,7 +139,7 @@ class lnarray(np.ndarray):
 
         outputs = kwargs.pop('out', None)
         if outputs:
-            out_args = conv_loop_in(lnarray, outputs)[0]
+            out_args = cv.conv_loop_in(lnarray, outputs)[0]
             kwargs['out'] = tuple(out_args)
         else:
             outputs = (None,) * ufunc.nout
@@ -502,7 +429,7 @@ class pinvarray(NDArrayOperatorsMixin):
         """
         # which inputs are we converting?
         # For most inputs, we swap multiplication & division instead of inverse
-        args, pinv_in = conv_loop_in(pinvarray, inputs)
+        args, pinv_in = cv.conv_loop_in(pinvarray, inputs)
 
         pinv_out = [False] * ufunc.nout  # which outputs need converting back?
         if ufunc in self._ufunc_map.keys():
@@ -529,7 +456,7 @@ class pinvarray(NDArrayOperatorsMixin):
 
         outputs = kwargs.pop('out', None)
         if outputs:
-            out_args, pinv_out = conv_loop_in(pinvarray, outputs)
+            out_args, pinv_out = cv.conv_loop_in(pinvarray, outputs)
             kwargs['out'] = tuple(out_args)
         else:
             outputs = (None,) * ufunc.nout
@@ -543,7 +470,7 @@ class pinvarray(NDArrayOperatorsMixin):
         if ufunc.nout == 1:
             results = (results,)
 
-        results = conv_loop_out(self, '', results, outputs, pinv_out)
+        results = cv.conv_loop_out(self, '', results, outputs, pinv_out)
 
         return results[0] if len(results) == 1 else results
 
