@@ -109,6 +109,39 @@ def return_shape_mat(x: np.ndarray, y: np.ndarray) -> Tuple[int, ...]:
 # =============================================================================
 
 
+def matmul(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
+    """Matrix product.
+
+    Does matrix-matrix, matrix-vector, vector-matrix and vector-vector versions
+    with vector versions used *only* when one-dimensional.
+
+    Parameters
+    -----------
+    X: ndarray (...,M,N) or (N,)
+        Matrix multiplying from left.
+    Y: ndarray (...,N,P) or (N,)
+        Matrix multiplying from right.
+
+    Returns
+    -------
+    Z: ndarray (...,M,P), (...,P), (...,M) or scalar
+        Result of matrix multiplication.
+    """
+    to_squeeze = [False, False]
+    if x.ndim == 1:
+        x = x[..., None, :]
+        to_squeeze[0] = True
+    if y.ndim == 1:
+        y = y[..., None, :]
+        to_squeeze[1] = True
+
+    z = gf.matmul(x, y, *args, **kwargs)
+
+    axs = (-2,) * to_squeeze[0] + (-1,) * to_squeeze[1]
+    z = z.squeeze(axis=axs)
+    return z
+
+
 def matldiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
     """Matrix division from left.
 

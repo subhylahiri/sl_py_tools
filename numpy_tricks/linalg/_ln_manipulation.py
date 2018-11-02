@@ -15,7 +15,7 @@ import numpy as np
 from . import _ln_wrap as _wr
 
 __all__ = [
-           'copyto', 'reshape', 'moveaxis', 'rollaxis', 'swapaxes',
+           'reshape', 'moveaxis', 'rollaxis', 'swapaxes',
            'atleast_1d', 'atleast_2d', 'atleast_3d',
            'broadcast_to', 'broadcast_arrays', 'expand_dims', 'squeeze',
            'asfarray', 'asfortranarray', 'asarray_chkfinite', 'require',
@@ -32,7 +32,7 @@ __all__ = [
 # =============================================================================
 # Basic operations
 # =============================================================================
-copyto = _wr.wrap_one(np.copyto)
+# copyto = _wr.wrap_one(np.copyto)
 # =============================================================================
 # Changing array shape
 # =============================================================================
@@ -50,8 +50,8 @@ swapaxes = _wr.wrap_one(np.swapaxes)
 atleast_1d = _wr.wrap_one(np.atleast_1d)
 atleast_2d = _wr.wrap_one(np.atleast_2d)
 atleast_3d = _wr.wrap_one(np.atleast_3d)
-broadcast_to = _wr.wrap_one(np.broadcast_to)
-broadcast_arrays = _wr.wrap_several(np.broadcast_arrays)
+broadcast_to = _wr.wrap_sub(np.broadcast_to)
+broadcast_arrays = _wr.wrap_subseveral(np.broadcast_arrays)
 expand_dims = _wr.wrap_one(np.expand_dims)
 squeeze = _wr.wrap_one(np.squeeze)
 # =============================================================================

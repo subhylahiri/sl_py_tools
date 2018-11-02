@@ -32,15 +32,15 @@ __all__ = ['empty', 'empty_like', 'eye', 'identity', 'ones', 'ones_like',
 
 
 empty = _wr.wrap_one(np.empty)
-empty_like = _wr.wrap_one(np.empty)
+empty_like = _wr.wrap_sub(np.empty)
 eye = _wr.wrap_one(np.eye)
 identity = _wr.wrap_one(np.identity)
 ones = _wr.wrap_one(np.ones)
-ones_like = _wr.wrap_one(np.ones_like)
+ones_like = _wr.wrap_sub(np.ones_like)
 zeros = _wr.wrap_one(np.zeros)
-zeros_like = _wr.wrap_one(np.zeros_like)
+zeros_like = _wr.wrap_sub(np.zeros_like)
 full = _wr.wrap_one(np.full)
-full_like = _wr.wrap_one(np.full_like)
+full_like = _wr.wrap_sub(np.full_like)
 
 
 # =============================================================================

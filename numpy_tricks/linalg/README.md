@@ -56,21 +56,20 @@ accurate](https://www.johndcook.com/blog/2010/01/19/dont-invert-that-matrix/). T
 ## Functions
 
 * `matmul`:  
-    Broadcasting, BLAS accelerated matrix multiplication.
+    Matrix multiplication with broadcasting and BLAS acceleration.
 * `solve`:  
-    Broadcasting, Lapack accelerated, linear equation solving (matrix
-    left-division).
+    Linear equation solving (matrix left-division) with broadcasting and Lapack
+    acceleration.
 * `rsolve`:  
-    Reversed, broadcasting, Lapack accelerated, linear equation solving (matrix
-    right-division).
+    Reversed Linear equation solving (matrix right-division) with broadcasting.
 * `lstsq`:  
-    Broadcasting, Lapack accelerated, linear least squares problems (matrix
-    left-division). Unlike `numnpy.linalg.lstsq`, this does not take an `rcond`
-    parameter, or return diagnostic information (which is better suited to binary
-    operators). However, it does broadcast and pass through subclasses.
+    Linear least squares solutions (matrix left-division) with broadcasting.
+    Unlike `numnpy.linalg.lstsq`, this does not take an `rcond` parameter, or
+    return diagnostic information (which is better suited to binary operators).
+    However, it does broadcast and pass through subclasses.
 * `rlstsq`:  
-    Reversed, broadcasting, Lapack accelerated, linear least squares problems
-    (matrix right-division).
+    Reversed linear least squares problems (matrix right-division) with
+    broadcasting.
 * `norm`
     Vector 2-norm. Broadcasts and passes through subclasses.
 * `transpose`:  
@@ -86,11 +85,13 @@ accurate](https://www.johndcook.com/blog/2010/01/19/dont-invert-that-matrix/). T
 * `matrdiv`:  
     Matrix division from right (exact or least-squares).
 * `qr`:  
-    QR decomposition with broadcasting and subclass passing. Does not implement the deprecated modes of `numpy.linalg.qr`.
+    QR decomposition with broadcasting and subclass passing. Does not implement
+    the deprecated modes of `numpy.linalg.qr`.
 
 ## GUfuncs
 These implement the functions above.
 * `gufuncs.matmul`:  
+    Implements `matmul` above.
 * `gufuncs.solve`:  
 * `gufuncs.rsolve`:  
 * `gufuncs.lstsq`:  

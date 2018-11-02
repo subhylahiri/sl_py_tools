@@ -226,10 +226,8 @@ class lnarray(np.ndarray):
 
         if ufunc in self.vec_ufuncs and any(to_squeeze):
             squeezable_result = results[0]
-            if to_squeeze[0]:
-                squeezable_result = squeezable_result.squeeze(-2)
-            if to_squeeze[1]:
-                squeezable_result = squeezable_result.squeeze(-1)
+            axs = (-2,) * to_squeeze[0] + (-1,) * to_squeeze[1]
+            squeezable_result = squeezable_result.squeeze(axis=axs)
             results = (squeezable_result,) + results[1:]
 
         results = tuple((np.asarray(result).view(type(self))
