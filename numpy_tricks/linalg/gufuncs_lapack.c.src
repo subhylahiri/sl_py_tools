@@ -34,22 +34,20 @@ Copyright/licence info for that file:
 */
 
 /*              Table of Contents
-52.   Includes
-72.   Docstrings
-141.  BLAS/Lapack calling functions
-226.  Data rearrangement functions
-477.  QR
-723.  SOLVE
-870.  LSTSQ
-1071. EIGVALSH
-1243. SINGVALS
-1425. Ufunc definition
-1456. Module initialization stuff
+50.   Includes
+61.   Docstrings
+172.  BLAS/Lapack calling functions
+232.  Data rearrangement functions
+503.  QR
+933.  SOLVE
+1118. LSTSQ
+1455. Ufunc definition
+1496. Module initialization stuff
 */
 
 /*
 *****************************************************************************
-**                            INCLUDES                                     **
+**                            Includes                                     **
 *****************************************************************************
 */
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
@@ -171,7 +169,7 @@ PyDoc_STRVAR(rlstsq__doc__,
 
 /*
 *****************************************************************************
-*                    BLAS/LAPACK calling macros                             *
+**                   BLAS/Lapack calling macros                            **
 *****************************************************************************
 */
 /**begin repeat
@@ -231,7 +229,7 @@ FNAME(@gclsd@)(int *m, int *n, int *nrhs,
 
 /*
 *****************************************************************************
-**                    DATA REARRANGEMENT FUNCTIONS                         **
+**                    Data rearrangement functions                         **
 *****************************************************************************
 */
 
@@ -535,7 +533,7 @@ typedef struct geqrf_params_struct
 */
 
 /* ************************************************
-* Calling BLAS/Lapack functions _geqrf and _orgqr
+* Calling BLAS/Lapack functions _geqrf and _orgqr *
 *************************************************** */
 
 static NPY_INLINE void
@@ -555,7 +553,7 @@ call_@orgqr@(GEQRF_PARAMS_t *params)
 }
 
 /* *************************************************************************
-* Initialize the parameters to use in the lapack functions _geqrf &  _orgqr
+* Initialize the parameters to use in the lapack functions _geqrf &  _orgqr*
 * Handles buffer allocation.
 * First: initialize for geqrf only
 * Second: initialize for _geqrf and _orgqr
@@ -697,9 +695,9 @@ init_@orgqr@(GEQRF_PARAMS_t *params,
     return 0;
 }
 
-  /* ********************
-  * Deallocate buffer
-  *********************** */
+/* ********************
+* Deallocate buffer   *
+*********************** */
 
 static NPY_INLINE void
 release_@TYPE@_qr(GEQRF_PARAMS_t *params)
@@ -712,8 +710,8 @@ release_@TYPE@_qr(GEQRF_PARAMS_t *params)
 
 
  /* ********************
-* Inner GUfunc loop
-*********************** */
+* Inner GUfunc loop    *
+********************** */
 
 static int
 do_@TYPE@_qr(const void *A, void *Q, void *R,
@@ -958,7 +956,7 @@ typedef struct gesv_params_struct
 */
 
 /* ************************************************
-* Calling BLAS/Lapack functions _gesv
+* Calling BLAS/Lapack functions _gesv             *
 *************************************************** */
 
 static NPY_INLINE void
@@ -970,8 +968,8 @@ call_@gesv@(GESV_PARAMS_t *params)
 }
 
 /* *************************************************************************
-* Initialize the parameters to use in the lapack functions _gesv
-* Handles buffer allocation
+* Initialize the parameters to use in the lapack functions _gesv           *
+* Handles buffer allocation                                                *
 ************************************************************************** */
 static NPY_INLINE int
 init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in)
@@ -1017,8 +1015,8 @@ init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in)
     return 0;
 }
 
-/* ********************
-* Deallocate buffer
+/* **********************
+* Deallocate buffer     *
 *********************** */
 
 static NPY_INLINE void
@@ -1030,8 +1028,8 @@ release_@gesv@(GESV_PARAMS_t *params)
 }
 
 
-/* ********************
-* Inner GUfunc loop
+/* **********************
+* Inner GUfunc loop     *
 *********************** */
 
 // solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
@@ -1144,7 +1142,7 @@ typedef struct gels_params_struct
 } GELS_PARAMS_t;
 
 /* ************************************************
-* Calling BLAS/Lapack functions _gelsd
+* Calling BLAS/Lapack functions _gelsd            *
 *************************************************** */
 
 /**begin repeat
@@ -1173,7 +1171,7 @@ call_@gcls@(GELS_PARAMS_t *params)
 /**end repeat**/
 
 /* *************************************************************************
-* Initialize the parameters to use in the lapack functions _gelsd
+* Initialize the parameters to use in the lapack functions _gelsd          *
 * Handles buffer allocation
 ************************************************************************** */
 
@@ -1353,7 +1351,7 @@ init_@gcls@(GELS_PARAMS_t *params,
 */
 
 /* ********************
-* Deallocate buffer
+* Deallocate buffer   *
 *********************** */
 
 static NPY_INLINE void
@@ -1367,8 +1365,8 @@ release_@gels@(GELS_PARAMS_t *params)
 
 
 /* ********************
-* Inner GUfunc loop
-*********************** */
+* Inner GUfunc loop   *
+********************* */
 
 // lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
 
@@ -1452,11 +1450,9 @@ void *NPY_UNUSED(func))
 
 /**end repeat**/
 
-
-
 /*
 *****************************************************************************
-**                             UFUNC DEFINITION                            **
+**                             Ufunc definition                            **
 *****************************************************************************
 */
 

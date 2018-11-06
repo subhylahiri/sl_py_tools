@@ -1,0 +1,2 @@
+#marker-rule: /\n\*\*[ ]*([^\s\*].*)[ ]*\*\*/||%1||Section||ext=.c,.src,.h
+#marker-rule: /\n\*[ ]*([^\s\*].*)[ ]*\*/||____%1||Section||ext=.c,.src,.h

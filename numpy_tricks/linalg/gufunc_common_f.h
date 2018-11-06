@@ -60,7 +60,7 @@ Copyright/licence info for that file:
 
 /*
 *****************************************************************************
-**                         To use BLAS/LAPACK                              **
+**                         Fortran types                                   **
 *****************************************************************************
 */
 typedef struct { float r, i; } f2c_complex;
@@ -86,6 +86,12 @@ typedef union {
 
 #define FORTRAN_TYPES 1
 #include "gufunc_common.h"
+
+/*
+*****************************************************************************
+**                         To use BLAS/Lapack                              **
+*****************************************************************************
+*/
 
 static NPY_INLINE fortran_int
 fortran_int_min(fortran_int x, fortran_int y) {

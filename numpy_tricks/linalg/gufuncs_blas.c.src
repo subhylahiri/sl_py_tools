@@ -46,7 +46,7 @@ Copyright/licence info for that file:
 
 /*
 *****************************************************************************
-**                            INCLUDES                                     **
+**                            Includes                                     **
 *****************************************************************************
 */
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
@@ -98,7 +98,7 @@ PyDoc_STRVAR(norm__doc__,
 
 /*
 *****************************************************************************
-*                    BLAS/LAPACK calling macros                             *
+**                   BLAS/Lapack calling macros                            **
 *****************************************************************************
 */
 
@@ -130,7 +130,7 @@ FNAME(@gemm@)(char tra[], char trb[], int *m, int *n, int *k,
 
 /*
 *****************************************************************************
-**                    DATA REARRANGEMENT FUNCTIONS                         **
+**                    Data rearrangement functions                         **
 *****************************************************************************
 */
 
@@ -302,9 +302,9 @@ typedef struct nrm2_params_struct
     #norm = snrm2, dnrm2, scnrm2, dznrm2#
 */
 
-/* *************************************************
-* Calling BLAS/Lapack function _nrm2
-*************************************************** */
+/***************************************************
+* Calling BLAS/Lapack function _nrm2               *
+****************************************************/
 
 static NPY_INLINE @rtyp@
 call_@norm@(NRM2_PARAMS_t *params)
@@ -313,10 +313,10 @@ call_@norm@(NRM2_PARAMS_t *params)
     return BLAS(@norm@)(&params->N, params->X, &params->INCX);
 }
 
-/* *****************************************************************
-* Initialize the parameters to use in for the lapack function _nrm2
+/********************************************************************
+* Initialize the parameters to use in for the lapack function _nrm2 *
 * Handles buffer allocation
-******************************************************************* */
+*********************************************************************/
 
 static NPY_INLINE int
 init_@TYPE@_nrm2(NRM2_PARAMS_t *params, npy_intp N_in)
@@ -345,9 +345,9 @@ init_@TYPE@_nrm2(NRM2_PARAMS_t *params, npy_intp N_in)
     return 0;
 }
 
-/* *********************
-* Deallocate buffer
-************************ */
+/************************
+* Deallocate buffer     *
+*************************/
 
 static NPY_INLINE void
 release_@TYPE@_nrm2(NRM2_PARAMS_t *params)
@@ -357,9 +357,9 @@ release_@TYPE@_nrm2(NRM2_PARAMS_t *params)
     memset(params, 0, sizeof(*params));
 }
 
-/* **************************
-* Inner GUfunc loop
-***************************** */
+/****************************
+* Inner GUfunc loop         *
+*****************************/
 
 static void
 @TYPE@_norm(char **args, npy_intp *dimensions, npy_intp *steps,
@@ -420,9 +420,9 @@ typedef struct gemm_params_struct
     #one = s_one, d_one, c_one, z_one#
 */
 
-/* **************************************
-* Calling BLAS/Lapack function _gemm
-***************************************** */
+/****************************************
+* Calling BLAS/Lapack function _gemm    *
+*****************************************/
 
 static NPY_INLINE void
 call_@matm@(GEMM_PARAMS_t *params)
@@ -433,10 +433,10 @@ call_@matm@(GEMM_PARAMS_t *params)
        params->B, params->Z, &params->LDZ);
 }
 
-/* ******************************************************************
-* Initialize the parameters to use in for the lapack function _gemm
+/********************************************************************
+* Initialize the parameters to use in for the lapack function _gemm *
 * Handles buffer allocation
-********************************************************************* */
+*********************************************************************/
 
 static NPY_INLINE int
 init_@TYPE@_matm(GEMM_PARAMS_t *params, npy_intp M_in, npy_intp N_in, npy_intp K_in)
@@ -489,9 +489,9 @@ init_@TYPE@_matm(GEMM_PARAMS_t *params, npy_intp M_in, npy_intp N_in, npy_intp K
     return 0;
 }
 
-/* *********************************
-* Deallocate buffer
-************************************* */
+/************************************
+* Deallocate buffer                 *
+*************************************/
 
 static NPY_INLINE void
 release_@TYPE@_matm(GEMM_PARAMS_t *params)
@@ -501,9 +501,9 @@ release_@TYPE@_matm(GEMM_PARAMS_t *params)
     memset(params, 0, sizeof(*params));
 }
 
-/* ***************************
-* Inner GUfunc loop
-****************************** */
+/*****************************
+* BLAS Inner GUfunc loop     *
+******************************/
 
 // matmul_signature = "(m,k),(k,n)->(m,n)";
 
@@ -541,11 +541,10 @@ INIT_OUTER_LOOP_3
 
 /**end repeat**/
 
-/*
-******************************************************************************
-**                               MATMUL (int)                               **
-******************************************************************************
-*/
+/*****************************
+* INT Inner GUfunc loop      *
+******************************/
+
 /* Can't use BLAS for ints. MATMUL is the only function for which ints makes sense
 */
 
@@ -611,11 +610,9 @@ INIT_OUTER_LOOP_3
 
 /**end repeat**/
 
-/*
-******************************************************************************
-**                              (R)MATMUL                                   **
-******************************************************************************
-*/
+/*******************************************************
+*    Gufunc callers                                    *
+********************************************************/
 
 /**begin repeat
     #TYPE = LONG, FLOAT, DOUBLE, CFLOAT, CDOUBLE#
@@ -662,7 +659,7 @@ static void
 
 /*
 *****************************************************************************
-**                             UFUNC DEFINITION                            **
+**                             Ufunc definition                            **
 *****************************************************************************
 */
 
