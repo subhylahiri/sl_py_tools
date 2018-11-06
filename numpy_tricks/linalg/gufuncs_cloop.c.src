@@ -35,11 +35,12 @@ Copyright/licence info for that file:
 
 /*              Table of Contents
 50.  Includes
-69.  Docstrings
-134. Structs used for array iteration
-164. UFUNC LOOPS
-    324. matmul
-    382. norm
+61.  Docstrings
+114. UFUNC LOOPS
+    119. matmul
+    208. rmatmul
+    242. norm
+    306. rtrue_divide
 417. Ufunc definition
 439. Module initialization stuff
 */
@@ -151,7 +152,8 @@ static @typ@
 // matmul_signature = "(m,n),(n,p)->(m,p)";
 
 static void
-@TYPE@_matmul_loop(char **args, npy_intp *dimensions, npy_intp *steps)
+@TYPE@_matmul(char **args, npy_intp *dimensions, npy_intp *steps,
+              void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_3
 
@@ -202,14 +204,9 @@ INIT_OUTER_LOOP_3
     END_OUTER_LOOP_3
 }
 
-// matmul_signature = "(m,n),(n,p)->(m,p)";
-
-static void
-@TYPE@_matmul(char **args, npy_intp *dimensions, npy_intp *steps,
-              void *NPY_UNUSED(func))
-{
-    @TYPE@_matmul_loop(args, dimensions, steps);
-}
+/********************************
+*           RMATMUL             *
+*********************************/
 
 // rmatmul_signature = "(n,p),(m,n)->(m,p)";
 
@@ -236,7 +233,7 @@ static void
         steps[3], steps[4],
         steps[7], steps[8]};
     //now that we've swapped a,b and transposed, proceed as if we're in lstsq
-    @TYPE@_matmul_loop(rargs, rdimensions, rsteps);
+    @TYPE@_matmul(rargs, rdimensions, rsteps, NULL);
 }
 
 /**end repeat**/

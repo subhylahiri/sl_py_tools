@@ -34,14 +34,14 @@ Copyright/licence info for that file:
 */
 
 /*              Table of Contents
-50.  Includes
-70.  Docstrings
-135. BLAS/LAPACK calling macros
-164. Data rearrangement functions
-592. NORM
-677. MATMUL
-829. Ufunc definition
-851. Module initialization stuff
+49.  Includes
+60.  Docstrings
+101. BLAS/LAPACK calling macros
+133. Data rearrangement functions
+285. NORM
+393. MATMUL
+655. Ufunc definition
+679. Module initialization stuff
 */
 
 /*
@@ -390,7 +390,7 @@ INIT_OUTER_LOOP_2
 
 /*
 ******************************************************************************
-**                               MATMUL (BLAS)                              **
+**                               MATMUL                                     **
 ******************************************************************************
 */
 typedef struct gemm_params_struct
@@ -508,7 +508,8 @@ release_@TYPE@_matm(GEMM_PARAMS_t *params)
 // matmul_signature = "(m,k),(k,n)->(m,n)";
 
 static void
-@TYPE@_matmul_loop(char **args, npy_intp *dimensions, npy_intp *steps)
+@TYPE@_matmul(char **args, npy_intp *dimensions, npy_intp *steps,
+              void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_3
 
@@ -557,7 +558,8 @@ INIT_OUTER_LOOP_3
 // matmul_signature = "(m,n),(n,p)->(m,p)";
 
 static void
-@TYPE@_matmul_loop(char **args, npy_intp *dimensions, npy_intp *steps)
+@TYPE@_matmul(char **args, npy_intp *dimensions, npy_intp *steps,
+              void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_3
 
@@ -610,22 +612,13 @@ INIT_OUTER_LOOP_3
 
 /**end repeat**/
 
-/*******************************************************
-*    Gufunc callers                                    *
-********************************************************/
+/************************************************
+*               RMATMUL                         *
+*************************************************/
 
 /**begin repeat
     #TYPE = LONG, FLOAT, DOUBLE, CFLOAT, CDOUBLE#
 */
-
-// matmul_signature = "(m,k),(k,n)->(m,n)";
-
-static void
-@TYPE@_matmul(char **args, npy_intp *dimensions, npy_intp *steps,
-              void *NPY_UNUSED(func))
-{
-    @TYPE@_matmul_loop(args, dimensions, steps);
-}
 
 // rmatmul_signature = "(k,n),(m,k)->(m,n)"
 
@@ -652,7 +645,7 @@ static void
         steps[3], steps[4],
         steps[7], steps[8]};
     //now that we've swapped a,b and transposed, proceed as if we're in lstsq
-    @TYPE@_matmul_loop(rargs, rdimensions, rsteps);
+    @TYPE@_matmul(rargs, rdimensions, rsteps, NULL);
 }
 
 /**end repeat**/

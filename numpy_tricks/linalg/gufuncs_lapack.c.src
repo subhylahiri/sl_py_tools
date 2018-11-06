@@ -40,9 +40,9 @@ Copyright/licence info for that file:
 232.  Data rearrangement functions
 503.  QR
 933.  SOLVE
-1118. LSTSQ
-1455. Ufunc definition
-1496. Module initialization stuff
+1110. LSTSQ
+1439. Ufunc definition
+1480. Module initialization stuff
 */
 
 /*
@@ -969,7 +969,7 @@ call_@gesv@(GESV_PARAMS_t *params)
 
 /* *************************************************************************
 * Initialize the parameters to use in the lapack functions _gesv           *
-* Handles buffer allocation                                                *
+* Handles buffer allocation
 ************************************************************************** */
 static NPY_INLINE int
 init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in)
@@ -1035,7 +1035,8 @@ release_@gesv@(GESV_PARAMS_t *params)
 // solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
 
 static void
-@TYPE@_solve_loop(char **args, npy_intp *dimensions, npy_intp *steps)
+@TYPE@_solve(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_3
     npy_intp len_n = *dimensions++;  // rows
@@ -1073,20 +1074,11 @@ INIT_OUTER_LOOP_3
     set_fp_invalid_or_clear(error_occurred);
 }
 
-// solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
-
-static void
-@TYPE@_solve(char **args, npy_intp *dimensions, npy_intp *steps,
- void *NPY_UNUSED(func))
-{
-    @TYPE@_solve_loop(args, dimensions, steps);
-}
-
 // solve_signature = (nrhs,n),(n,n)->(nrhs,n)"
 
 static void
 @TYPE@_rsolve(char **args, npy_intp *dimensions, npy_intp *steps,
- void *NPY_UNUSED(func))
+            void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_3
     /*swap (A,B) for (B^T,A^T)
@@ -1108,7 +1100,7 @@ INIT_OUTER_LOOP_3
             steps[4], steps[3],
             steps[8], steps[7]};
     //now that we've swapped a,b and transposed, proceed as if we're in solve
-    @TYPE@_solve_loop(rargs, rdimensions, rsteps);
+    @TYPE@_solve(rargs, rdimensions, rsteps, NULL);
 }
 
 /**end repeat**/
@@ -1371,7 +1363,8 @@ release_@gels@(GELS_PARAMS_t *params)
 // lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
 
 static void
-@TYPE@_lstsq_loop(char **args, npy_intp *dimensions, npy_intp *steps)
+@TYPE@_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_3
     npy_intp len_m = *dimensions++;  // rows of a, b
@@ -1411,15 +1404,6 @@ INIT_OUTER_LOOP_3
     set_fp_invalid_or_clear(error_occurred);
 }
 
-// lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
-
-static void
-@TYPE@_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
-void *NPY_UNUSED(func))
-{
-    @TYPE@_lstsq_loop(args, dimensions, steps);
-}
-
 // lstsq_signature = "(nrhs,m),(n,m)->(nrhs,n)"
 
 static void
@@ -1445,7 +1429,7 @@ void *NPY_UNUSED(func))
         steps[4], steps[3],
         steps[8], steps[7]};
     //now that we've swapped a,b and transposed, proceed as if we're in lstsq
-    @TYPE@_lstsq_loop(rargs, rdimensions, rsteps);
+    @TYPE@_lstsq(rargs, rdimensions, rsteps, NULL);
 }
 
 /**end repeat**/
