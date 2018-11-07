@@ -178,6 +178,8 @@ PyDoc_STRVAR(rlstsq__doc__,
     #geqrf = sgeqrf, dgeqrf, cgeqrf, zgeqrf#
     #orgqr = sorgqr, dorgqr, cungqr, zungqr#
     #gesv = sgesv, dgesv, cgesv, zgesv#
+    #getrf = sgetrf, dgetrf, cgetrf, zgetrf#
+    #getrs = sgetrs, dgetrs, cgetrs, zgetrs#
 */
 
 /* copy vector x into y */
@@ -200,6 +202,16 @@ FNAME(@orgqr@)(int *m, int *n, int *k,
 /* solve a x = b for x */
 extern int
 FNAME(@gesv@)(int *n, int *nrhs,
+            @typ@ *a, int *lda, int * ipiv,
+            @typ@ *b, int *ldb, int *info);
+
+/* LU factors of a */
+extern int
+FNAME(@getrf@)(int *m, int *n, @typ@ *a, int *lda, int * ipiv, int *info);
+
+/* solve a x = b for x using LU factors of a */
+extern int
+FNAME(@getrs@)(char *trans, int *n, int *nrhs,
             @typ@ *a, int *lda, int * ipiv,
             @typ@ *b, int *ldb, int *info);
 
@@ -476,6 +488,54 @@ nan_@TYPE@_vec(void *dst_in, const LINEARIZE_VDATA_t* data)
 }
 
 /**end repeat**/
+
+static NPY_INLINE void *
+linearize_INT_vec(void *dst_in,
+                void *src_in,
+                const LINEARIZE_VDATA_t *data)
+{
+    fortran_int *dst = (fortran_int *) dst_in;
+    npy_intp *src = (npy_intp *) src_in;
+
+    if (dst) {
+        npy_intp* rv = dst;
+        fortran_int len = (fortran_int)data->len;
+        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_intp));
+        int j;
+        for (j = 0; j < len; ++j) {
+            *dst = (fortran_int)*src;
+            src += strides;
+            dst += 1;
+        }
+        return rv;
+    } else {
+        return src;
+    }
+}
+
+static NPY_INLINE void *
+delinearize_INT_vec(void *dst_in,
+                    void *src_in,
+                    const LINEARIZE_VDATA_t *data)
+{
+    fortran_int *src = (fortran_int *) src_in;
+    npy_intp *dst = (npy_intp *) dst_in;
+
+    if (dst) {
+        npy_intp* rv = dst;
+        fortran_int len = (fortran_int)data->len;
+        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_intp));
+        int j;
+        for (j = 0; j < len; ++j) {
+            *dst = (npy_intp)*src;
+            src += 1;
+            dst += strides;
+        }
+        return rv;
+    } else {
+        return src;
+    }
+}
 
 /**begin repeat
     #TYPE = FLOAT, DOUBLE#
@@ -947,12 +1007,15 @@ typedef struct gesv_params_struct
     fortran_int LDA;
     fortran_int LDB;
     fortran_int INFO;
+    char TRANS;
 } GESV_PARAMS_t;
 
 /**begin repeat
     #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
     #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
     #gesv = sgesv, dgesv, cgesv, zgesv#
+    #getrf = sgetrf, dgetrf, cgetrf, zgetrf#
+    #getrs = sgetrs, dgetrs, cgetrs, zgetrs#
 */
 
 /* ************************************************
@@ -967,12 +1030,31 @@ call_@gesv@(GESV_PARAMS_t *params)
                    params->IPIV, params->B, &params->LDB, &params->INFO);
 }
 
+static NPY_INLINE void
+call_@getrs@(GESV_PARAMS_t *params)
+{
+    // B is modified by ?GETRS to carry X
+    LAPACK(@getrs@)(&params->TRANS, &params->N, &params->NRHS,
+                    params->A, &params->LDA, params->IPIV,
+                    params->B, &params->LDB, &params->INFO);
+}
+
+static NPY_INLINE void
+call_@getrf@(GESV_PARAMS_t *params)
+{
+    // A is modified by ?GETRF to carry LU info
+    LAPACK(@getrf@)(&params->N, &params->N, params->A, &params->LDA,
+                    params->IPIV, &params->INFO);
+    // B is modified by ?GETRS to carry X
+    call_@getrs@(params);
+}
+
 /* *************************************************************************
 * Initialize the parameters to use in the lapack functions _gesv           *
 * Handles buffer allocation
 ************************************************************************** */
 static NPY_INLINE int
-init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in)
+init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in, char trans)
 {
     npy_uint8 *mem_buff = NULL;
     npy_uint8 *a, *b, *c;
@@ -1004,6 +1086,7 @@ init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in)
     params->LDA = lda;
     params->LDB = ldb;
     params->INFO = 0;
+    params->TRANS = trans;
 
     return 1;
 
@@ -1051,7 +1134,7 @@ INIT_OUTER_LOOP_3
     GESV_PARAMS_t params;
     LINEARIZE_DATA_t a_in, b_in, x_out;
 
-    if(init_@gesv@(&params, len_n, len_nrhs)){
+    if(init_@gesv@(&params, len_n, len_nrhs, 'N')){
         init_linearize_data(&a_in, len_n, len_n, stride_a_c, stride_a_r);
         init_linearize_data(&b_in, len_nrhs, len_n, stride_b_c, stride_b_r);
         init_linearize_data(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r);
@@ -1074,13 +1157,16 @@ INIT_OUTER_LOOP_3
     set_fp_invalid_or_clear(error_occurred);
 }
 
+/*************
+* RSOLVE     *
+**************/
+
 // solve_signature = (nrhs,n),(n,n)->(nrhs,n)"
 
 static void
 @TYPE@_rsolve(char **args, npy_intp *dimensions, npy_intp *steps,
             void *NPY_UNUSED(func))
 {
-INIT_OUTER_LOOP_3
     /*swap (A,B) for (B^T,A^T)
     a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
     char *rargs[] = {args[1], args[0], args[2]};
@@ -1101,6 +1187,194 @@ INIT_OUTER_LOOP_3
             steps[8], steps[7]};
     //now that we've swapped a,b and transposed, proceed as if we're in solve
     @TYPE@_solve(rargs, rdimensions, rsteps, NULL);
+}
+
+/*************
+* SOLVEF     *
+**************/
+
+// solvef_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
+
+static void
+@TYPE@_solvef_loop(char **args, npy_intp *dimensions, npy_intp *steps, char trans)
+{
+INIT_OUTER_LOOP_5
+    npy_intp len_n = *dimensions++;  // rows
+    npy_intp len_nrhs = *dimensions++;  // columns
+    npy_intp stride_a_r = *steps++;  // rows, a
+    npy_intp stride_a_c = *steps++;
+    npy_intp stride_b_r = *steps++;  // rows, b
+    npy_intp stride_b_c = *steps++;
+    npy_intp stride_x_r = *steps++;  // rows, x = a\b
+    npy_intp stride_x_c = *steps++;
+    npy_intp stride_af_r = *steps++;  // rows, LU factors of a
+    npy_intp stride_af_c = *steps++;
+    npy_intp stride_ip = *steps++;  // vec, permutations, a = PLU
+    int error_occurred = get_fp_invalid_and_clear();
+    GESV_PARAMS_t params;
+    LINEARIZE_DATA_t a_in, b_in, x_out, a_out;
+    LINEARIZE_VDATA_t ipiv_out;
+
+    if(init_@gesv@(&params, len_n, len_nrhs, trans)){
+        init_linearize_data(&a_in, len_n, len_n, stride_a_c, stride_a_r);
+        init_linearize_data(&b_in, len_nrhs, len_n, stride_b_c, stride_b_r);
+        init_linearize_data(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r);
+        init_linearize_data(&a_out, len_n, len_n, stride_af_c, stride_af_r);
+        init_linearize_vdata(&ipiv_out, len_n, stride_ip);
+
+        BEGIN_OUTER_LOOP_5
+            int not_ok;
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            linearize_@TYPE@_matrix(params.B, args[1], &b_in);
+            call_@getrf@(&params);
+            not_ok = params.INFO;
+            if (not_ok) {
+                error_occurred = 1;
+                nan_@TYPE@_matrix(args[2], &x_out);
+                nan_@TYPE@_matrix(args[3], &a_out);
+            } else {
+                delinearize_@TYPE@_matrix(args[2], params.B, &x_out);
+                delinearize_@TYPE@_matrix(args[3], params.A, &a_out);
+                delinearize_INT_vec(args[4], params.IPIV, &ipiv_out);
+            }
+        END_OUTER_LOOP_5
+        release_@gesv@(&params);
+    }
+    set_fp_invalid_or_clear(error_occurred);
+}
+
+// solvef_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
+
+static void
+@TYPE@_solve_f(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
+{
+    @TYPE@_solvef_loop(args, dimensions, steps, 'N');
+}
+
+/*************
+* RSOLVEF    *
+**************/
+
+// rsolvef_signature = "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)";
+
+static void
+@TYPE@_rsolve_f(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
+{
+    /*swap (A,B,X,Af,P) for (B^T,A,X^T,Af,P)
+    a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
+    char *rargs[] = {args[1], args[0], args[2], args[3], args[4]};
+    // dimensions = {N, len_nrhs, len_n};
+    // rdimensions[] = {N, len_n, len_nrhs};
+    npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[1]};
+    // steps = {strides_b, strides_a, strides_x,    0-2
+    //     strides_b_c, strides_b_r,                3-4
+    //     strides_a_r, strides_a_c,                5-6
+    //     strides_x_c, strides_x_r,                7-8
+    //     strides_af_r, strides_af_c, strides_ip}; 9-11
+    // rsteps = {strides_a, strides_b, strides_x,
+    //     strides_a_r, strides_a_c,
+    //     strides_b_r, strides_b_c,
+    //     strides_x_r, strides_x_c,
+    //     strides_af_r, strides_af_c, strides_ip};
+    npy_intp rsteps[] = {steps[1], steps[0], steps[2],
+            steps[5], steps[6],
+            steps[4], steps[3],
+            steps[8], steps[7],
+            steps[9], steps[10], steps[11]};
+    //now that we've swapped a,b and transposed, proceed as if we're in solve
+    @TYPE@_solvef_loop(rargs, rdimensions, rsteps, 'T');
+}
+
+/*************
+* SOLVEFD    *
+**************/
+
+// solvefd_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
+
+static void
+@TYPE@_solvefd_loop(char **args, npy_intp *dimensions, npy_intp *steps, char trans)
+{
+INIT_OUTER_LOOP_4
+    npy_intp len_n = *dimensions++;  // rows
+    npy_intp len_nrhs = *dimensions++;  // columns
+    npy_intp stride_af_r = *steps++;  // rows, LU factors of a
+    npy_intp stride_af_c = *steps++;
+    npy_intp stride_ip = *steps++;  // vec, permutations, a = PLU
+    npy_intp stride_b_r = *steps++;  // rows, b
+    npy_intp stride_b_c = *steps++;
+    npy_intp stride_x_r = *steps++;  // rows, x = a\b
+    npy_intp stride_x_c = *steps++;
+    int error_occurred = get_fp_invalid_and_clear();
+    GESV_PARAMS_t params;
+    LINEARIZE_DATA_t a_in, b_in, x_out;
+    LINEARIZE_VDATA_t ipiv_in;
+
+    if(init_@gesv@(&params, len_n, len_nrhs, trans)){
+        init_linearize_data(&a_in, len_n, len_n, stride_af_c, stride_af_r);
+        init_linearize_vdata(&ipiv_in, len_n, stride_ip);
+        init_linearize_data(&b_in, len_nrhs, len_n, stride_b_c, stride_b_r);
+        init_linearize_data(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r);
+
+        BEGIN_OUTER_LOOP_4
+            int not_ok;
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            linearize_INT_vec(params.IPIV, args[1], &ipiv_in);
+            linearize_@TYPE@_matrix(params.B, args[2], &b_in);
+            call_@getrs@(&params);
+            not_ok = params.INFO;
+            if (not_ok) {
+                error_occurred = 1;
+                nan_@TYPE@_matrix(args[3], &x_out);
+            } else {
+                delinearize_@TYPE@_matrix(args[3], params.B, &x_out);
+            }
+        END_OUTER_LOOP_4
+        release_@gesv@(&params);
+    }
+    set_fp_invalid_or_clear(error_occurred);
+}
+
+// solvefd_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
+
+static void
+@TYPE@_solve_fd(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
+{
+    @TYPE@_solvefd_loop(args, dimensions, steps, 'N');
+}
+
+/*************
+* RSOLVEFD   *
+**************/
+
+// rsolvefd_signature = "(nrhs,n),(n,n),(n)->(nrhs,n)";
+
+static void
+@TYPE@_rsolve_fd(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
+{
+    /*swap (A,P,B,X) for (B^T,A,P,X^T)
+    a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
+    char *rargs[] = {args[2], args[0], args[1], args[3]};
+    // dimensions = {N, len_nrhs, len_n};
+    // rdimensions[] = {N, len_n, len_nrhs};
+    npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[1]};
+    // steps = {strides_b, strides_a, strides_x,    0-2
+    //     strides_b_c, strides_b_r,                3-4
+    //     strides_a_r, strides_a_c, strides_ip     5-7
+    //     strides_x_c, strides_x_r};               8-9
+    // rsteps = {strides_a, strides_b, strides_x,
+    //     strides_a_r, strides_a_c, strides_ip
+    //     strides_b_r, strides_b_c,
+    //     strides_x_r, strides_x_c};
+    npy_intp rsteps[] = {steps[1], steps[0], steps[2],
+            steps[5], steps[6], steps[7],
+            steps[4], steps[3],
+            steps[9], steps[8]};
+    //now that we've swapped a,b and transposed, proceed as if we're in solve
+    @TYPE@_solvefd_loop(rargs, rdimensions, rsteps, 'T');
 }
 
 /**end repeat**/
