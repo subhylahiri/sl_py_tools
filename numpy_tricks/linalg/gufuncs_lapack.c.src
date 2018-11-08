@@ -176,7 +176,11 @@ PyDoc_STRVAR(rlstsq__doc__,
     #typ = float, double, f2c_complex, f2c_doublecomplex#
     #copy = scopy, dcopy, ccopy, zcopy#
     #geqrf = sgeqrf, dgeqrf, cgeqrf, zgeqrf#
+    #gelqf = sgelqf, dgelqf, cgelqf, zgelqf#
+    #geqrs = sgeqrs, dgeqrs, cgeqrs, zgeqrs#
+    #gelqs = sgelqs, dgelqs, cgelqs, zgelqs#
     #orgqr = sorgqr, dorgqr, cungqr, zungqr#
+    #ormqr = sormqr, dormqr, cunmqr, zunmqr#
     #gesv = sgesv, dgesv, cgesv, zgesv#
     #getrf = sgetrf, dgetrf, cgetrf, zgetrf#
     #getrs = sgetrs, dgetrs, cgetrs, zgetrs#
@@ -188,10 +192,13 @@ FNAME(@copy@)(int *n,
             @typ@ *sx, int *incx,
             @typ@ *sy, int *incy);
 
-/* qr decomposition of a */
+/* qr/lq decomposition of a */
 /* a -> r, v, tau */
 extern int
 FNAME(@geqrf@)(int *m, int *n, @typ@ *a, int *lda, @typ@ *tau,
+            @typ@ *work, int * lwork, int *info);
+extern int
+FNAME(@gelqf@)(int *m, int *n, @typ@ *a, int *lda, @typ@ *tau,
             @typ@ *work, int * lwork, int *info);
 /* v, tau -> q */
 extern int
@@ -214,6 +221,21 @@ extern int
 FNAME(@getrs@)(char *trans, int *n, int *nrhs,
             @typ@ *a, int *lda, int * ipiv,
             @typ@ *b, int *ldb, int *info);
+
+/* least square solution of a x = b for x from qr/lq*/
+extern int
+FNAME(@geqrs@)(int *m, int *n, int *nrhs,
+            @typ@ *a, int *lda, @typ@ *tau, @typ@ *b, int *ldb,
+            @typ@ *work, int *lwork, int *info);
+extern int
+FNAME(@gelqs@)(int *m, int *n, int *nrhs,
+            @typ@ *a, int *lda, @typ@ *tau, @typ@ *b, int *ldb,
+            @typ@ *work, int *lwork, int *info);
+/* multiply b by q from qr/lq*/
+extern int
+FNAME(@ormqr@)(char *side, char *trans, int *m, int *n, int *k,
+            @typ@ *a, int *lda, @typ@ *tau, @typ@ *c, int *ldc,
+            @typ@ *work, int *lwork, int *info);
 
 /**end repeat**/
 
@@ -537,27 +559,6 @@ delinearize_INT_vec(void *dst_in,
     }
 }
 
-/**begin repeat
-    #TYPE = FLOAT, DOUBLE#
-    #ftyp = fortran_real, fortran_doublereal#
-*/
-static fortran_int
-@TYPE@_to_int(@ftyp@ x)
-{
-    return (fortran_int)x;
-}
-/**end repeat**/
-/**begin repeat
-    #TYPE = CFLOAT, CDOUBLE#
-    #ftyp = fortran_complex, fortran_doublecomplex#
-*/
-static fortran_int
-@TYPE@_to_int(@ftyp@ x)
-{
-    return (fortran_int)x.r;
-}
-/**end repeat**/
-
 /*
 *****************************************************************************
 **                         QR DECOMPOSITION                                **
@@ -570,18 +571,22 @@ static fortran_int
 typedef struct geqrf_params_struct
 {
     void *A; /* A is (M,N) of base type */
-    void *T; /* X is (K,) of base type */
-    void *WR; /* WR is (N*B,) of base type, work for _geqrf */
-    void *WQ; /* WQ is (N*B,) of base type, work for _orgqr */
+    void *T; /* T is (K,) of base type */
+    void *B; /* B is (N,NC) of base type */
+    void *WR; /* WR is (N*B,) of base type, work for _ge{qr,lq}f */
+    void *WQ; /* WQ is (N*B,) of base type, work for _orgqr,_ge{qr,lq}s */
 
     fortran_int M;
     fortran_int N;
     fortran_int K;
     fortran_int NC;
     fortran_int LDA;
-    fortran_int LWR; /* LWR is lwork for _geqrf */
-    fortran_int LWQ; /* LWQ is lwork for _orgqr */
+    fortran_int LDB;
+    fortran_int LWR; /* LWR is lwork for _ge{qr,lq}f */
+    fortran_int LWQ; /* LWQ is lwork for _orgqr,_ge{qr,lq}s */
     fortran_int INFO;
+    char SIDE;
+    char TRANS;
 } GEQRF_PARAMS_t;
 
 /**begin repeat
@@ -590,6 +595,8 @@ typedef struct geqrf_params_struct
     #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
     #geqrf = sgeqrf, dgeqrf, cgeqrf, zgeqrf#
     #orgqr = sorgqr, dorgqr, cungqr, zungqr#
+    #zero = s_zero, d_zero, c_zero.f, z_zero.f#
+    #cmplx = 0, 0, 1, 1#
 */
 
 /* ************************************************
@@ -618,14 +625,17 @@ call_@orgqr@(GEQRF_PARAMS_t *params)
 * First: initialize for geqrf only
 * Second: initialize for _geqrf and _orgqr
 ************************************************************************** */
+
 static NPY_INLINE int
-init_@geqrf@_both(GEQRF_PARAMS_t *params,
-                npy_intp M_in, npy_intp N_in, npy_intp NC_in)
+init_@geqrf@(GEQRF_PARAMS_t *params,
+                npy_intp M_in, npy_intp N_in, npy_intp NC_in, npy_int do_org)
 {
     npy_uint8 *mem_buff = NULL;
-    npy_uint8 *a, *b;
-    fortran_int M, N, NC, K, ld;
-    size_t safe_M, safe_NC, safe_K;
+    npy_uint8 *mem_buff2 = NULL;
+    npy_uint8 *a, *b, *c, *d;
+    fortran_int M, N, NC, K, ld, LWR, LWQ;
+    size_t safe_M, safe_NC, safe_K, safe_LWR, safe_LWQ;
+    @ftyp@ work_size;
 
     M = (fortran_int)M_in;
     N = (fortran_int)N_in;
@@ -654,81 +664,36 @@ init_@geqrf@_both(GEQRF_PARAMS_t *params,
     params->LWR = -1;
     params->LWQ = -1;
     params->INFO = 0;
+    params->WR = &work_size;
+    params->WQ = NULL;
+    if (do_org) {
+        params->WQ = &work_size;
+    }
 
     call_@geqrf@(params);
     if (params->INFO < 0) {
         goto error;
     }
-    return 1;
-  error:
-    free(mem_buff);
-    memset(params, 0, sizeof(*params));
-    // PyErr_NoMemory();
-
-    return 0;
-}
-
-static NPY_INLINE int
-init_@geqrf@(GEQRF_PARAMS_t *params,
-                npy_intp M_in, npy_intp N_in, npy_intp NC_in)
-{
-    npy_uint8 *mem_buff2 = NULL;
-    npy_uint8 *c;
-    fortran_int LWR;
-    size_t safe_LWR;
-    @ftyp@ work_size;
-
-    params->WR = &work_size;
-    params->WQ = NULL;
-    if (!init_@geqrf@_both(params, M_in, N_in, NC_in)) {
-        goto error;
-    }
-    LWR = @TYPE@_to_int(work_size);
+#if @cmplx@
+    LWR = (fortran_int)work_size.r;
+#else
+    LWR = (fortran_int)work_size;
+#endif
     safe_LWR = LWR;
 
-    mem_buff2 = malloc(safe_LWR * sizeof(@ftyp@));
-    if (!mem_buff2) {
-        goto error;
+    if (do_org) {
+        call_@orgqr@(params);
+        if (params->INFO < 0) {
+            goto error;
+        }
+    } else {
+        work_size = @zero@;
     }
-    c = mem_buff2;
-
-    params->WR = c;
-    params->LWR = LWR;
-    params->INFO = 0;
-
-    return 1;
-  error:
-    free(params->A);
-    free(mem_buff2);
-    memset(params, 0, sizeof(*params));
-    // PyErr_NoMemory();
-
-    return 0;
-}
-
-static NPY_INLINE int
-init_@orgqr@(GEQRF_PARAMS_t *params,
-                npy_intp M_in, npy_intp N_in, npy_intp NC_in)
-{
-    npy_uint8 *mem_buff2 = NULL;
-    npy_uint8 *c, *d;
-    fortran_int LWR, LWQ;
-    size_t safe_LWR, safe_LWQ;
-    @ftyp@ work_size;
-
-    params->WR = &work_size;
-    params->WQ = &work_size;
-    if (!init_@geqrf@_both(params, M_in, N_in, NC_in)) {
-        goto error;
-    }
-    LWR = @TYPE@_to_int(work_size);
-    safe_LWR = LWR;
-
-    call_@orgqr@(params);
-    if (params->INFO < 0) {
-        goto error;
-    }
-    LWQ = @TYPE@_to_int(work_size);
+#if @cmplx@
+    LWQ = (fortran_int)work_size.r;
+#else
+    LWQ = (fortran_int)work_size;
+#endif
     safe_LWQ = LWQ;
 
     mem_buff2 = malloc(safe_LWR * sizeof(@ftyp@)
@@ -740,10 +705,11 @@ init_@orgqr@(GEQRF_PARAMS_t *params,
     d = c + safe_LWR * sizeof(@ftyp@);
 
     params->WR = c;
-    params->WQ = d;
     params->LWR = LWR;
     params->LWQ = LWQ;
-    params->INFO = 0;
+    if (do_org) {
+        params->WQ = d;
+    }
 
     return 1;
   error:
@@ -760,7 +726,7 @@ init_@orgqr@(GEQRF_PARAMS_t *params,
 *********************** */
 
 static NPY_INLINE void
-release_@TYPE@_qr(GEQRF_PARAMS_t *params)
+release_@geqrf@(GEQRF_PARAMS_t *params)
 {
     /* 1st memory block base is in A, second in WR */
     free(params->A);
@@ -825,7 +791,7 @@ INIT_OUTER_LOOP_3
         nan_@TYPE@_matrix(args[1], &q_out);
         nan_@TYPE@_matrix(args[2], &r_out);
     } else {
-        if(init_@orgqr@(&params, len_m, len_n, len_nc)){
+        if(init_@geqrf@(&params, len_m, len_n, len_nc, 1)){
             init_linearize_data(&a_in, len_n, len_m, stride_a_n, stride_a_m);
             init_linearize_data(&q_out, len_nc, len_m, stride_q_k, stride_q_m);
             init_linearize_data_ex(&r_out, len_n, len_nc, stride_r_n, stride_r_k, len_m);
@@ -840,7 +806,7 @@ INIT_OUTER_LOOP_3
                     nan_@TYPE@_matrix(args[2], &r_out);
                 }
             END_OUTER_LOOP_3
-            release_@TYPE@_qr(&params);
+            release_@geqrf@(&params);
         }
     }
     set_fp_invalid_or_clear(error_occurred);
@@ -867,7 +833,7 @@ INIT_OUTER_LOOP_2
         init_linearize_data_ex(&r_out, len_n, len_nc, stride_r_n, stride_r_k, len_m);
         nan_@TYPE@_matrix(args[1], &r_out);
     } else {
-        if(init_@geqrf@(&params, len_m, len_n, len_nc)){
+        if(init_@geqrf@(&params, len_m, len_n, len_nc, 0)){
             init_linearize_data(&a_in, len_n, len_m, stride_a_n, stride_a_m);
             init_linearize_data_ex(&r_out, len_n, len_nc, stride_r_n, stride_r_k, len_m);
 
@@ -886,7 +852,7 @@ INIT_OUTER_LOOP_2
                     delinearize_@TYPE@_triu(args[1], params.A, &r_out);
                 }
             END_OUTER_LOOP_2
-            release_@TYPE@_qr(&params);
+            release_@geqrf@(&params);
         }
     }
     set_fp_invalid_or_clear(error_occurred);
@@ -917,7 +883,7 @@ INIT_OUTER_LOOP_3
         nan_@TYPE@_matrix(args[1], &r_out);
         nan_@TYPE@_vec(args[2], &tau_out);
     } else {
-        if(init_@geqrf@(&params, len_m, len_n, len_nc)){
+        if(init_@geqrf@(&params, len_m, len_n, len_nc, 0)){
             init_linearize_data(&a_in, len_n, len_m, stride_a_n, stride_a_m);
             init_linearize_data(&r_out, len_m, len_n, stride_r_m, stride_r_n);
             init_linearize_vdata(&tau_out, len_nc, stride_tau);
@@ -938,7 +904,7 @@ INIT_OUTER_LOOP_3
                     delinearize_@TYPE@_vec(args[2], params.T, &tau_out);
                 }
             END_OUTER_LOOP_3
-            release_@TYPE@_qr(&params);
+            release_@geqrf@(&params);
         }
     }
     set_fp_invalid_or_clear(error_occurred);
@@ -1405,7 +1371,7 @@ typedef struct gelsd_params_struct
     fortran_int LDB;
     fortran_int LW;
     fortran_int INFO;
-} GELS_PARAMS_t;
+} GELSD_PARAMS_t;
 
 /* ************************************************
 * Calling BLAS/Lapack functions _gelsd            *
@@ -1416,7 +1382,7 @@ typedef struct gelsd_params_struct
     #gclsd = cgelsd, zgelsd#
 */
 static NPY_INLINE void
-call_@gelsd@(GELS_PARAMS_t *params)
+call_@gelsd@(GELSD_PARAMS_t *params)
 {
     // A,B are modified by ?GELS to carry LU info & X
     LAPACK(@gelsd@)(&params->M, &params->N, &params->NRHS,
@@ -1426,7 +1392,7 @@ call_@gelsd@(GELS_PARAMS_t *params)
 }
 
 static NPY_INLINE void
-call_@gclsd@(GELS_PARAMS_t *params)
+call_@gclsd@(GELSD_PARAMS_t *params)
 {
     // A,B are modified by ?GELS to carry LU info & X
     LAPACK(@gclsd@)(&params->M, &params->N, &params->NRHS,
@@ -1447,10 +1413,10 @@ call_@gclsd@(GELS_PARAMS_t *params)
     #rftyp = fortran_real, fortran_doublereal, fortran_real, fortran_doublereal#
     #gelsd = sgelsd, dgelsd, cgelsd, zgelsd#
     #eps = s_eps, d_eps, s_eps, d_eps#
-    #cmplx=0,0,1,1#
+    #cmplx=0, 0, 1, 1#
 */
 static NPY_INLINE int
-init_@gelsd@(GELS_PARAMS_t *params, npy_intp M_in, npy_intp N_in, npy_intp NRHS_in)
+init_@gelsd@(GELSD_PARAMS_t *params, npy_intp M_in, npy_intp N_in, npy_intp NRHS_in)
 {
     npy_uint8 *mem_buff = NULL;
     npy_uint8 *mem_buff2 = NULL;
@@ -1501,6 +1467,7 @@ init_@gelsd@(GELS_PARAMS_t *params, npy_intp M_in, npy_intp N_in, npy_intp NRHS_
     params->LW = -1;
     params->W = &work_size;
     params->IW = &iwork_size;
+    params->RW = NULL;
 #if @cmplx@
     params->RW = &rwork_size;
 #endif
@@ -1529,12 +1496,12 @@ init_@gelsd@(GELS_PARAMS_t *params, npy_intp M_in, npy_intp N_in, npy_intp NRHS_
     }
     a = mem_buff2;
     b = a + safe_LW * sizeof(@ftyp@);
+    c = b + safe_LIW * sizeof(@ftyp@);
 
     params->W = a;
     params->IW = (fortran_int*)b;
     params->LW = LW;
 #if @cmplx@
-    c = b + safe_LIW * sizeof(@ftyp@);
     params->RW = c;
 #endif
 
@@ -1554,7 +1521,7 @@ init_@gelsd@(GELS_PARAMS_t *params, npy_intp M_in, npy_intp N_in, npy_intp NRHS_
 *********************** */
 
 static NPY_INLINE void
-release_@gelsd@(GELS_PARAMS_t *params)
+release_@gelsd@(GELSD_PARAMS_t *params)
 {
    /* 1st memory block base is in A, second in W */
    free(params->A);
@@ -1584,7 +1551,7 @@ INIT_OUTER_LOOP_3
     npy_intp stride_x_r = *steps++;  // rows
     npy_intp stride_x_c = *steps++;
     int error_occurred = get_fp_invalid_and_clear();
-    GELS_PARAMS_t params;
+    GELSD_PARAMS_t params;
     LINEARIZE_DATA_t a_in, b_in, x_out;
     npy_intp len_mn = len_m > len_n ? len_m : len_n; // max
 
@@ -1611,7 +1578,7 @@ INIT_OUTER_LOOP_3
     set_fp_invalid_or_clear(error_occurred);
 }
 
-// lstsq_signature = "(nrhs,m),(n,m)->(nrhs,n)"
+// rlstsq_signature = "(nrhs,m),(n,m)->(nrhs,n)"
 
 static void
 @TYPE@_rlstsq(char **args, npy_intp *dimensions, npy_intp *steps,
@@ -1637,6 +1604,195 @@ void *NPY_UNUSED(func))
         steps[8], steps[7]};
     //now that we've swapped a,b and transposed, proceed as if we're in lstsq
     @TYPE@_lstsq(rargs, rdimensions, rsteps, NULL);
+}
+
+/**end repeat**/
+
+/*
+*****************************************************************************
+**                         LSTSQF                                          **
+*****************************************************************************
+*/
+
+// lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
+// rlstsq_signature = "(nrhs,m),(n,m)->(nrhs,n)"
+// char *qr_m_signature = "(m,n)->(m,m),(m,n)";  // m<n
+// char *qr_n_signature = "(m,n)->(m,n),(n,n)";  // m>n
+
+/**begin repeat
+    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
+    #typ = npy_float, npy_double, npy_cfloat, npy_cdouble#
+    #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
+    #geqrf = sgeqrf, dgeqrf, cgeqrf, zgeqrf#
+    #geqrs = sgeqrs, dgeqrs, cgeqrs, zgeqrs#
+    #gelqf = sgelqf, dgelqf, cgelqf, zgelqf#
+    #gelqs = sgelqs, dgelqs, cgelqs, zgelqs#
+    #ormqr = sormqr, dormqr, cunmqr, zunmqr#
+    #zero = s_zero, d_zero, c_zero.f, z_zero.f#
+    #cmplx = 0, 0, 1, 1#
+*/
+
+/************************************************************
+* Calling BLAS/Lapack functions _ge{qr,lq}f and _ge{qr,lq}s *
+*************************************************************/
+
+static NPY_INLINE void
+call_@gelqf@(GEQRF_PARAMS_t *params)
+{
+    // A,T are modified by ?GEQRF to carry QR info
+    LAPACK(@gelqf@)(&params->M, &params->N, params->A, &params->LDA,
+                    params->T, params->WR, &params->LWR, &params->INFO);
+}
+
+static NPY_INLINE void
+call_@geqrs@(GEQRF_PARAMS_t *params)
+{
+    // A,T are modified by ?GEQRF to carry QR info
+    LAPACK(@geqrs@)(&params->M, &params->N, &params->NC,
+                    params->A, &params->LDA, params->T, params->B, &params->LDB,
+                    params->WQ, &params->LWQ, &params->INFO);
+}
+
+static NPY_INLINE void
+call_@gelqs@(GEQRF_PARAMS_t *params)
+{
+    // A,T are modified by ?GEQRF to carry QR info
+    LAPACK(@gelqs@)(&params->M, &params->N, &params->NC,
+                    params->A, &params->LDA, params->T, params->B, &params->LDB,
+                    params->WQ, &params->LWQ, &params->INFO);
+}
+
+// needed to compute lwork
+static NPY_INLINE void
+call_@ormqr@(GEQRF_PARAMS_t *params)
+{
+    // A,T are modified by ?GEQRF to carry QR info
+    LAPACK(@ormqr@)(&params->SIDE, &params->TRANS, &params->M, &params->NC, &params->K,
+                    params->A, &params->LDA, params->T, params->B, &params->LDB,
+                    params->WQ, &params->LWQ, &params->INFO);
+}
+
+/* *************************************************************************
+* Initialize the parameters to use in the lapack functions _geqrf &  _orgqr*
+* Handles buffer allocation.
+* First: initialize for geqrf only
+* Second: initialize for _geqrf and _orgqr
+************************************************************************** */
+static NPY_INLINE int
+init_@geqrs@(GEQRF_PARAMS_t *params,
+    npy_intp M_in, npy_intp N_in, npy_intp NC_in, npy_int do_qrf)
+{
+    npy_uint8 *mem_buff = NULL;
+    npy_uint8 *mem_buff2 = NULL;
+    npy_uint8 *a, *b, *c;
+    fortran_int M, N, NC, K, lda, ldb, MNx, LWQ, LWR;
+    size_t safe_M, safe_N, safe_NC, safe_K, safe_MNx, safe_LWQ, safe_LWR;
+    @ftyp@ work_size;
+
+    M = (fortran_int)M_in;
+    N = (fortran_int)N_in;
+    NC = (fortran_int)NC_in;
+    K = fortran_int_min(M, N);
+    MNx = fortran_int_max(M, N);
+    lda = fortran_int_max(M, 1);
+    ldb = fortran_int_max(MNx, 1);
+    safe_M = M;
+    safe_N = N;
+    safe_MNx = MNx;
+    safe_K = K;
+
+    mem_buff = malloc(safe_M * safe_N * sizeof(@ftyp@)
+                    + safe_K * sizeof(@ftyp@)
+                    + safe_MNx * safe_NC * sizeof(@ftyp@));
+    if (!mem_buff) {
+        goto error;
+    }
+    a = mem_buff;
+    b = a + safe_M * safe_N * sizeof(@ftyp@);
+    c = b + safe_K * sizeof(@ftyp@);
+
+    params->A = a;
+    params->T = b;
+    params->B = c;
+    params->M = M;
+    params->N = N;
+    params->NC = NC;
+    params->K = K;
+    params->LDA = lda;
+    params->LDB = ldb;
+    params->LWR = -1;
+    params->LWQ = -1;
+    params->INFO = 0;
+    params->SIDE = 'L';
+    params->TRANS = 'T';
+    params->WQ = &work_size;
+    params->WR = NULL;
+    if (do_qrf) {
+        params->WR = &work_size;
+    }
+
+    // _geqrs doesn't allow workspace queries,
+    // but it only uses work in _ormqr, which does.
+    call_@ormqr@(params);
+    if (params->INFO < 0) {
+        goto error;
+    }
+#if @cmplx@
+    LWQ = (fortran_int)work_size.r;
+#else
+    LWQ = (fortran_int)work_size;
+#endif
+    safe_LWQ = LWQ;
+
+    if (do_qrf) {
+        call_@geqrf@(params);
+        if (params->INFO < 0) {
+            goto error;
+        }
+    } else {
+        work_size = @zero@;
+    }
+#if @cmplx@
+    LWR = (fortran_int)work_size.r;
+#else
+    LWR = (fortran_int)work_size;
+#endif
+    safe_LWR = LWR;
+
+    mem_buff2 = malloc(safe_LWQ * sizeof(@ftyp@)
+                    + safe_LWR * sizeof(@ftyp@));
+    if (!mem_buff2) {
+        goto error;
+    }
+    a = mem_buff2;
+    b = c + safe_LWQ * sizeof(@ftyp@);
+    params->WQ = a;
+    params->LWQ = LWQ;
+    params->LWR = LWR;
+    if (do_qrf) {
+        params->WR = b;
+    }
+
+    return 1;
+  error:
+    free(mem_buff);
+    memset(params, 0, sizeof(*params));
+    // PyErr_NoMemory();
+
+    return 0;
+}
+
+/* ********************
+* Deallocate buffer   *
+*********************** */
+
+static NPY_INLINE void
+release_@geqrs@(GEQRF_PARAMS_t *params)
+{
+    /* 1st memory block base is in A, second in WQ */
+    free(params->A);
+    free(params->WQ);
+    memset(params, 0, sizeof(*params));
 }
 
 /**end repeat**/
