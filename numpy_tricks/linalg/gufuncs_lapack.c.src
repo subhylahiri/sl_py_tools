@@ -495,10 +495,10 @@ linearize_INT_vec(void *dst_in,
                 const LINEARIZE_VDATA_t *data)
 {
     fortran_int *dst = (fortran_int *) dst_in;
-    npy_intp *src = (npy_intp *) src_in;
+    npy_int *src = (npy_int *) src_in;
 
     if (dst) {
-        npy_intp* rv = dst;
+        npy_int* rv = dst;
         fortran_int len = (fortran_int)data->len;
         fortran_int strides = (fortran_int)(data->strides/sizeof(npy_intp));
         int j;
@@ -519,10 +519,10 @@ delinearize_INT_vec(void *dst_in,
                     const LINEARIZE_VDATA_t *data)
 {
     fortran_int *src = (fortran_int *) src_in;
-    npy_intp *dst = (npy_intp *) dst_in;
+    npy_int *dst = (npy_int *) dst_in;
 
     if (dst) {
-        npy_intp* rv = dst;
+        npy_int* rv = dst;
         fortran_int len = (fortran_int)data->len;
         fortran_int strides = (fortran_int)(data->strides/sizeof(npy_intp));
         int j;
@@ -1387,7 +1387,7 @@ static void
 
 // char *lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
 
-typedef struct gels_params_struct
+typedef struct gelsd_params_struct
 {
     void *A; /* A is (N,N) of base type */
     void *B; /* B is (N,NRHS) of base type */
@@ -1412,24 +1412,24 @@ typedef struct gels_params_struct
 *************************************************** */
 
 /**begin repeat
-    #gels = sgelsd, dgelsd#
-    #gcls = cgelsd, zgelsd#
+    #gelsd = sgelsd, dgelsd#
+    #gclsd = cgelsd, zgelsd#
 */
 static NPY_INLINE void
-call_@gels@(GELS_PARAMS_t *params)
+call_@gelsd@(GELS_PARAMS_t *params)
 {
     // A,B are modified by ?GELS to carry LU info & X
-    LAPACK(@gels@)(&params->M, &params->N, &params->NRHS,
+    LAPACK(@gelsd@)(&params->M, &params->N, &params->NRHS,
                    params->A, &params->LDA, params->B, &params->LDB,
                    params->S, params->RCOND, params->RANK,
                    params->W, &params->LW, params->IW, &params->INFO);
 }
 
 static NPY_INLINE void
-call_@gcls@(GELS_PARAMS_t *params)
+call_@gclsd@(GELS_PARAMS_t *params)
 {
     // A,B are modified by ?GELS to carry LU info & X
-    LAPACK(@gcls@)(&params->M, &params->N, &params->NRHS,
+    LAPACK(@gclsd@)(&params->M, &params->N, &params->NRHS,
                    params->A, &params->LDA, params->B, &params->LDB,
                    params->S, params->RCOND, params->RANK, params->W,
                    &params->LW, params->RW, params->IW, &params->INFO);
@@ -1442,20 +1442,25 @@ call_@gcls@(GELS_PARAMS_t *params)
 ************************************************************************** */
 
 /**begin repeat
+    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
     #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
     #rftyp = fortran_real, fortran_doublereal, fortran_real, fortran_doublereal#
-    #gels = sgelsd, dgelsd, cgelsd, zgelsd#
+    #gelsd = sgelsd, dgelsd, cgelsd, zgelsd#
     #eps = s_eps, d_eps, s_eps, d_eps#
+    #cmplx=0,0,1,1#
 */
 static NPY_INLINE int
-init_@gels@_both(GELS_PARAMS_t *params,
-            npy_intp M_in, npy_intp N_in, npy_intp NRHS_in)
+init_@gelsd@(GELS_PARAMS_t *params, npy_intp M_in, npy_intp N_in, npy_intp NRHS_in)
 {
     npy_uint8 *mem_buff = NULL;
+    npy_uint8 *mem_buff2 = NULL;
     npy_uint8 *a, *b, *c, *d, *e;
-    fortran_int M, N, NRHS, MNn, MNx, lda, ldb;
-    size_t safe_M, safe_N, safe_NRHS, safe_MNn, safe_MNx;
-
+    fortran_int M, N, NRHS, MNn, MNx, lda, ldb, LW, iwork_size;
+    size_t safe_M, safe_N, safe_NRHS, safe_MNn, safe_MNx, safe_LW, safe_LIW, safe_LRW;
+    @ftyp@ work_size;
+#if @cmplx@
+    @rftyp@ rwork_size;
+#endif
     M = (fortran_int)M_in;
     N = (fortran_int)N_in;
     NRHS = (fortran_int)NRHS_in;
@@ -1492,54 +1497,33 @@ init_@gels@_both(GELS_PARAMS_t *params,
     params->NRHS = NRHS;
     params->LDA = lda;
     params->LDB = ldb;
-    params->LW = -1;
     params->INFO = 0;
+    params->LW = -1;
+    params->W = &work_size;
+    params->IW = &iwork_size;
+#if @cmplx@
+    params->RW = &rwork_size;
+#endif
 
     *(@rftyp@ *)params->RCOND = MNx * @eps@;
 
-    call_@gels@(params);
+    call_@gelsd@(params);
     if (params->INFO) {
         goto error;
     }
-    return 1;
-
-  error:
-    free(mem_buff);
-    memset(params, 0, sizeof(*params));
-    // PyErr_NoMemory();
-
-    return 0;
-}
-/**end repeat**/
-
-/**begin repeat
-    #ftyp = fortran_real, fortran_doublereal#
-    #cftyp = fortran_complex, fortran_doublecomplex#
-    #gels = sgelsd, dgelsd#
-    #gcls = cgelsd, zgelsd#
-*/
-
-static NPY_INLINE int
-init_@gels@(GELS_PARAMS_t *params,
-            npy_intp M_in, npy_intp N_in, npy_intp NRHS_in)
-{
-    npy_uint8 *mem_buff2 = NULL;
-    npy_uint8 *a, *b;
-    fortran_int LW, iwork_size;
-    size_t safe_LW, safe_LIW;
-    @ftyp@ work_size;
-
-    params->W = &work_size;
-    params->IW = &iwork_size;
-    if (!init_@gels@_both(params, M_in, N_in, NRHS_in)) {
-        goto error;
-    }
+#if @cmplx@
+    LW = (fortran_int)work_size.r;
+    safe_LRW = (size_t)rwork_size;
+#else
     LW = (fortran_int)work_size;
+    safe_LRW = 0;
+#endif
     safe_LW = LW;
     safe_LIW = iwork_size;
 
     mem_buff2 = malloc(safe_LW * sizeof(@ftyp@)
-                    + safe_LIW * sizeof(fortran_int));
+                    + safe_LIW * sizeof(fortran_int)
+                    + safe_LRW * sizeof(@rftyp@));
     if (!mem_buff2) {
         goto error;
     }
@@ -1549,79 +1533,28 @@ init_@gels@(GELS_PARAMS_t *params,
     params->W = a;
     params->IW = (fortran_int*)b;
     params->LW = LW;
+#if @cmplx@
+    c = b + safe_LIW * sizeof(@ftyp@);
+    params->RW = c;
+#endif
 
     return 1;
 
   error:
-    free(params->A);
+    free(mem_buff);
     free(mem_buff2);
     memset(params, 0, sizeof(*params));
-    PyErr_NoMemory();
+    // PyErr_NoMemory();
 
     return 0;
 }
-
-static NPY_INLINE int
-init_@gcls@(GELS_PARAMS_t *params,
-            npy_intp M_in, npy_intp N_in, npy_intp NRHS_in)
-{
-    npy_uint8 *mem_buff2 = NULL;
-    npy_uint8 *a, *b, *c;
-    fortran_int LW, iwork_size;
-    size_t safe_LW, safe_LRW, safe_LIW;
-    @cftyp@ work_size;
-    @ftyp@ rwork_size;
-
-    params->W = &work_size;
-    params->RW = &rwork_size;
-    params->IW = &iwork_size;
-    if (!init_@gcls@_both(params, M_in, N_in, NRHS_in)) {
-        goto error;
-    }
-    LW = (fortran_int)work_size.r;
-    safe_LW = LW;
-    safe_LRW = (size_t)rwork_size;
-    safe_LIW = iwork_size;
-
-    mem_buff2 = malloc(safe_LW * sizeof(@cftyp@)
-                    + safe_LRW * sizeof(@ftyp@)
-                    + safe_LIW * sizeof(fortran_int));
-    if (!mem_buff2) {
-        goto error;
-    }
-    a = mem_buff2;
-    b = a + safe_LW * sizeof(@cftyp@);
-    c = b + safe_LRW * sizeof(@ftyp@);
-
-    params->W = a;
-    params->RW = b;
-    params->IW = (fortran_int*)c;
-    params->LW = LW;
-
-    return 1;
-
-  error:
-    free(params->A);
-    free(mem_buff2);
-    memset(params, 0, sizeof(*params));
-    PyErr_NoMemory();
-
-    return 0;
-}
-
-/**end repeat**/
-
-/**begin repeat
-    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
-    #gels = sgelsd, dgelsd, cgelsd, zgelsd#
-*/
 
 /* ********************
 * Deallocate buffer   *
 *********************** */
 
 static NPY_INLINE void
-release_@gels@(GELS_PARAMS_t *params)
+release_@gelsd@(GELS_PARAMS_t *params)
 {
    /* 1st memory block base is in A, second in W */
    free(params->A);
@@ -1655,7 +1588,7 @@ INIT_OUTER_LOOP_3
     LINEARIZE_DATA_t a_in, b_in, x_out;
     npy_intp len_mn = len_m > len_n ? len_m : len_n; // max
 
-    if(init_@gels@(&params, len_m, len_n, len_nrhs)){
+    if(init_@gelsd@(&params, len_m, len_n, len_nrhs)){
         init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
         init_linearize_data_ex(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn);
         init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
@@ -1664,7 +1597,7 @@ INIT_OUTER_LOOP_3
             int not_ok;
             linearize_@TYPE@_matrix(params.A, args[0], &a_in);
             linearize_@TYPE@_matrix(params.B, args[1], &b_in);
-            call_@gels@(&params);
+            call_@gelsd@(&params);
             not_ok = params.INFO;
             if (not_ok) {
                 error_occurred = 1;
@@ -1673,7 +1606,7 @@ INIT_OUTER_LOOP_3
                 delinearize_@TYPE@_matrix(args[2], params.B, &x_out);
             }
         END_OUTER_LOOP_3
-        release_@gels@(&params);
+        release_@gelsd@(&params);
     }
     set_fp_invalid_or_clear(error_occurred);
 }

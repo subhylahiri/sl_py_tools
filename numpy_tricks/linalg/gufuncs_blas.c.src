@@ -550,8 +550,8 @@ INIT_OUTER_LOOP_3
 */
 
 /**begin repeat
-    #TYPE=LONG#
-    #typ=npy_long#
+    #TYPE=INT#
+    #typ=npy_int#
     #zero=0#
 */
 
@@ -617,7 +617,7 @@ INIT_OUTER_LOOP_3
 *************************************************/
 
 /**begin repeat
-    #TYPE = LONG, FLOAT, DOUBLE, CFLOAT, CDOUBLE#
+    #TYPE = INT, FLOAT, DOUBLE, CFLOAT, CDOUBLE#
 */
 
 // rmatmul_signature = "(k,n),(m,k)->(m,n)"

@@ -99,7 +99,7 @@ PyDoc_STRVAR(norm__doc__,
 
 PyDoc_STRVAR(rtruedivide__doc__,
 //"matmul(Y: ndarray, X: ndarray) -> (Z: ndarray)\n\n"
-"Reversed division Z = X \ Y.\n\n"
+"Reversed division Z = X \\ Y.\n\n"
 "Parameters\n-----------\n"
 "X: ndarray (...)\n"
 "    Denominator.\n"
@@ -118,16 +118,6 @@ PyDoc_STRVAR(rtruedivide__doc__,
 /********************************
 *            MATMUL             *
 *********************************/
-/**begin repeat
-    #TYPE=LONG,FLOAT,DOUBLE#
-    #typ=npy_long,npy_float,npy_double#
-*/
-static @typ@
-@TYPE@_add_product_scalar(const @typ@ *x_in, const @typ@ *y_in, @typ@ *z_out)
-{
-    *z_out += *x_in * *y_in;
-}
-/**end repeat**/
 
 /**begin repeat
     #TYPE=CFLOAT,CDOUBLE#
@@ -144,9 +134,10 @@ static @typ@
 /**end repeat**/
 
 /**begin repeat
-    #TYPE=LONG,FLOAT,DOUBLE,CFLOAT,CDOUBLE#
-    #typ=npy_long,npy_float,npy_double,COMPLEX_t,DOUBLECOMPLEX_t#
+    #TYPE=INT,FLOAT,DOUBLE,CFLOAT,CDOUBLE#
+    #typ=npy_int,npy_float,npy_double,COMPLEX_t,DOUBLECOMPLEX_t#
     #zero=0,s_zero,d_zero,c_zero,z_zero#
+    #cmplx=0,0,0,1,1#
 */
 
 // matmul_signature = "(m,n),(n,p)->(m,p)";
@@ -183,7 +174,12 @@ INIT_OUTER_LOOP_3
                 *(@typ@ *)op_z = @zero@;
 
                 for (n = 0; n < len_n; n++) {
-                    @TYPE@_add_product_scalar((@typ@ *)ip_x, (@typ@ *)ip_y, (@typ@ *)op_z);
+#if @cmplx@
+                        @TYPE@_add_product_scalar((@typ@ *)ip_x, (@typ@ *)ip_y, (@typ@ *)op_z);
+#else
+                        *(@typ@ *)op_z += *(@typ@ *)ip_x * *(@typ@ *)ip_y;
+#endif
+
 
                     ip_x += stride_x_n;
                     ip_y += stride_y_n;
@@ -232,7 +228,7 @@ static void
         steps[5], steps[6],
         steps[3], steps[4],
         steps[7], steps[8]};
-    //now that we've swapped a,b and transposed, proceed as if we're in lstsq
+    //now that we've swapped a,b and transposed, proceed as if we're in matmul
     @TYPE@_matmul(rargs, rdimensions, rsteps, NULL);
 }
 
@@ -241,16 +237,6 @@ static void
 /**********************************
 *            NORM                 *
 ***********************************/
-/**begin repeat
-    #TYPE=FLOAT,DOUBLE#
-    #typ=npy_float,npy_double#
-*/
-static void
-@TYPE@_add_abs_sq(const @typ@ *x_in, @typ@ *r_out)
-{
-    *r_out += *x_in * *x_in;
-}
-/**end repeat**/
 
 /**begin repeat
     #TYPE=CFLOAT,CDOUBLE#
@@ -270,6 +256,7 @@ static void
     #rtyp=npy_float,npy_double,npy_float,npy_double#
     #sqrt=npy_sqrtf,npy_sqrt,npy_sqrtf,npy_sqrt#
     #zero=s_zero,d_zero,s_zero,d_zero#
+    #cmplx=0,0,1,1#
 */
 
 // norm_signature = "(n)->()";
@@ -292,7 +279,11 @@ INIT_OUTER_LOOP_2
         normsq = @zero@;
 
         for (n = 0; n < len_n; n++) {
-            @TYPE@_add_abs_sq((@typ@ *)ip_x, &normsq);
+#if @cmplx@
+                @TYPE@_add_abs_sq((@typ@ *)ip_x, &normsq);
+#else
+                normsq += *(@typ@ *)ip_x * *(@typ@ *)ip_x;
+#endif
 
             ip_x += stride_n;
         }
@@ -305,16 +296,6 @@ INIT_OUTER_LOOP_2
 /**************************************************************************
 *                               RTRUEDIVIDE                               *
 ***************************************************************************/
-/**begin repeat
-    #TYPE=FLOAT,DOUBLE#
-    #typ=npy_float,npy_double#
-*/
-static void
-@TYPE@_div(const @typ@ *x_in, const @typ@ *y_in, @typ@ *r_out)
-{
-    *r_out = *x_in / *x_in;
-}
-/**end repeat**/
 
 /**begin repeat
     #TYPE=CFLOAT,CDOUBLE#
@@ -337,6 +318,7 @@ static void
 /**begin repeat
     #TYPE=FLOAT,DOUBLE,CFLOAT,CDOUBLE#
     #typ=npy_float,npy_double,COMPLEX_t,DOUBLECOMPLEX_t#
+    #cmplx=0,0,1,1#
 */
 
 static void
@@ -345,7 +327,11 @@ static void
 {
     INIT_OUTER_LOOP_3
     BEGIN_OUTER_LOOP
-        @TYPE@_div((@typ@ *)args[1], (@typ@ *)args[0], (@typ@ *)args[2]);
+#if @cmplx@
+            @TYPE@_div((@typ@ *)args[1], (@typ@ *)args[0], (@typ@ *)args[2]);
+#else
+            *(@typ@ *)args[2] = *(@typ@ *)args[1] / *(@typ@ *)args[0];
+#endif
     END_OUTER_LOOP_3
 }
 

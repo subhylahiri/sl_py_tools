@@ -276,7 +276,7 @@ static char ufn_types_4_3[] = { NPY_FLOAT, NPY_FLOAT, NPY_FLOAT,
                                 NPY_CFLOAT, NPY_CFLOAT, NPY_CFLOAT,
                                 NPY_CDOUBLE, NPY_CDOUBLE, NPY_CDOUBLE };
 
-static char ufn_types_5_3[] = { NPY_LONG, NPY_LONG, NPY_LONG,
+static char ufn_types_5_3[] = { NPY_INT, NPY_INT, NPY_INT,
                                 NPY_FLOAT, NPY_FLOAT, NPY_FLOAT,
                                 NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE,
                                 NPY_CFLOAT, NPY_CFLOAT, NPY_CFLOAT,
@@ -294,7 +294,7 @@ static char ufn_types_5_3[] = { NPY_LONG, NPY_LONG, NPY_LONG,
 #define GUFUNC_FUNC_ARRAY_REAL_INT(NAME)                \
     static PyUFuncGenericFunction                       \
     FUNC_ARRAY_NAME(NAME)[] = {                         \
-        LONG_ ## NAME,                                  \
+        INT_ ## NAME,                                  \
         FLOAT_ ## NAME,                                 \
         DOUBLE_ ## NAME                                 \
     }
@@ -311,7 +311,7 @@ static char ufn_types_5_3[] = { NPY_LONG, NPY_LONG, NPY_LONG,
 #define GUFUNC_FUNC_ARRAY_REAL_COMPLEX_INT(NAME)        \
     static PyUFuncGenericFunction                       \
     FUNC_ARRAY_NAME(NAME)[] = {                         \
-        LONG_ ## NAME,                                  \
+        INT_ ## NAME,                                  \
         FLOAT_ ## NAME,                                 \
         DOUBLE_ ## NAME,                                \
         CFLOAT_ ## NAME,                                \
