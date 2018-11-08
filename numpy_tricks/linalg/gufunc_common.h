@@ -275,6 +275,14 @@ static char ufn_types_4_3[] = { NPY_FLOAT, NPY_FLOAT, NPY_FLOAT,
                                 NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE,
                                 NPY_CFLOAT, NPY_CFLOAT, NPY_CFLOAT,
                                 NPY_CDOUBLE, NPY_CDOUBLE, NPY_CDOUBLE };
+static char ufn_types_4_4[] = { NPY_FLOAT, NPY_FLOAT, NPY_FLOAT, NPY_FLOAT,
+                                NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE,
+                                NPY_CFLOAT, NPY_CFLOAT, NPY_CFLOAT, NPY_CFLOAT,
+                                NPY_CDOUBLE, NPY_CDOUBLE, NPY_CDOUBLE, NPY_CDOUBLE };
+static char ufn_types_4_5[] = { NPY_FLOAT, NPY_FLOAT, NPY_FLOAT, NPY_FLOAT, NPY_FLOAT,
+                                NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE,
+                                NPY_CFLOAT, NPY_CFLOAT, NPY_CFLOAT, NPY_CFLOAT, NPY_CFLOAT,
+                                NPY_CDOUBLE, NPY_CDOUBLE, NPY_CDOUBLE, NPY_CDOUBLE, NPY_CDOUBLE };
 
 static char ufn_types_5_3[] = { NPY_INT, NPY_INT, NPY_INT,
                                 NPY_FLOAT, NPY_FLOAT, NPY_FLOAT,
