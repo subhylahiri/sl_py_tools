@@ -144,7 +144,8 @@ class lnarray(np.ndarray):
         else:
             outputs = (None,) * ufunc.nout
 
-        results = super().__array_ufunc__(ufunc, method, *args, **kwargs)
+        with np.errstate(invalid='raise'):
+            results = super().__array_ufunc__(ufunc, method, *args, **kwargs)
         if results is NotImplemented:
             return NotImplemented
 
@@ -152,9 +153,8 @@ class lnarray(np.ndarray):
             results = (results,)
 
         if ufunc in self.vec_ufuncs and any(to_squeeze):
-            squeezable_result = results[0]
             axs = (-2,) * to_squeeze[0] + (-1,) * to_squeeze[1]
-            squeezable_result = squeezable_result.squeeze(axis=axs)
+            squeezable_result = results[0].squeeze(axis=axs)
             results = (squeezable_result,) + results[1:]
 
         results = tuple((np.asarray(result).view(type(self))
