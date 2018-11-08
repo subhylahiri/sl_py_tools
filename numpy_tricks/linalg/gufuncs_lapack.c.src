@@ -599,9 +599,9 @@ typedef struct geqrf_params_struct
     #cmplx = 0, 0, 1, 1#
 */
 
-/* ************************************************
+/**************************************************
 * Calling BLAS/Lapack functions _geqrf and _orgqr *
-*************************************************** */
+***************************************************/
 
 static NPY_INLINE void
 call_@geqrf@(GEQRF_PARAMS_t *params)
@@ -619,12 +619,12 @@ call_@orgqr@(GEQRF_PARAMS_t *params)
                     params->T, params->WQ, &params->LWQ, &params->INFO);
 }
 
-/* *************************************************************************
+/***************************************************************************
 * Initialize the parameters to use in the lapack functions _geqrf &  _orgqr*
 * Handles buffer allocation.
 * First: initialize for geqrf only
 * Second: initialize for _geqrf and _orgqr
-************************************************************************** */
+****************************************************************************/
 
 static NPY_INLINE int
 init_@geqrf@(GEQRF_PARAMS_t *params,
@@ -721,9 +721,9 @@ init_@geqrf@(GEQRF_PARAMS_t *params,
     return 0;
 }
 
-/* ********************
+/**********************
 * Deallocate buffer   *
-*********************** */
+***********************/
 
 static NPY_INLINE void
 release_@geqrf@(GEQRF_PARAMS_t *params)
@@ -735,9 +735,9 @@ release_@geqrf@(GEQRF_PARAMS_t *params)
 }
 
 
- /* ********************
+/***********************
 * Inner GUfunc loop    *
-********************** */
+************************/
 
 static int
 do_@TYPE@_qr(const void *A, void *Q, void *R,
@@ -812,6 +812,10 @@ INIT_OUTER_LOOP_3
     set_fp_invalid_or_clear(error_occurred);
 }
 
+/***********************
+* R only GUfunc loop   *
+************************/
+
 static void
 @TYPE@_qr_r(char **args, npy_intp *dimensions, npy_intp *steps, int complete)
 {
@@ -857,6 +861,10 @@ INIT_OUTER_LOOP_2
     }
     set_fp_invalid_or_clear(error_occurred);
 }
+
+/*********************
+* Raw GUfunc loop    *
+**********************/
 
 static void
 @TYPE@_qr_raw(char **args, npy_intp *dimensions, npy_intp *steps, int complete)
@@ -909,6 +917,10 @@ INIT_OUTER_LOOP_3
     }
     set_fp_invalid_or_clear(error_occurred);
 }
+
+/***********************
+* Outer GUfunc calls   *
+************************/
 
 static void
 @TYPE@_qr_m(char **args, npy_intp *dimensions, npy_intp *steps,
@@ -984,9 +996,9 @@ typedef struct gesv_params_struct
     #getrs = sgetrs, dgetrs, cgetrs, zgetrs#
 */
 
-/* ************************************************
+/**************************************************
 * Calling BLAS/Lapack functions _gesv             *
-*************************************************** */
+***************************************************/
 
 static NPY_INLINE void
 call_@gesv@(GESV_PARAMS_t *params)
@@ -1015,10 +1027,10 @@ call_@getrf@(GESV_PARAMS_t *params)
     call_@getrs@(params);
 }
 
-/* *************************************************************************
+/***************************************************************************
 * Initialize the parameters to use in the lapack functions _gesv           *
 * Handles buffer allocation
-************************************************************************** */
+****************************************************************************/
 static NPY_INLINE int
 init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in, char trans)
 {
@@ -1064,9 +1076,9 @@ init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in, char trans)
     return 0;
 }
 
-/* **********************
+/************************
 * Deallocate buffer     *
-*********************** */
+*************************/
 
 static NPY_INLINE void
 release_@gesv@(GESV_PARAMS_t *params)
@@ -1077,9 +1089,9 @@ release_@gesv@(GESV_PARAMS_t *params)
 }
 
 
-/* **********************
+/************************
 * Inner GUfunc loop     *
-*********************** */
+*************************/
 
 // solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
 
@@ -1373,9 +1385,9 @@ typedef struct gelsd_params_struct
     fortran_int INFO;
 } GELSD_PARAMS_t;
 
-/* ************************************************
+/**************************************************
 * Calling BLAS/Lapack functions _gelsd            *
-*************************************************** */
+***************************************************/
 
 /**begin repeat
     #gelsd = sgelsd, dgelsd#
@@ -1402,10 +1414,10 @@ call_@gclsd@(GELSD_PARAMS_t *params)
 }
 /**end repeat**/
 
-/* *************************************************************************
+/***************************************************************************
 * Initialize the parameters to use in the lapack functions _gelsd          *
 * Handles buffer allocation
-************************************************************************** */
+****************************************************************************/
 
 /**begin repeat
     #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
@@ -1516,9 +1528,9 @@ init_@gelsd@(GELSD_PARAMS_t *params, npy_intp M_in, npy_intp N_in, npy_intp NRHS
     return 0;
 }
 
-/* ********************
+/**********************
 * Deallocate buffer   *
-*********************** */
+***********************/
 
 static NPY_INLINE void
 release_@gelsd@(GELSD_PARAMS_t *params)
@@ -1529,10 +1541,9 @@ release_@gelsd@(GELSD_PARAMS_t *params)
    memset(params, 0, sizeof(*params));
 }
 
-
-/* ********************
-* Inner GUfunc loop   *
-********************* */
+/*********************
+* Inner GUfunc loop  *
+**********************/
 
 // lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
 
@@ -1578,11 +1589,15 @@ INIT_OUTER_LOOP_3
     set_fp_invalid_or_clear(error_occurred);
 }
 
+/*************
+* RLSTSQ     *
+**************/
+
 // rlstsq_signature = "(nrhs,m),(n,m)->(nrhs,n)"
 
 static void
 @TYPE@_rlstsq(char **args, npy_intp *dimensions, npy_intp *steps,
-void *NPY_UNUSED(func))
+    void *NPY_UNUSED(func))
 {
     /*swap (A,B) for (B^T,A^T)
     a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
@@ -1614,10 +1629,10 @@ void *NPY_UNUSED(func))
 *****************************************************************************
 */
 
-// lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
-// rlstsq_signature = "(nrhs,m),(n,m)->(nrhs,n)"
-// char *qr_m_signature = "(m,n)->(m,m),(m,n)";  // m<n
-// char *qr_n_signature = "(m,n)->(m,n),(n,n)";  // m>n
+// lstsqf_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(k)";
+// rlstsqf_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(k)"
+// lstsqfd_signature = "(m,n),(k),(m,nrhs)->(n,nrhs)";
+// rlstsqfd_signature = "(nrhs,m),(k),(n,m)->(nrhs,n)"
 
 /**begin repeat
     #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
@@ -1672,12 +1687,12 @@ call_@ormqr@(GEQRF_PARAMS_t *params)
                     params->WQ, &params->LWQ, &params->INFO);
 }
 
-/* *************************************************************************
+/***************************************************************************
 * Initialize the parameters to use in the lapack functions _geqrf &  _orgqr*
 * Handles buffer allocation.
 * First: initialize for geqrf only
 * Second: initialize for _geqrf and _orgqr
-************************************************************************** */
+****************************************************************************/
 static NPY_INLINE int
 init_@geqrs@(GEQRF_PARAMS_t *params,
     npy_intp M_in, npy_intp N_in, npy_intp NC_in, npy_int do_qrf)
@@ -1732,7 +1747,7 @@ init_@geqrs@(GEQRF_PARAMS_t *params,
     }
 
     // _geqrs doesn't allow workspace queries,
-    // but it only uses work in _ormqr, which does.
+    // but it only uses 'work' in _ormqr, which does.
     call_@ormqr@(params);
     if (params->INFO < 0) {
         goto error;
@@ -1782,9 +1797,9 @@ init_@geqrs@(GEQRF_PARAMS_t *params,
     return 0;
 }
 
-/* ********************
+/**********************
 * Deallocate buffer   *
-*********************** */
+***********************/
 
 static NPY_INLINE void
 release_@geqrs@(GEQRF_PARAMS_t *params)
@@ -1793,6 +1808,256 @@ release_@geqrs@(GEQRF_PARAMS_t *params)
     free(params->A);
     free(params->WQ);
     memset(params, 0, sizeof(*params));
+}
+
+/*********************
+* Inner GUfunc loop  *
+**********************/
+
+// lstsqf_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(k)";
+
+static void
+@TYPE@_lstsqf_loop(char **args, npy_intp *dimensions, npy_intp *steps,
+                npy_int overconstrained)
+{
+INIT_OUTER_LOOP_5
+    npy_intp len_m = *dimensions++;  // rows of a, b
+    npy_intp len_n = *dimensions++;  // columns of a, rows of x
+    npy_intp len_nrhs = *dimensions++;  // columns of x, b
+    npy_intp stride_a_r = *steps++;  // rows
+    npy_intp stride_a_c = *steps++;
+    npy_intp stride_b_r = *steps++;  // rows
+    npy_intp stride_b_c = *steps++;
+    npy_intp stride_x_r = *steps++;  // rows
+    npy_intp stride_x_c = *steps++;
+    npy_intp stride_af_r = *steps++;  // rows
+    npy_intp stride_af_c = *steps++;
+    npy_intp stride_tau = *steps++;  // vec
+    int error_occurred = get_fp_invalid_and_clear();
+    GEQRF_PARAMS_t params;
+    LINEARIZE_DATA_t a_in, b_in, x_out, a_out;
+    LINEARIZE_VDATA_t tau_out;
+    npy_intp len_mn = overconstrained ? len_m : len_n; // max
+    npy_intp len_k = overconstrained ? len_n : len_m; // min
+
+    if(len_mn < len_k) {//value of overconstrained was wrong
+        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
+        init_linearize_data(&a_out, len_n, len_m, stride_af_c, stride_af_r);
+        init_linearize_vdata(&tau_out, len_k, stride_tau);
+        nan_@TYPE@_matrix(args[2], &x_out);
+        nan_@TYPE@_matrix(args[3], &a_out);
+        nan_@TYPE@_vec(args[4], &tau_out);
+        set_fp_invalid_or_clear(error_occurred);
+        return;
+    }
+    if(init_@geqrs@(&params, len_m, len_n, len_nrhs, 1)){
+        init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
+        init_linearize_data_ex(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn);
+        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
+        init_linearize_data(&a_out, len_n, len_m, stride_af_c, stride_af_r);
+        init_linearize_vdata(&tau_out, len_k, stride_tau);
+
+        BEGIN_OUTER_LOOP_5
+            int not_ok;
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            linearize_@TYPE@_matrix(params.B, args[1], &b_in);
+            if (overconstrained) {
+                call_@geqrf@(&params);
+            } else {
+                call_@gelqf@(&params);
+            }
+            not_ok = params.INFO;
+            if (not_ok) {
+                error_occurred = 1;
+                nan_@TYPE@_matrix(args[2], &x_out);
+                nan_@TYPE@_matrix(args[3], &a_out);
+                nan_@TYPE@_vec(args[4], &tau_out);
+            } else {
+                delinearize_@TYPE@_matrix(args[3], params.A, &a_out);
+                delinearize_@TYPE@_vec(args[4], params.T, &tau_out);
+                if (overconstrained) {
+                    call_@geqrs@(&params);
+                } else {
+                    call_@gelqs@(&params);
+                }
+                not_ok = params.INFO;
+                if (not_ok) {
+                    error_occurred = 1;
+                    nan_@TYPE@_matrix(args[2], &x_out);
+                } else {
+                    delinearize_@TYPE@_matrix(args[2], params.B, &x_out);
+                }
+            }
+        END_OUTER_LOOP_5
+        release_@geqrs@(&params);
+    }
+    set_fp_invalid_or_clear(error_occurred);
+}
+
+/************
+* RLSTSQF   *
+*************/
+
+// rlstsqf_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(k)"
+
+static void
+@TYPE@_rlstsqf_loop(char **args, npy_intp *dimensions, npy_intp *steps,
+                npy_int overconstrained)
+{
+    /*swap (A,B,X,AF,TAU) for (B^T,A^T,X^T,AF^T,TAU)
+    a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
+    char *rargs[] = {args[1], args[0], args[2], args[3], args[4]};
+    // dimensions = {N, len_nrhs, len_m, len_n};
+    // rdimensions[] = {N, len_m, len_n, len_nrhs};
+    npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[3], dimensions[1]};
+    // steps = {strides_b, strides_a, strides_x, strides_af, strides_t, 0-4
+    //     strides_b_c, strides_b_r,                                    5-6
+    //     strides_a_c, strides_a_r,                                    7-8
+    //     strides_x_c, strides_x_r,                                    9-10
+    //     strides_af_c, strides_af_r, strides_tau };                   11-13
+    // rsteps = {strides_a, strides_b, strides_x, strides_af, strides_t,
+    //     strides_a_r, strides_a_c,
+    //     strides_b_r, strides_b_c,
+    //     strides_x_r, strides_x_c,
+    //     strides_af_r, strides_af_c, strides_tau };
+    npy_intp rsteps[] = {steps[1], steps[0], steps[2], steps[3], steps[4],
+        steps[8], steps[7],
+        steps[6], steps[5],
+        steps[10], steps[9],
+        steps[12], steps[11], steps[13]};
+    //now that we've swapped a,b and transposed, proceed as if we're in lstsqf
+    @TYPE@_lstsqf_loop(rargs, rdimensions, rsteps, overconstrained);
+}
+
+/*********************
+* Outer GUfunc calls *
+**********************/
+
+// lstsq_fm_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(m)";
+// lstsq_fn_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(n)";
+// rlstsq_fm_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(m)"
+// rlstsq_fn_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(n)"
+
+static void
+@TYPE@_lstsq_fm(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+    @TYPE@_lstsqf_loop(args, dimensions, steps, 0);
+}
+
+static void
+@TYPE@_lstsq_fn(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+    @TYPE@_lstsqf_loop(args, dimensions, steps, 1);
+}
+
+static void
+@TYPE@_rlstsq_fm(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+    @TYPE@_rlstsqf_loop(args, dimensions, steps, 0);
+}
+
+static void
+@TYPE@_rlstsq_fn(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+    @TYPE@_rlstsqf_loop(args, dimensions, steps, 1);
+}
+
+/************
+* LSTSQFD   *
+*************/
+
+// lstsq_fd_signature = "(m,n),(k),(m,nrhs)->(n,nrhs)";
+static void
+@TYPE@_lstsqfd(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+INIT_OUTER_LOOP_4
+    npy_intp len_m = *dimensions++;  // rows of a, b
+    npy_intp len_n = *dimensions++;  // columns of a, rows of x
+    npy_intp len_k = *dimensions++;  // length of tau
+    npy_intp len_nrhs = *dimensions++;  // columns of x, b
+    npy_intp stride_a_r = *steps++;  // rows
+    npy_intp stride_a_c = *steps++;
+    npy_intp stride_tau = *steps++;  // vec
+    npy_intp stride_b_r = *steps++;  // rows
+    npy_intp stride_b_c = *steps++;
+    npy_intp stride_x_r = *steps++;  // rows
+    npy_intp stride_x_c = *steps++;
+    int error_occurred = get_fp_invalid_and_clear();
+    GEQRF_PARAMS_t params;
+    LINEARIZE_DATA_t a_in, b_in, x_out;
+    LINEARIZE_VDATA_t tau_in;
+    npy_intp len_mn = len_m + len_n - len_k; // max
+
+    if(len_mn < len_k) {//a and tau don't match
+        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
+        nan_@TYPE@_matrix(args[3], &x_out);
+        set_fp_invalid_or_clear(error_occurred);
+        return;
+    }
+    if(init_@geqrs@(&params, len_m, len_n, len_nrhs, 1)){
+        init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
+        init_linearize_vdata(&tau_in, len_k, stride_tau);
+        init_linearize_data_ex(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn);
+        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
+
+        BEGIN_OUTER_LOOP_4
+            int not_ok;
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            linearize_@TYPE@_vec(args[1], params.T, &tau_in);
+            linearize_@TYPE@_matrix(params.B, args[2], &b_in);
+            if (len_k == len_m) {
+                call_@geqrs@(&params);
+            } else {
+                call_@gelqs@(&params);
+            }
+            not_ok = params.INFO;
+            if (not_ok) {
+                error_occurred = 1;
+                nan_@TYPE@_matrix(args[3], &x_out);
+            } else {
+                delinearize_@TYPE@_matrix(args[3], params.B, &x_out);
+            }
+        END_OUTER_LOOP_4
+        release_@geqrs@(&params);
+    }
+    set_fp_invalid_or_clear(error_occurred);
+}
+
+/************
+* RLSTSQFD  *
+*************/
+
+// rlstsq_fd_signature = "(nrhs,m),(k),(n,m)->(nrhs,n)"
+
+static void
+@TYPE@_rlstsq_fd(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+    /*swap (A,TAU,B,X) for (B^T,A^T,TAU,X^T)
+    a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
+    char *rargs[] = {args[1], args[2], args[0], args[3]};
+    // dimensions = {N, len_nrhs, len_m, len_k, len_n};
+    // rdimensions[] = {N, len_m, len_n, len_k, len_nrhs};
+    npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[4],
+                                dimensions[3], dimensions[1]};
+    // steps = {strides_b, strides_a, strides_t, strides_x, 0-3
+    //     strides_b_c, strides_b_r,                        4-5
+    //     strides_a_c, strides_a_r, strides_tau,           6-8
+    //     strides_x_c, strides_x_r, };                     9-10
+    // rsteps = {strides_a, strides_t, strides_b, strides_x,
+    //     strides_a_r, strides_a_c, strides_tau,
+    //     strides_b_r, strides_b_c,
+    //     strides_x_r, strides_x_c, };
+    npy_intp rsteps[] = {steps[1], steps[2], steps[0], steps[3],
+        steps[7], steps[6], steps[8],
+        steps[10], steps[9]};
+    //now that we've swapped a,b and transposed, proceed as if we're in lstsqfd
+    @TYPE@_lstsqfd(rargs, rdimensions, rsteps, NULL);
 }
 
 /**end repeat**/
