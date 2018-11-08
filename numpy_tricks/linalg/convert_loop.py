@@ -6,12 +6,12 @@ from typing import Tuple, Any, List
 import numpy as np
 
 
-def conv_loop_in(cls, tup: Tuple[Any]) -> (Tuple[Any], List[bool]):
+def conv_loop_in(obj_typ, tup: Tuple[Any]) -> (Tuple[Any], List[bool]):
     """Process inputs in an __array_ufunc__ method
 
     Parameters
     ----------
-    cls
+    obj_typ
         The type of object that needs converting via ``view`` method.
     tup: Tuple[Any]
         Tuple of inputs to ufunc (or ``out`` argument)
@@ -25,7 +25,7 @@ def conv_loop_in(cls, tup: Tuple[Any]) -> (Tuple[Any], List[bool]):
     out = []
     conv = []
     for obj in tup:
-        if isinstance(obj, cls):
+        if isinstance(obj, obj_typ):
             out.append(obj.view(np.ndarray))
             conv.append(True)
         else:

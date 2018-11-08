@@ -34,22 +34,20 @@ Copyright/licence info for that file:
 */
 
 /*              Table of Contents
-52.   Includes
-72.   Docstrings
-141.  BLAS/Lapack calling functions
-226.  Data rearrangement functions
-477.  QR
-723.  SOLVE
-870.  LSTSQ
-1071. EIGVALSH
-1243. SINGVALS
-1425. Ufunc definition
-1456. Module initialization stuff
+50.   Includes
+61.   Docstrings
+172.  BLAS/Lapack calling functions
+232.  Data rearrangement functions
+503.  QR
+933.  SOLVE
+1110. LSTSQ
+1439. Ufunc definition
+1480. Module initialization stuff
 */
 
 /*
 *****************************************************************************
-**                            INCLUDES                                     **
+**                            Includes                                     **
 *****************************************************************************
 */
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
@@ -171,39 +169,96 @@ PyDoc_STRVAR(rlstsq__doc__,
 
 /*
 *****************************************************************************
-*                    BLAS/LAPACK calling macros                             *
+**                   BLAS/Lapack calling macros                            **
 *****************************************************************************
 */
+
+static char char_F = 'F';
+static char char_L = 'L';
+static char char_N = 'N';
+static char char_T = 'T';
+static char char_U = 'U';
+
 /**begin repeat
     #typ = float, double, f2c_complex, f2c_doublecomplex#
     #copy = scopy, dcopy, ccopy, zcopy#
+    #laset = slaset, dlaset, claset, zlaset#
     #geqrf = sgeqrf, dgeqrf, cgeqrf, zgeqrf#
+    #gelqf = sgelqf, dgelqf, cgelqf, zgelqf#
+    #geqrs = sgeqrs, dgeqrs, cgeqrs, zgeqrs#
+    #gelqs = sgelqs, dgelqs, cgelqs, zgelqs#
     #orgqr = sorgqr, dorgqr, cungqr, zungqr#
+    #ormqr = sormqr, dormqr, cunmqr, zunmqr#
+    #ormlq = sormlq, dormlq, cunmlq, zunmlq#
     #gesv = sgesv, dgesv, cgesv, zgesv#
+    #getrf = sgetrf, dgetrf, cgetrf, zgetrf#
+    #getrs = sgetrs, dgetrs, cgetrs, zgetrs#
+    #trsm = strsm, dtrsm, ctrsm, ztrsm#
 */
 
 /* copy vector x into y */
-extern int
+extern void
 FNAME(@copy@)(int *n,
             @typ@ *sx, int *incx,
             @typ@ *sy, int *incy);
+/* fill matrix a*/
+extern void
+FNAME(@laset@)(char *uplo, int *m, int *n,
+            @typ@ *alpha, @typ@ *beta, @typ@ *a, int *lda);
 
-/* qr decomposition of a */
+/* qr/lq decomposition of a */
 /* a -> r, v, tau */
-extern int
+extern void
 FNAME(@geqrf@)(int *m, int *n, @typ@ *a, int *lda, @typ@ *tau,
             @typ@ *work, int * lwork, int *info);
+extern void
+FNAME(@gelqf@)(int *m, int *n, @typ@ *a, int *lda, @typ@ *tau,
+            @typ@ *work, int * lwork, int *info);
 /* v, tau -> q */
-extern int
+extern void
 FNAME(@orgqr@)(int *m, int *n, int *k,
             @typ@ *a, int *lda, @typ@ *tau,
             @typ@ *work, int * lwork, int *info);
 
 /* solve a x = b for x */
-extern int
+extern void
 FNAME(@gesv@)(int *n, int *nrhs,
             @typ@ *a, int *lda, int * ipiv,
             @typ@ *b, int *ldb, int *info);
+
+/* LU factors of a */
+extern void
+FNAME(@getrf@)(int *m, int *n, @typ@ *a, int *lda, int * ipiv, int *info);
+
+/* solve a x = b for x using LU factors of a */
+extern void
+FNAME(@getrs@)(char *trans, int *n, int *nrhs,
+            @typ@ *a, int *lda, int * ipiv,
+            @typ@ *b, int *ldb, int *info);
+
+// /* least square solution of a x = b for x from qr/lq*/
+// extern void
+// FNAME(@geqrs@)(int *m, int *n, int *nrhs,
+//             @typ@ *a, int *lda, @typ@ *tau, @typ@ *b, int *ldb,
+//             @typ@ *work, int *lwork, int *info);
+// extern void
+// FNAME(@gelqs@)(int *m, int *n, int *nrhs,
+//             @typ@ *a, int *lda, @typ@ *tau, @typ@ *b, int *ldb,
+//             @typ@ *work, int *lwork, int *info);
+/* multiply b by q from qr/lq*/
+extern void
+FNAME(@ormqr@)(char *side, char *trans, int *m, int *n, int *k,
+            @typ@ *a, int *lda, @typ@ *tau, @typ@ *c, int *ldc,
+            @typ@ *work, int *lwork, int *info);
+extern void
+FNAME(@ormlq@)(char *side, char *trans, int *m, int *n, int *k,
+            @typ@ *a, int *lda, @typ@ *tau, @typ@ *c, int *ldc,
+            @typ@ *work, int *lwork, int *info);
+/* solution of a x = b for triangular a from qr/lq*/
+extern void
+FNAME(@trsm@)(char *side, char *uplo, char *trans, char *diag,
+            int *m, int *n, @typ@ *alpha,
+            @typ@ *a, int *lda, @typ@ *b, int *ldb);
 
 /**end repeat**/
 
@@ -215,13 +270,13 @@ FNAME(@gesv@)(int *n, int *nrhs,
 */
 
 /* least square solution of a x = b for x */
-extern int
+extern void
 FNAME(@gelsd@)(int *m, int *n, int *nrhs,
             @rtyp@ *a, int *lda, @rtyp@ *b, int *ldb,
             @rtyp@ *s, @rtyp@ *rcond, int *rank,
             @rtyp@ *work, int *lwork, int *iwork, int *info);
 
-extern int
+extern void
 FNAME(@gclsd@)(int *m, int *n, int *nrhs,
             @typ@ *a, int *lda, @typ@ *b, int *ldb,
             @rtyp@ *s, @rtyp@ *rcond, int *rank, @typ@ *work,
@@ -231,7 +286,7 @@ FNAME(@gclsd@)(int *m, int *n, int *nrhs,
 
 /*
 *****************************************************************************
-**                    DATA REARRANGEMENT FUNCTIONS                         **
+**                    Data rearrangement functions                         **
 *****************************************************************************
 */
 
@@ -424,6 +479,46 @@ zero_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
 }
 
 static NPY_INLINE void *
+linearize_@TYPE@_vec(void *dst_in,
+                     void *src_in,
+                     const LINEARIZE_VDATA_t *data)
+{
+    @typ@ *src = (@typ@ *) src_in;
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    if (dst) {
+        @typ@* rv = dst;
+        fortran_int len = (fortran_int)data->len;
+        fortran_int strides = (fortran_int)(data->strides/sizeof(@typ@));
+        fortran_int one = 1;
+        if (strides > 0) {
+            FNAME(@copy@)(&len,
+                          (void*)src, &strides,
+                          (void*)dst, &one);
+        }
+        else if (strides < 0) {
+            FNAME(@copy@)(&len,
+                          (void*)((@typ@*)src + (len-1)*strides), &strides,
+                          (void*)dst, &one);
+        }
+        else {
+            /*
+             * Zero stride has undefined behavior in some BLAS
+             * implementations (e.g. OSX Accelerate), so do it
+             * manually
+             */
+            int j;
+            for (j = 0; j < len; ++j) {
+                memcpy((@typ@*)dst, (@typ@*)src + j, sizeof(@typ@));
+            }
+        }
+        return rv;
+    } else {
+        return src;
+    }
+}
+
+static NPY_INLINE void *
 delinearize_@TYPE@_vec(void *dst_in,
                      void *src_in,
                      const LINEARIZE_VDATA_t *data)
@@ -443,8 +538,7 @@ delinearize_@TYPE@_vec(void *dst_in,
         }
         else if (strides < 0) {
             FNAME(@copy@)(&len,
-                          (void*)((@typ@*)src + (len-1)*strides),
-                          &one,
+                          (void*)((@typ@*)src + (len-1)*strides), &one,
                           (void*)dst, &strides);
         }
         else {
@@ -479,26 +573,53 @@ nan_@TYPE@_vec(void *dst_in, const LINEARIZE_VDATA_t* data)
 
 /**end repeat**/
 
-/**begin repeat
-    #TYPE = FLOAT, DOUBLE#
-    #ftyp = fortran_real, fortran_doublereal#
-*/
-static fortran_int
-@TYPE@_to_int(@ftyp@ x)
+static NPY_INLINE void *
+linearize_INT_vec(void *dst_in,
+                void *src_in,
+                const LINEARIZE_VDATA_t *data)
 {
-    return (fortran_int)x;
+    fortran_int *dst = (fortran_int *) dst_in;
+    npy_int *src = (npy_int *) src_in;
+
+    if (dst) {
+        npy_int* rv = dst;
+        fortran_int len = (fortran_int)data->len;
+        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_intp));
+        int j;
+        for (j = 0; j < len; ++j) {
+            *dst = (fortran_int)*src;
+            src += strides;
+            dst += 1;
+        }
+        return rv;
+    } else {
+        return src;
+    }
 }
-/**end repeat**/
-/**begin repeat
-    #TYPE = CFLOAT, CDOUBLE#
-    #ftyp = fortran_complex, fortran_doublecomplex#
-*/
-static fortran_int
-@TYPE@_to_int(@ftyp@ x)
+
+static NPY_INLINE void *
+delinearize_INT_vec(void *dst_in,
+                    void *src_in,
+                    const LINEARIZE_VDATA_t *data)
 {
-    return (fortran_int)x.r;
+    fortran_int *src = (fortran_int *) src_in;
+    npy_int *dst = (npy_int *) dst_in;
+
+    if (dst) {
+        npy_int* rv = dst;
+        fortran_int len = (fortran_int)data->len;
+        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_intp));
+        int j;
+        for (j = 0; j < len; ++j) {
+            *dst = (npy_intp)*src;
+            src += 1;
+            dst += strides;
+        }
+        return rv;
+    } else {
+        return src;
+    }
 }
-/**end repeat**/
 
 /*
 *****************************************************************************
@@ -512,17 +633,20 @@ static fortran_int
 typedef struct geqrf_params_struct
 {
     void *A; /* A is (M,N) of base type */
-    void *T; /* X is (K,) of base type */
-    void *WR; /* WR is (N*B,) of base type, work for _geqrf */
-    void *WQ; /* WQ is (N*B,) of base type, work for _orgqr */
+    void *T; /* T is (K,) of base type */
+    void *B; /* B is (N,NC) of base type */
+    void *WR; /* WR is (N*B,) of base type, work for _ge{qr,lq}f */
+    void *WQ; /* WQ is (N*B,) of base type, work for _orgqr,_ge{qr,lq}s */
 
     fortran_int M;
     fortran_int N;
+    fortran_int MN;
     fortran_int K;
     fortran_int NC;
     fortran_int LDA;
-    fortran_int LWR; /* LWR is lwork for _geqrf */
-    fortran_int LWQ; /* LWQ is lwork for _orgqr */
+    fortran_int LDB;
+    fortran_int LWR; /* LWR is lwork for _ge{qr,lq}f */
+    fortran_int LWQ; /* LWQ is lwork for _orgqr,_ge{qr,lq}s */
     fortran_int INFO;
 } GEQRF_PARAMS_t;
 
@@ -532,11 +656,13 @@ typedef struct geqrf_params_struct
     #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
     #geqrf = sgeqrf, dgeqrf, cgeqrf, zgeqrf#
     #orgqr = sorgqr, dorgqr, cungqr, zungqr#
+    #zero = s_zero, d_zero, c_zero.f, z_zero.f#
+    #cmplx = 0, 0, 1, 1#
 */
 
-/* ************************************************
-* Calling BLAS/Lapack functions _geqrf and _orgqr
-*************************************************** */
+/**************************************************
+* Calling BLAS/Lapack functions _geqrf and _orgqr *
+***************************************************/
 
 static NPY_INLINE void
 call_@geqrf@(GEQRF_PARAMS_t *params)
@@ -554,20 +680,23 @@ call_@orgqr@(GEQRF_PARAMS_t *params)
                     params->T, params->WQ, &params->LWQ, &params->INFO);
 }
 
-/* *************************************************************************
-* Initialize the parameters to use in the lapack functions _geqrf &  _orgqr
+/***************************************************************************
+* Initialize the parameters to use in the lapack functions _geqrf &  _orgqr*
 * Handles buffer allocation.
 * First: initialize for geqrf only
 * Second: initialize for _geqrf and _orgqr
-************************************************************************** */
+****************************************************************************/
+
 static NPY_INLINE int
-init_@geqrf@_both(GEQRF_PARAMS_t *params,
-                npy_intp M_in, npy_intp N_in, npy_intp NC_in)
+init_@geqrf@(GEQRF_PARAMS_t *params,
+                npy_intp M_in, npy_intp N_in, npy_intp NC_in, npy_int do_org)
 {
     npy_uint8 *mem_buff = NULL;
-    npy_uint8 *a, *b;
-    fortran_int M, N, NC, K, ld;
-    size_t safe_M, safe_NC, safe_K;
+    npy_uint8 *mem_buff2 = NULL;
+    npy_uint8 *a, *b, *c, *d;
+    fortran_int M, N, NC, K, ld, LWR, LWQ;
+    size_t safe_M, safe_NC, safe_K, safe_LWR, safe_LWQ;
+    @ftyp@ work_size;
 
     M = (fortran_int)M_in;
     N = (fortran_int)N_in;
@@ -596,81 +725,36 @@ init_@geqrf@_both(GEQRF_PARAMS_t *params,
     params->LWR = -1;
     params->LWQ = -1;
     params->INFO = 0;
+    params->WR = &work_size;
+    params->WQ = NULL;
+    if (do_org) {
+        params->WQ = &work_size;
+    }
 
     call_@geqrf@(params);
     if (params->INFO < 0) {
         goto error;
     }
-    return 1;
-  error:
-    free(mem_buff);
-    memset(params, 0, sizeof(*params));
-    // PyErr_NoMemory();
-
-    return 0;
-}
-
-static NPY_INLINE int
-init_@geqrf@(GEQRF_PARAMS_t *params,
-                npy_intp M_in, npy_intp N_in, npy_intp NC_in)
-{
-    npy_uint8 *mem_buff2 = NULL;
-    npy_uint8 *c;
-    fortran_int LWR;
-    size_t safe_LWR;
-    @ftyp@ work_size;
-
-    params->WR = &work_size;
-    params->WQ = NULL;
-    if (!init_@geqrf@_both(params, M_in, N_in, NC_in)) {
-        goto error;
-    }
-    LWR = @TYPE@_to_int(work_size);
+#if @cmplx@
+    LWR = (fortran_int)work_size.r;
+#else
+    LWR = (fortran_int)work_size;
+#endif
     safe_LWR = LWR;
 
-    mem_buff2 = malloc(safe_LWR * sizeof(@ftyp@));
-    if (!mem_buff2) {
-        goto error;
+    if (do_org) {
+        call_@orgqr@(params);
+        if (params->INFO < 0) {
+            goto error;
+        }
+    } else {
+        work_size = @zero@;
     }
-    c = mem_buff2;
-
-    params->WR = c;
-    params->LWR = LWR;
-    params->INFO = 0;
-
-    return 1;
-  error:
-    free(params->A);
-    free(mem_buff2);
-    memset(params, 0, sizeof(*params));
-    // PyErr_NoMemory();
-
-    return 0;
-}
-
-static NPY_INLINE int
-init_@orgqr@(GEQRF_PARAMS_t *params,
-                npy_intp M_in, npy_intp N_in, npy_intp NC_in)
-{
-    npy_uint8 *mem_buff2 = NULL;
-    npy_uint8 *c, *d;
-    fortran_int LWR, LWQ;
-    size_t safe_LWR, safe_LWQ;
-    @ftyp@ work_size;
-
-    params->WR = &work_size;
-    params->WQ = &work_size;
-    if (!init_@geqrf@_both(params, M_in, N_in, NC_in)) {
-        goto error;
-    }
-    LWR = @TYPE@_to_int(work_size);
-    safe_LWR = LWR;
-
-    call_@orgqr@(params);
-    if (params->INFO < 0) {
-        goto error;
-    }
-    LWQ = @TYPE@_to_int(work_size);
+#if @cmplx@
+    LWQ = (fortran_int)work_size.r;
+#else
+    LWQ = (fortran_int)work_size;
+#endif
     safe_LWQ = LWQ;
 
     mem_buff2 = malloc(safe_LWR * sizeof(@ftyp@)
@@ -682,10 +766,11 @@ init_@orgqr@(GEQRF_PARAMS_t *params,
     d = c + safe_LWR * sizeof(@ftyp@);
 
     params->WR = c;
-    params->WQ = d;
     params->LWR = LWR;
     params->LWQ = LWQ;
-    params->INFO = 0;
+    if (do_org) {
+        params->WQ = d;
+    }
 
     return 1;
   error:
@@ -697,12 +782,12 @@ init_@orgqr@(GEQRF_PARAMS_t *params,
     return 0;
 }
 
-  /* ********************
-  * Deallocate buffer
-  *********************** */
+/**********************
+* Deallocate buffer   *
+***********************/
 
 static NPY_INLINE void
-release_@TYPE@_qr(GEQRF_PARAMS_t *params)
+release_@geqrf@(GEQRF_PARAMS_t *params)
 {
     /* 1st memory block base is in A, second in WR */
     free(params->A);
@@ -711,9 +796,9 @@ release_@TYPE@_qr(GEQRF_PARAMS_t *params)
 }
 
 
- /* ********************
-* Inner GUfunc loop
-*********************** */
+/***********************
+* Inner GUfunc loop    *
+************************/
 
 static int
 do_@TYPE@_qr(const void *A, void *Q, void *R,
@@ -767,7 +852,7 @@ INIT_OUTER_LOOP_3
         nan_@TYPE@_matrix(args[1], &q_out);
         nan_@TYPE@_matrix(args[2], &r_out);
     } else {
-        if(init_@orgqr@(&params, len_m, len_n, len_nc)){
+        if(init_@geqrf@(&params, len_m, len_n, len_nc, 1)){
             init_linearize_data(&a_in, len_n, len_m, stride_a_n, stride_a_m);
             init_linearize_data(&q_out, len_nc, len_m, stride_q_k, stride_q_m);
             init_linearize_data_ex(&r_out, len_n, len_nc, stride_r_n, stride_r_k, len_m);
@@ -782,11 +867,15 @@ INIT_OUTER_LOOP_3
                     nan_@TYPE@_matrix(args[2], &r_out);
                 }
             END_OUTER_LOOP_3
-            release_@TYPE@_qr(&params);
+            release_@geqrf@(&params);
         }
     }
     set_fp_invalid_or_clear(error_occurred);
 }
+
+/***********************
+* R only GUfunc loop   *
+************************/
 
 static void
 @TYPE@_qr_r(char **args, npy_intp *dimensions, npy_intp *steps, int complete)
@@ -809,7 +898,7 @@ INIT_OUTER_LOOP_2
         init_linearize_data_ex(&r_out, len_n, len_nc, stride_r_n, stride_r_k, len_m);
         nan_@TYPE@_matrix(args[1], &r_out);
     } else {
-        if(init_@geqrf@(&params, len_m, len_n, len_nc)){
+        if(init_@geqrf@(&params, len_m, len_n, len_nc, 0)){
             init_linearize_data(&a_in, len_n, len_m, stride_a_n, stride_a_m);
             init_linearize_data_ex(&r_out, len_n, len_nc, stride_r_n, stride_r_k, len_m);
 
@@ -828,11 +917,15 @@ INIT_OUTER_LOOP_2
                     delinearize_@TYPE@_triu(args[1], params.A, &r_out);
                 }
             END_OUTER_LOOP_2
-            release_@TYPE@_qr(&params);
+            release_@geqrf@(&params);
         }
     }
     set_fp_invalid_or_clear(error_occurred);
 }
+
+/*********************
+* Raw GUfunc loop    *
+**********************/
 
 static void
 @TYPE@_qr_raw(char **args, npy_intp *dimensions, npy_intp *steps, int complete)
@@ -859,7 +952,7 @@ INIT_OUTER_LOOP_3
         nan_@TYPE@_matrix(args[1], &r_out);
         nan_@TYPE@_vec(args[2], &tau_out);
     } else {
-        if(init_@geqrf@(&params, len_m, len_n, len_nc)){
+        if(init_@geqrf@(&params, len_m, len_n, len_nc, 0)){
             init_linearize_data(&a_in, len_n, len_m, stride_a_n, stride_a_m);
             init_linearize_data(&r_out, len_m, len_n, stride_r_m, stride_r_n);
             init_linearize_vdata(&tau_out, len_nc, stride_tau);
@@ -880,11 +973,15 @@ INIT_OUTER_LOOP_3
                     delinearize_@TYPE@_vec(args[2], params.T, &tau_out);
                 }
             END_OUTER_LOOP_3
-            release_@TYPE@_qr(&params);
+            release_@geqrf@(&params);
         }
     }
     set_fp_invalid_or_clear(error_occurred);
 }
+
+/***********************
+* Outer GUfunc calls   *
+************************/
 
 static void
 @TYPE@_qr_m(char **args, npy_intp *dimensions, npy_intp *steps,
@@ -936,7 +1033,12 @@ static void
 ******************************************************************************
 */
 
-// char *solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
+// solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
+// rsolve_signature = (nrhs,n),(n,n)->(nrhs,n)"
+// solvef_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
+// rsolvef_signature = "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)";
+// solvefd_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
+// rsolvefd_signature = "(nrhs,n),(n,n),(n)->(nrhs,n)";
 
 typedef struct gesv_params_struct
 {
@@ -949,17 +1051,20 @@ typedef struct gesv_params_struct
     fortran_int LDA;
     fortran_int LDB;
     fortran_int INFO;
+    char TRANS;
 } GESV_PARAMS_t;
 
 /**begin repeat
     #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
     #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
     #gesv = sgesv, dgesv, cgesv, zgesv#
+    #getrf = sgetrf, dgetrf, cgetrf, zgetrf#
+    #getrs = sgetrs, dgetrs, cgetrs, zgetrs#
 */
 
-/* ************************************************
-* Calling BLAS/Lapack functions _gesv
-*************************************************** */
+/**************************************************
+* Calling BLAS/Lapack functions _gesv             *
+***************************************************/
 
 static NPY_INLINE void
 call_@gesv@(GESV_PARAMS_t *params)
@@ -969,12 +1074,31 @@ call_@gesv@(GESV_PARAMS_t *params)
                    params->IPIV, params->B, &params->LDB, &params->INFO);
 }
 
-/* *************************************************************************
-* Initialize the parameters to use in the lapack functions _gesv
+static NPY_INLINE void
+call_@getrs@(GESV_PARAMS_t *params)
+{
+    // B is modified by ?GETRS to carry X
+    LAPACK(@getrs@)(&params->TRANS, &params->N, &params->NRHS,
+                    params->A, &params->LDA, params->IPIV,
+                    params->B, &params->LDB, &params->INFO);
+}
+
+static NPY_INLINE void
+call_@getrf@(GESV_PARAMS_t *params)
+{
+    // A is modified by ?GETRF to carry LU info
+    LAPACK(@getrf@)(&params->N, &params->N, params->A, &params->LDA,
+                    params->IPIV, &params->INFO);
+    // B is modified by ?GETRS to carry X
+    call_@getrs@(params);
+}
+
+/***************************************************************************
+* Initialize the parameters to use in the lapack functions _gesv           *
 * Handles buffer allocation
-************************************************************************** */
+****************************************************************************/
 static NPY_INLINE int
-init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in)
+init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in, char trans)
 {
     npy_uint8 *mem_buff = NULL;
     npy_uint8 *a, *b, *c;
@@ -1006,6 +1130,7 @@ init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in)
     params->LDA = lda;
     params->LDB = ldb;
     params->INFO = 0;
+    params->TRANS = trans;
 
     return 1;
 
@@ -1017,9 +1142,9 @@ init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in)
     return 0;
 }
 
-/* ********************
-* Deallocate buffer
-*********************** */
+/************************
+* Deallocate buffer     *
+*************************/
 
 static NPY_INLINE void
 release_@gesv@(GESV_PARAMS_t *params)
@@ -1030,14 +1155,15 @@ release_@gesv@(GESV_PARAMS_t *params)
 }
 
 
-/* ********************
-* Inner GUfunc loop
-*********************** */
+/************************
+* Inner GUfunc loop     *
+*************************/
 
 // solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
 
 static void
-@TYPE@_solve_loop(char **args, npy_intp *dimensions, npy_intp *steps)
+@TYPE@_solve(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_3
     npy_intp len_n = *dimensions++;  // rows
@@ -1052,7 +1178,7 @@ INIT_OUTER_LOOP_3
     GESV_PARAMS_t params;
     LINEARIZE_DATA_t a_in, b_in, x_out;
 
-    if(init_@gesv@(&params, len_n, len_nrhs)){
+    if(init_@gesv@(&params, len_n, len_nrhs, 'N')){
         init_linearize_data(&a_in, len_n, len_n, stride_a_c, stride_a_r);
         init_linearize_data(&b_in, len_nrhs, len_n, stride_b_c, stride_b_r);
         init_linearize_data(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r);
@@ -1075,22 +1201,16 @@ INIT_OUTER_LOOP_3
     set_fp_invalid_or_clear(error_occurred);
 }
 
-// solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
+/*************
+* RSOLVE     *
+**************/
 
-static void
-@TYPE@_solve(char **args, npy_intp *dimensions, npy_intp *steps,
- void *NPY_UNUSED(func))
-{
-    @TYPE@_solve_loop(args, dimensions, steps);
-}
-
-// solve_signature = (nrhs,n),(n,n)->(nrhs,n)"
+// rsolve_signature = (nrhs,n),(n,n)->(nrhs,n)"
 
 static void
 @TYPE@_rsolve(char **args, npy_intp *dimensions, npy_intp *steps,
- void *NPY_UNUSED(func))
+            void *NPY_UNUSED(func))
 {
-INIT_OUTER_LOOP_3
     /*swap (A,B) for (B^T,A^T)
     a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
     char *rargs[] = {args[1], args[0], args[2]};
@@ -1110,7 +1230,195 @@ INIT_OUTER_LOOP_3
             steps[4], steps[3],
             steps[8], steps[7]};
     //now that we've swapped a,b and transposed, proceed as if we're in solve
-    @TYPE@_solve_loop(rargs, rdimensions, rsteps);
+    @TYPE@_solve(rargs, rdimensions, rsteps, NULL);
+}
+
+/*************
+* SOLVEF     *
+**************/
+
+// solvef_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
+
+static void
+@TYPE@_solvef_loop(char **args, npy_intp *dimensions, npy_intp *steps, char trans)
+{
+INIT_OUTER_LOOP_5
+    npy_intp len_n = *dimensions++;  // rows
+    npy_intp len_nrhs = *dimensions++;  // columns
+    npy_intp stride_a_r = *steps++;  // rows, a
+    npy_intp stride_a_c = *steps++;
+    npy_intp stride_b_r = *steps++;  // rows, b
+    npy_intp stride_b_c = *steps++;
+    npy_intp stride_x_r = *steps++;  // rows, x = a\b
+    npy_intp stride_x_c = *steps++;
+    npy_intp stride_af_r = *steps++;  // rows, LU factors of a
+    npy_intp stride_af_c = *steps++;
+    npy_intp stride_ip = *steps++;  // vec, permutations, a = PLU
+    int error_occurred = get_fp_invalid_and_clear();
+    GESV_PARAMS_t params;
+    LINEARIZE_DATA_t a_in, b_in, x_out, a_out;
+    LINEARIZE_VDATA_t ipiv_out;
+
+    if(init_@gesv@(&params, len_n, len_nrhs, trans)){
+        init_linearize_data(&a_in, len_n, len_n, stride_a_c, stride_a_r);
+        init_linearize_data(&b_in, len_nrhs, len_n, stride_b_c, stride_b_r);
+        init_linearize_data(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r);
+        init_linearize_data(&a_out, len_n, len_n, stride_af_c, stride_af_r);
+        init_linearize_vdata(&ipiv_out, len_n, stride_ip);
+
+        BEGIN_OUTER_LOOP_5
+            int not_ok;
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            linearize_@TYPE@_matrix(params.B, args[1], &b_in);
+            call_@getrf@(&params);
+            not_ok = params.INFO;
+            if (not_ok) {
+                error_occurred = 1;
+                nan_@TYPE@_matrix(args[2], &x_out);
+                nan_@TYPE@_matrix(args[3], &a_out);
+            } else {
+                delinearize_@TYPE@_matrix(args[2], params.B, &x_out);
+                delinearize_@TYPE@_matrix(args[3], params.A, &a_out);
+                delinearize_INT_vec(args[4], params.IPIV, &ipiv_out);
+            }
+        END_OUTER_LOOP_5
+        release_@gesv@(&params);
+    }
+    set_fp_invalid_or_clear(error_occurred);
+}
+
+// solvef_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
+
+static void
+@TYPE@_solve_f(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
+{
+    @TYPE@_solvef_loop(args, dimensions, steps, 'N');
+}
+
+/*************
+* RSOLVEF    *
+**************/
+
+// rsolvef_signature = "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)";
+
+static void
+@TYPE@_rsolve_f(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
+{
+    /*swap (A,B,X,Af,P) for (B^T,A,X^T,Af,P)
+    a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
+    char *rargs[] = {args[1], args[0], args[2], args[3], args[4]};
+    // dimensions = {N, len_nrhs, len_n};
+    // rdimensions[] = {N, len_n, len_nrhs};
+    npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[1]};
+    // steps = {strides_b, strides_a, strides_x,    0-2
+    //     strides_b_c, strides_b_r,                3-4
+    //     strides_a_r, strides_a_c,                5-6
+    //     strides_x_c, strides_x_r,                7-8
+    //     strides_af_r, strides_af_c, strides_ip}; 9-11
+    // rsteps = {strides_a, strides_b, strides_x,
+    //     strides_a_r, strides_a_c,
+    //     strides_b_r, strides_b_c,
+    //     strides_x_r, strides_x_c,
+    //     strides_af_r, strides_af_c, strides_ip};
+    npy_intp rsteps[] = {steps[1], steps[0], steps[2],
+            steps[5], steps[6],
+            steps[4], steps[3],
+            steps[8], steps[7],
+            steps[9], steps[10], steps[11]};
+    //now that we've swapped a,b and transposed, proceed as if we're in solve
+    @TYPE@_solvef_loop(rargs, rdimensions, rsteps, 'T');
+}
+
+/*************
+* SOLVEFD    *
+**************/
+
+// solvefd_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
+
+static void
+@TYPE@_solvefd_loop(char **args, npy_intp *dimensions, npy_intp *steps, char trans)
+{
+INIT_OUTER_LOOP_4
+    npy_intp len_n = *dimensions++;  // rows
+    npy_intp len_nrhs = *dimensions++;  // columns
+    npy_intp stride_af_r = *steps++;  // rows, LU factors of a
+    npy_intp stride_af_c = *steps++;
+    npy_intp stride_ip = *steps++;  // vec, permutations, a = PLU
+    npy_intp stride_b_r = *steps++;  // rows, b
+    npy_intp stride_b_c = *steps++;
+    npy_intp stride_x_r = *steps++;  // rows, x = a\b
+    npy_intp stride_x_c = *steps++;
+    int error_occurred = get_fp_invalid_and_clear();
+    GESV_PARAMS_t params;
+    LINEARIZE_DATA_t a_in, b_in, x_out;
+    LINEARIZE_VDATA_t ipiv_in;
+
+    if(init_@gesv@(&params, len_n, len_nrhs, trans)){
+        init_linearize_data(&a_in, len_n, len_n, stride_af_c, stride_af_r);
+        init_linearize_vdata(&ipiv_in, len_n, stride_ip);
+        init_linearize_data(&b_in, len_nrhs, len_n, stride_b_c, stride_b_r);
+        init_linearize_data(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r);
+
+        BEGIN_OUTER_LOOP_4
+            int not_ok;
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            linearize_INT_vec(params.IPIV, args[1], &ipiv_in);
+            linearize_@TYPE@_matrix(params.B, args[2], &b_in);
+            call_@getrs@(&params);
+            not_ok = params.INFO;
+            if (not_ok) {
+                error_occurred = 1;
+                nan_@TYPE@_matrix(args[3], &x_out);
+            } else {
+                delinearize_@TYPE@_matrix(args[3], params.B, &x_out);
+            }
+        END_OUTER_LOOP_4
+        release_@gesv@(&params);
+    }
+    set_fp_invalid_or_clear(error_occurred);
+}
+
+// solvefd_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
+
+static void
+@TYPE@_solve_fd(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
+{
+    @TYPE@_solvefd_loop(args, dimensions, steps, 'N');
+}
+
+/*************
+* RSOLVEFD   *
+**************/
+
+// rsolvefd_signature = "(nrhs,n),(n,n),(n)->(nrhs,n)";
+
+static void
+@TYPE@_rsolve_fd(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
+{
+    /*swap (A,P,B,X) for (B^T,A,P,X^T)
+    a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
+    char *rargs[] = {args[2], args[0], args[1], args[3]};
+    // dimensions = {N, len_nrhs, len_n};
+    // rdimensions[] = {N, len_n, len_nrhs};
+    npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[1]};
+    // steps = {strides_b, strides_a, strides_x,    0-2
+    //     strides_b_c, strides_b_r,                3-4
+    //     strides_a_r, strides_a_c, strides_ip     5-7
+    //     strides_x_c, strides_x_r};               8-9
+    // rsteps = {strides_a, strides_b, strides_x,
+    //     strides_a_r, strides_a_c, strides_ip
+    //     strides_b_r, strides_b_c,
+    //     strides_x_r, strides_x_c};
+    npy_intp rsteps[] = {steps[1], steps[0], steps[2],
+            steps[5], steps[6], steps[7],
+            steps[4], steps[3],
+            steps[9], steps[8]};
+    //now that we've swapped a,b and transposed, proceed as if we're in solve
+    @TYPE@_solvefd_loop(rargs, rdimensions, rsteps, 'T');
 }
 
 /**end repeat**/
@@ -1122,8 +1430,9 @@ INIT_OUTER_LOOP_3
 */
 
 // char *lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
+// rlstsq_signature = "(nrhs,m),(n,m)->(nrhs,n)"
 
-typedef struct gels_params_struct
+typedef struct gelsd_params_struct
 {
     void *A; /* A is (N,N) of base type */
     void *B; /* B is (N,NRHS) of base type */
@@ -1141,57 +1450,62 @@ typedef struct gels_params_struct
     fortran_int LDB;
     fortran_int LW;
     fortran_int INFO;
-} GELS_PARAMS_t;
+} GELSD_PARAMS_t;
 
-/* ************************************************
-* Calling BLAS/Lapack functions _gelsd
-*************************************************** */
+/**************************************************
+* Calling BLAS/Lapack functions _gelsd            *
+***************************************************/
 
 /**begin repeat
-    #gels = sgelsd, dgelsd#
-    #gcls = cgelsd, zgelsd#
+    #gelsd = sgelsd, dgelsd#
+    #gclsd = cgelsd, zgelsd#
 */
 static NPY_INLINE void
-call_@gels@(GELS_PARAMS_t *params)
+call_@gelsd@(GELSD_PARAMS_t *params)
 {
     // A,B are modified by ?GELS to carry LU info & X
-    LAPACK(@gels@)(&params->M, &params->N, &params->NRHS,
+    LAPACK(@gelsd@)(&params->M, &params->N, &params->NRHS,
                    params->A, &params->LDA, params->B, &params->LDB,
                    params->S, params->RCOND, params->RANK,
                    params->W, &params->LW, params->IW, &params->INFO);
 }
 
 static NPY_INLINE void
-call_@gcls@(GELS_PARAMS_t *params)
+call_@gclsd@(GELSD_PARAMS_t *params)
 {
     // A,B are modified by ?GELS to carry LU info & X
-    LAPACK(@gcls@)(&params->M, &params->N, &params->NRHS,
+    LAPACK(@gclsd@)(&params->M, &params->N, &params->NRHS,
                    params->A, &params->LDA, params->B, &params->LDB,
                    params->S, params->RCOND, params->RANK, params->W,
                    &params->LW, params->RW, params->IW, &params->INFO);
 }
 /**end repeat**/
 
-/* *************************************************************************
-* Initialize the parameters to use in the lapack functions _gelsd
+/***************************************************************************
+* Initialize the parameters to use in the lapack functions _gelsd          *
 * Handles buffer allocation
-************************************************************************** */
+****************************************************************************/
 
 /**begin repeat
+    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
     #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
     #rftyp = fortran_real, fortran_doublereal, fortran_real, fortran_doublereal#
-    #gels = sgelsd, dgelsd, cgelsd, zgelsd#
+    #gelsd = sgelsd, dgelsd, cgelsd, zgelsd#
     #eps = s_eps, d_eps, s_eps, d_eps#
+    #cmplx=0, 0, 1, 1#
 */
 static NPY_INLINE int
-init_@gels@_both(GELS_PARAMS_t *params,
-            npy_intp M_in, npy_intp N_in, npy_intp NRHS_in)
+init_@gelsd@(GELSD_PARAMS_t *params, npy_intp M_in, npy_intp N_in, npy_intp NRHS_in)
 {
     npy_uint8 *mem_buff = NULL;
+    npy_uint8 *mem_buff2 = NULL;
     npy_uint8 *a, *b, *c, *d, *e;
-    fortran_int M, N, NRHS, MNn, MNx, lda, ldb;
-    size_t safe_M, safe_N, safe_NRHS, safe_MNn, safe_MNx;
-
+    fortran_int M, N, NRHS, MNn, MNx, lda, ldb, LW, iwork_size;
+    size_t safe_M, safe_N, safe_NRHS, safe_MNn, safe_MNx, safe_LW, safe_LIW, safe_LRW;
+    @ftyp@ work_size;
+#if @cmplx@
+    @rftyp@ rwork_size;
+#endif
     M = (fortran_int)M_in;
     N = (fortran_int)N_in;
     NRHS = (fortran_int)NRHS_in;
@@ -1228,136 +1542,65 @@ init_@gels@_both(GELS_PARAMS_t *params,
     params->NRHS = NRHS;
     params->LDA = lda;
     params->LDB = ldb;
-    params->LW = -1;
     params->INFO = 0;
+    params->LW = -1;
+    params->W = &work_size;
+    params->IW = &iwork_size;
+    params->RW = NULL;
+#if @cmplx@
+    params->RW = &rwork_size;
+#endif
 
     *(@rftyp@ *)params->RCOND = MNx * @eps@;
 
-    call_@gels@(params);
+    call_@gelsd@(params);
     if (params->INFO) {
         goto error;
     }
-    return 1;
-
-  error:
-    free(mem_buff);
-    memset(params, 0, sizeof(*params));
-    // PyErr_NoMemory();
-
-    return 0;
-}
-/**end repeat**/
-
-/**begin repeat
-    #ftyp = fortran_real, fortran_doublereal#
-    #cftyp = fortran_complex, fortran_doublecomplex#
-    #gels = sgelsd, dgelsd#
-    #gcls = cgelsd, zgelsd#
-*/
-
-static NPY_INLINE int
-init_@gels@(GELS_PARAMS_t *params,
-            npy_intp M_in, npy_intp N_in, npy_intp NRHS_in)
-{
-    npy_uint8 *mem_buff2 = NULL;
-    npy_uint8 *a, *b;
-    fortran_int LW, iwork_size;
-    size_t safe_LW, safe_LIW;
-    @ftyp@ work_size;
-
-    params->W = &work_size;
-    params->IW = &iwork_size;
-    if (!init_@gels@_both(params, M_in, N_in, NRHS_in)) {
-        goto error;
-    }
+#if @cmplx@
+    LW = (fortran_int)work_size.r;
+    safe_LRW = (size_t)rwork_size;
+#else
     LW = (fortran_int)work_size;
+    safe_LRW = 0;
+#endif
     safe_LW = LW;
     safe_LIW = iwork_size;
 
     mem_buff2 = malloc(safe_LW * sizeof(@ftyp@)
-                    + safe_LIW * sizeof(fortran_int));
+                    + safe_LIW * sizeof(fortran_int)
+                    + safe_LRW * sizeof(@rftyp@));
     if (!mem_buff2) {
         goto error;
     }
     a = mem_buff2;
     b = a + safe_LW * sizeof(@ftyp@);
+    c = b + safe_LIW * sizeof(@ftyp@);
 
     params->W = a;
     params->IW = (fortran_int*)b;
     params->LW = LW;
+#if @cmplx@
+    params->RW = c;
+#endif
 
     return 1;
 
   error:
-    free(params->A);
+    free(mem_buff);
     free(mem_buff2);
     memset(params, 0, sizeof(*params));
-    PyErr_NoMemory();
+    // PyErr_NoMemory();
 
     return 0;
 }
 
-static NPY_INLINE int
-init_@gcls@(GELS_PARAMS_t *params,
-            npy_intp M_in, npy_intp N_in, npy_intp NRHS_in)
-{
-    npy_uint8 *mem_buff2 = NULL;
-    npy_uint8 *a, *b, *c;
-    fortran_int LW, iwork_size;
-    size_t safe_LW, safe_LRW, safe_LIW;
-    @cftyp@ work_size;
-    @ftyp@ rwork_size;
-
-    params->W = &work_size;
-    params->RW = &rwork_size;
-    params->IW = &iwork_size;
-    if (!init_@gcls@_both(params, M_in, N_in, NRHS_in)) {
-        goto error;
-    }
-    LW = (fortran_int)work_size.r;
-    safe_LW = LW;
-    safe_LRW = (size_t)rwork_size;
-    safe_LIW = iwork_size;
-
-    mem_buff2 = malloc(safe_LW * sizeof(@cftyp@)
-                    + safe_LRW * sizeof(@ftyp@)
-                    + safe_LIW * sizeof(fortran_int));
-    if (!mem_buff2) {
-        goto error;
-    }
-    a = mem_buff2;
-    b = a + safe_LW * sizeof(@cftyp@);
-    c = b + safe_LRW * sizeof(@ftyp@);
-
-    params->W = a;
-    params->RW = b;
-    params->IW = (fortran_int*)c;
-    params->LW = LW;
-
-    return 1;
-
-  error:
-    free(params->A);
-    free(mem_buff2);
-    memset(params, 0, sizeof(*params));
-    PyErr_NoMemory();
-
-    return 0;
-}
-
-/**end repeat**/
-
-/**begin repeat
-    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
-    #gels = sgelsd, dgelsd, cgelsd, zgelsd#
-*/
-
-/* ********************
-* Deallocate buffer
-*********************** */
+/**********************
+* Deallocate buffer   *
+***********************/
 
 static NPY_INLINE void
-release_@gels@(GELS_PARAMS_t *params)
+release_@gelsd@(GELSD_PARAMS_t *params)
 {
    /* 1st memory block base is in A, second in W */
    free(params->A);
@@ -1365,15 +1608,15 @@ release_@gels@(GELS_PARAMS_t *params)
    memset(params, 0, sizeof(*params));
 }
 
-
-/* ********************
-* Inner GUfunc loop
-*********************** */
+/*********************
+* Inner GUfunc loop  *
+**********************/
 
 // lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
 
 static void
-@TYPE@_lstsq_loop(char **args, npy_intp *dimensions, npy_intp *steps)
+@TYPE@_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_3
     npy_intp len_m = *dimensions++;  // rows of a, b
@@ -1386,11 +1629,11 @@ INIT_OUTER_LOOP_3
     npy_intp stride_x_r = *steps++;  // rows
     npy_intp stride_x_c = *steps++;
     int error_occurred = get_fp_invalid_and_clear();
-    GELS_PARAMS_t params;
+    GELSD_PARAMS_t params;
     LINEARIZE_DATA_t a_in, b_in, x_out;
     npy_intp len_mn = len_m > len_n ? len_m : len_n; // max
 
-    if(init_@gels@(&params, len_m, len_n, len_nrhs)){
+    if(init_@gelsd@(&params, len_m, len_n, len_nrhs)){
         init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
         init_linearize_data_ex(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn);
         init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
@@ -1399,7 +1642,7 @@ INIT_OUTER_LOOP_3
             int not_ok;
             linearize_@TYPE@_matrix(params.A, args[0], &a_in);
             linearize_@TYPE@_matrix(params.B, args[1], &b_in);
-            call_@gels@(&params);
+            call_@gelsd@(&params);
             not_ok = params.INFO;
             if (not_ok) {
                 error_occurred = 1;
@@ -1408,25 +1651,20 @@ INIT_OUTER_LOOP_3
                 delinearize_@TYPE@_matrix(args[2], params.B, &x_out);
             }
         END_OUTER_LOOP_3
-        release_@gels@(&params);
+        release_@gelsd@(&params);
     }
     set_fp_invalid_or_clear(error_occurred);
 }
 
-// lstsq_signature = "(m,n),(m,nrhs)->(n,nrhs)";
+/*************
+* RLSTSQ     *
+**************/
 
-static void
-@TYPE@_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
-void *NPY_UNUSED(func))
-{
-    @TYPE@_lstsq_loop(args, dimensions, steps);
-}
-
-// lstsq_signature = "(nrhs,m),(n,m)->(nrhs,n)"
+// rlstsq_signature = "(nrhs,m),(n,m)->(nrhs,n)"
 
 static void
 @TYPE@_rlstsq(char **args, npy_intp *dimensions, npy_intp *steps,
-void *NPY_UNUSED(func))
+    void *NPY_UNUSED(func))
 {
     /*swap (A,B) for (B^T,A^T)
     a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
@@ -1447,16 +1685,476 @@ void *NPY_UNUSED(func))
         steps[4], steps[3],
         steps[8], steps[7]};
     //now that we've swapped a,b and transposed, proceed as if we're in lstsq
-    @TYPE@_lstsq_loop(rargs, rdimensions, rsteps);
+    @TYPE@_lstsq(rargs, rdimensions, rsteps, NULL);
 }
 
 /**end repeat**/
 
+/*
+*****************************************************************************
+**                         LSTSQF                                          **
+*****************************************************************************
+*/
 
+// lstsqf_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(k)";
+// rlstsqf_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(k)"
+// lstsqfd_signature = "(m,n),(k),(m,nrhs)->(n,nrhs)";
+// rlstsqfd_signature = "(nrhs,m),(k),(n,m)->(nrhs,n)"
+
+/**begin repeat
+    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
+    #typ = npy_float, npy_double, npy_cfloat, npy_cdouble#
+    #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
+    #geqrf = sgeqrf, dgeqrf, cgeqrf, zgeqrf#
+    #geqrs = sgeqrs, dgeqrs, cgeqrs, zgeqrs#
+    #gelqf = sgelqf, dgelqf, cgelqf, zgelqf#
+    #gelqs = sgelqs, dgelqs, cgelqs, zgelqs#
+    #ormqr = sormqr, dormqr, cunmqr, zunmqr#
+    #ormlq = sormlq, dormlq, cunmlq, zunmlq#
+    #trsm = strsm, dtrsm, ctrsm, ztrsm#
+    #laset = slaset, dlaset, claset, zlaset#
+    #zero = s_zero, d_zero, c_zero.f, z_zero.f#
+    #one = s_one, d_one, c_one.f, z_one.f#
+    #cmplx = 0, 0, 1, 1#
+*/
+
+/************************************************************
+* Calling BLAS/Lapack functions _ge{qr,lq}f and _ge{qr,lq}s *
+*************************************************************/
+
+static NPY_INLINE void
+call_@gelqf@(GEQRF_PARAMS_t *params)
+{
+    // A,T are modified by ?GEQRF to carry LQ info
+    LAPACK(@gelqf@)(&params->M, &params->N, params->A, &params->LDA,
+                    params->T, params->WR, &params->LWR, &params->INFO);
+}
+
+static NPY_INLINE void
+call_@geqrs@(GEQRF_PARAMS_t *params)
+{
+    // B is modified by ?GEQRS to carry X
+    // LAPACK(@geqrs@)(&params->M, &params->N, &params->NC,
+    //                 params->A, &params->LDA, params->T, params->B, &params->LDB,
+    //                 params->WQ, &params->LWQ, &params->INFO);
+    // B is modified by ?ORMQR to carry Q^T B
+    LAPACK(@ormqr@)(&char_L, &char_T, &params->M, &params->NC, &params->N,
+                    params->A, &params->LDA, params->T, params->B, &params->LDB,
+                    params->WQ, &params->LWQ, &params->INFO);
+    // B is modified by ?TRSM to carry R^-1 B
+    LAPACK(@trsm@)(&char_L, &char_U, &char_N, &char_N,
+                    &params->N, &params->NC, &@one@,
+                    params->A, &params->LDA, params->B, &params->LDB);
+}
+
+static NPY_INLINE void
+call_@gelqs@(GEQRF_PARAMS_t *params)
+{
+    // A,T are modified by ?GELQS to carry X
+    // LAPACK(@gelqs@)(&params->M, &params->N, &params->NC,
+    //                 params->A, &params->LDA, params->T, params->B, &params->LDB,
+    //                 params->WQ, &params->LWQ, &params->INFO);
+    // B is modified by ?TRSM to carry L^-1 B
+    LAPACK(@trsm@)(&char_L, &char_L, &char_N, &char_N,
+                    &params->M, &params->NC, &@one@,
+                    params->A, &params->LDA, params->B, &params->LDB);
+    // B is modified by ?LASET to zero out bottom N-M rows
+    LAPACK(@laset@)(&char_F, &params->MN, &params->NC,
+                    &@zero@, &@zero@, params->B, &params->LDB);
+    // B is modified by ?ORMLQ to carry Q^T B
+    LAPACK(@ormlq@)(&char_L, &char_T, &params->M, &params->NC, &params->N,
+                    params->A, &params->LDA, params->T, params->B, &params->LDB,
+                    params->WQ, &params->LWQ, &params->INFO);
+}
+
+// needed to compute lwork
+static NPY_INLINE void
+call_@ormqr@(GEQRF_PARAMS_t *params)
+{
+    // B is modified by ?ORMQR to carry Q^T B
+    LAPACK(@ormqr@)(&char_L, &char_T, &params->M, &params->NC, &params->K,
+                    params->A, &params->LDA, params->T, params->B, &params->LDB,
+                    params->WQ, &params->LWQ, &params->INFO);
+}
+
+/***************************************************************************
+* Initialize the parameters to use in the lapack functions _geqrf &  _orgqr*
+* Handles buffer allocation.
+* First: initialize for geqrf only
+* Second: initialize for _geqrf and _orgqr
+****************************************************************************/
+static NPY_INLINE int
+init_@geqrs@(GEQRF_PARAMS_t *params,
+    npy_intp M_in, npy_intp N_in, npy_intp NC_in, npy_int do_qrf)
+{
+    npy_uint8 *mem_buff = NULL;
+    npy_uint8 *mem_buff2 = NULL;
+    npy_uint8 *a, *b, *c;
+    fortran_int M, N, NC, K, MN, lda, ldb, MNx, LWQ, LWR;
+    size_t safe_M, safe_N, safe_NC, safe_K, safe_MNx, safe_LWQ, safe_LWR;
+    @ftyp@ work_size;
+
+    M = (fortran_int)M_in;
+    N = (fortran_int)N_in;
+    NC = (fortran_int)NC_in;
+    K = fortran_int_min(M, N);
+    MN = N - K;
+    MNx = fortran_int_max(M, N);
+    lda = fortran_int_max(M, 1);
+    ldb = fortran_int_max(MNx, 1);
+    safe_M = M;
+    safe_N = N;
+    safe_MNx = MNx;
+    safe_K = K;
+
+    mem_buff = malloc(safe_M * safe_N * sizeof(@ftyp@)
+                    + safe_K * sizeof(@ftyp@)
+                    + safe_MNx * safe_NC * sizeof(@ftyp@));
+    if (!mem_buff) {
+        goto error;
+    }
+    a = mem_buff;
+    b = a + safe_M * safe_N * sizeof(@ftyp@);
+    c = b + safe_K * sizeof(@ftyp@);
+
+    params->A = a;
+    params->T = b;
+    params->B = c;
+    params->M = M;
+    params->N = N;
+    params->NC = NC;
+    params->K = K;
+    params->MN = MN;
+    params->LDA = lda;
+    params->LDB = ldb;
+    params->LWR = -1;
+    params->LWQ = -1;
+    params->INFO = 0;
+    params->WQ = &work_size;
+    params->WR = NULL;
+    if (do_qrf) {
+        params->WR = &work_size;
+    }
+
+    // _geqrs doesn't allow workspace queries,
+    // but it only uses 'work' in _ormqr, which does.
+    call_@ormqr@(params);
+    if (params->INFO < 0) {
+        goto error;
+    }
+#if @cmplx@
+    LWQ = (fortran_int)work_size.r;
+#else
+    LWQ = (fortran_int)work_size;
+#endif
+    safe_LWQ = LWQ;
+
+    if (do_qrf) {
+        call_@geqrf@(params);
+        if (params->INFO < 0) {
+            goto error;
+        }
+    } else {
+        work_size = @zero@;
+    }
+#if @cmplx@
+    LWR = (fortran_int)work_size.r;
+#else
+    LWR = (fortran_int)work_size;
+#endif
+    safe_LWR = LWR;
+
+    mem_buff2 = malloc(safe_LWQ * sizeof(@ftyp@)
+                    + safe_LWR * sizeof(@ftyp@));
+    if (!mem_buff2) {
+        goto error;
+    }
+    a = mem_buff2;
+    b = c + safe_LWQ * sizeof(@ftyp@);
+    params->WQ = a;
+    params->LWQ = LWQ;
+    params->LWR = LWR;
+    if (do_qrf) {
+        params->WR = b;
+    }
+
+    return 1;
+  error:
+    free(mem_buff);
+    memset(params, 0, sizeof(*params));
+    // PyErr_NoMemory();
+
+    return 0;
+}
+
+/**********************
+* Deallocate buffer   *
+***********************/
+
+static NPY_INLINE void
+release_@geqrs@(GEQRF_PARAMS_t *params)
+{
+    /* 1st memory block base is in A, second in WQ */
+    free(params->A);
+    free(params->WQ);
+    memset(params, 0, sizeof(*params));
+}
+
+/*********************
+* Inner GUfunc loop  *
+**********************/
+
+// lstsqf_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(k)";
+
+static void
+@TYPE@_lstsqf_loop(char **args, npy_intp *dimensions, npy_intp *steps,
+                npy_int overconstrained)
+{
+INIT_OUTER_LOOP_5
+    npy_intp len_m = *dimensions++;  // rows of a, b
+    npy_intp len_n = *dimensions++;  // columns of a, rows of x
+    npy_intp len_nrhs = *dimensions++;  // columns of x, b
+    npy_intp stride_a_r = *steps++;  // rows
+    npy_intp stride_a_c = *steps++;
+    npy_intp stride_b_r = *steps++;  // rows
+    npy_intp stride_b_c = *steps++;
+    npy_intp stride_x_r = *steps++;  // rows
+    npy_intp stride_x_c = *steps++;
+    npy_intp stride_af_r = *steps++;  // rows
+    npy_intp stride_af_c = *steps++;
+    npy_intp stride_tau = *steps++;  // vec
+    int error_occurred = get_fp_invalid_and_clear();
+    GEQRF_PARAMS_t params;
+    LINEARIZE_DATA_t a_in, b_in, x_out, a_out;
+    LINEARIZE_VDATA_t tau_out;
+    npy_intp len_mn = overconstrained ? len_m : len_n; // max
+    npy_intp len_k = overconstrained ? len_n : len_m; // min
+
+    if(len_mn < len_k) {//value of overconstrained was wrong
+        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
+        init_linearize_data(&a_out, len_n, len_m, stride_af_c, stride_af_r);
+        init_linearize_vdata(&tau_out, len_k, stride_tau);
+        nan_@TYPE@_matrix(args[2], &x_out);
+        nan_@TYPE@_matrix(args[3], &a_out);
+        nan_@TYPE@_vec(args[4], &tau_out);
+        set_fp_invalid_or_clear(error_occurred);
+        return;
+    }
+    if(init_@geqrs@(&params, len_m, len_n, len_nrhs, 1)){
+        init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
+        init_linearize_data_ex(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn);
+        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
+        init_linearize_data(&a_out, len_n, len_m, stride_af_c, stride_af_r);
+        init_linearize_vdata(&tau_out, len_k, stride_tau);
+
+        BEGIN_OUTER_LOOP_5
+            int not_ok;
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            linearize_@TYPE@_matrix(params.B, args[1], &b_in);
+            if (overconstrained) {
+                call_@geqrf@(&params);
+            } else {
+                call_@gelqf@(&params);
+            }
+            not_ok = params.INFO;
+            if (not_ok) {
+                error_occurred = 1;
+                nan_@TYPE@_matrix(args[2], &x_out);
+                nan_@TYPE@_matrix(args[3], &a_out);
+                nan_@TYPE@_vec(args[4], &tau_out);
+            } else {
+                delinearize_@TYPE@_matrix(args[3], params.A, &a_out);
+                delinearize_@TYPE@_vec(args[4], params.T, &tau_out);
+                if (overconstrained) {
+                    call_@geqrs@(&params);
+                } else {
+                    call_@gelqs@(&params);
+                }
+                not_ok = params.INFO;
+                if (not_ok) {
+                    error_occurred = 1;
+                    nan_@TYPE@_matrix(args[2], &x_out);
+                } else {
+                    delinearize_@TYPE@_matrix(args[2], params.B, &x_out);
+                }
+            }
+        END_OUTER_LOOP_5
+        release_@geqrs@(&params);
+    }
+    set_fp_invalid_or_clear(error_occurred);
+}
+
+/************
+* RLSTSQF   *
+*************/
+
+// rlstsqf_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(k)"
+
+static void
+@TYPE@_rlstsqf_loop(char **args, npy_intp *dimensions, npy_intp *steps,
+                npy_int overconstrained)
+{
+    /*swap (A,B,X,AF,TAU) for (B^T,A^T,X^T,AF^T,TAU)
+    a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
+    char *rargs[] = {args[1], args[0], args[2], args[3], args[4]};
+    // dimensions = {N, len_nrhs, len_m, len_n};
+    // rdimensions[] = {N, len_m, len_n, len_nrhs};
+    npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[3], dimensions[1]};
+    // steps = {strides_b, strides_a, strides_x, strides_af, strides_t, 0-4
+    //     strides_b_c, strides_b_r,                                    5-6
+    //     strides_a_c, strides_a_r,                                    7-8
+    //     strides_x_c, strides_x_r,                                    9-10
+    //     strides_af_c, strides_af_r, strides_tau };                   11-13
+    // rsteps = {strides_a, strides_b, strides_x, strides_af, strides_t,
+    //     strides_a_r, strides_a_c,
+    //     strides_b_r, strides_b_c,
+    //     strides_x_r, strides_x_c,
+    //     strides_af_r, strides_af_c, strides_tau };
+    npy_intp rsteps[] = {steps[1], steps[0], steps[2], steps[3], steps[4],
+        steps[8], steps[7],
+        steps[6], steps[5],
+        steps[10], steps[9],
+        steps[12], steps[11], steps[13]};
+    //now that we've swapped a,b and transposed, proceed as if we're in lstsqf
+    @TYPE@_lstsqf_loop(rargs, rdimensions, rsteps, overconstrained);
+}
+
+/*********************
+* Outer GUfunc calls *
+**********************/
+
+// lstsq_fm_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(m)";
+// lstsq_fn_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(n)";
+// rlstsq_fm_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(m)"
+// rlstsq_fn_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(n)"
+
+static void
+@TYPE@_lstsq_fm(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+    @TYPE@_lstsqf_loop(args, dimensions, steps, 0);
+}
+
+static void
+@TYPE@_lstsq_fn(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+    @TYPE@_lstsqf_loop(args, dimensions, steps, 1);
+}
+
+static void
+@TYPE@_rlstsq_fm(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+    @TYPE@_rlstsqf_loop(args, dimensions, steps, 0);
+}
+
+static void
+@TYPE@_rlstsq_fn(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+    @TYPE@_rlstsqf_loop(args, dimensions, steps, 1);
+}
+
+/************
+* LSTSQFD   *
+*************/
+
+// lstsq_fd_signature = "(m,n),(k),(m,nrhs)->(n,nrhs)";
+static void
+@TYPE@_lstsq_fd(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+INIT_OUTER_LOOP_4
+    npy_intp len_m = *dimensions++;  // rows of a, b
+    npy_intp len_n = *dimensions++;  // columns of a, rows of x
+    npy_intp len_k = *dimensions++;  // length of tau
+    npy_intp len_nrhs = *dimensions++;  // columns of x, b
+    npy_intp stride_a_r = *steps++;  // rows
+    npy_intp stride_a_c = *steps++;
+    npy_intp stride_tau = *steps++;  // vec
+    npy_intp stride_b_r = *steps++;  // rows
+    npy_intp stride_b_c = *steps++;
+    npy_intp stride_x_r = *steps++;  // rows
+    npy_intp stride_x_c = *steps++;
+    int error_occurred = get_fp_invalid_and_clear();
+    GEQRF_PARAMS_t params;
+    LINEARIZE_DATA_t a_in, b_in, x_out;
+    LINEARIZE_VDATA_t tau_in;
+    npy_intp len_mn = len_m + len_n - len_k; // max
+
+    if(len_mn < len_k) {//a and tau don't match
+        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
+        nan_@TYPE@_matrix(args[3], &x_out);
+        set_fp_invalid_or_clear(error_occurred);
+        return;
+    }
+    if(init_@geqrs@(&params, len_m, len_n, len_nrhs, 1)){
+        init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
+        init_linearize_vdata(&tau_in, len_k, stride_tau);
+        init_linearize_data_ex(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn);
+        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
+
+        BEGIN_OUTER_LOOP_4
+            int not_ok;
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            linearize_@TYPE@_vec(args[1], params.T, &tau_in);
+            linearize_@TYPE@_matrix(params.B, args[2], &b_in);
+            if (len_k == len_m) {
+                call_@geqrs@(&params);
+            } else {
+                call_@gelqs@(&params);
+            }
+            not_ok = params.INFO;
+            if (not_ok) {
+                error_occurred = 1;
+                nan_@TYPE@_matrix(args[3], &x_out);
+            } else {
+                delinearize_@TYPE@_matrix(args[3], params.B, &x_out);
+            }
+        END_OUTER_LOOP_4
+        release_@geqrs@(&params);
+    }
+    set_fp_invalid_or_clear(error_occurred);
+}
+
+/************
+* RLSTSQFD  *
+*************/
+
+// rlstsq_fd_signature = "(nrhs,m),(k),(n,m)->(nrhs,n)"
+
+static void
+@TYPE@_rlstsq_fd(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+    /*swap (A,TAU,B,X) for (B^T,A^T,TAU,X^T)
+    a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
+    char *rargs[] = {args[1], args[2], args[0], args[3]};
+    // dimensions = {N, len_nrhs, len_m, len_k, len_n};
+    // rdimensions[] = {N, len_m, len_n, len_k, len_nrhs};
+    npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[4],
+                                dimensions[3], dimensions[1]};
+    // steps = {strides_b, strides_a, strides_t, strides_x, 0-3
+    //     strides_b_c, strides_b_r,                        4-5
+    //     strides_a_c, strides_a_r, strides_tau,           6-8
+    //     strides_x_c, strides_x_r, };                     9-10
+    // rsteps = {strides_a, strides_t, strides_b, strides_x,
+    //     strides_a_r, strides_a_c, strides_tau,
+    //     strides_b_r, strides_b_c,
+    //     strides_x_r, strides_x_c, };
+    npy_intp rsteps[] = {steps[1], steps[2], steps[0], steps[3],
+        steps[7], steps[6], steps[8],
+        steps[10], steps[9]};
+    //now that we've swapped a,b and transposed, proceed as if we're in lstsqfd
+    @TYPE@_lstsq_fd(rargs, rdimensions, rsteps, NULL);
+}
+
+/**end repeat**/
 
 /*
 *****************************************************************************
-**                             UFUNC DEFINITION                            **
+**                             Ufunc definition                            **
 *****************************************************************************
 */
 
@@ -1469,8 +2167,31 @@ GUFUNC_FUNC_ARRAY_REAL_COMPLEX(qr_rawm);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(qr_rawn);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(solve);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rsolve);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(solve_f);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rsolve_f);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(solve_fd);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rsolve_fd);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_fm);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_fm);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_fn);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_fn);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_fd);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_fd);
+
+static char ufn_types_solve_4[] = { NPY_FLOAT, NPY_INT, NPY_FLOAT, NPY_FLOAT,
+                                NPY_DOUBLE, NPY_INT, NPY_DOUBLE, NPY_DOUBLE,
+                                NPY_CFLOAT, NPY_INT, NPY_CFLOAT, NPY_CFLOAT,
+                                NPY_CDOUBLE, NPY_INT, NPY_CDOUBLE, NPY_CDOUBLE };
+static char ufn_types_rsolve_4[] = { NPY_FLOAT, NPY_FLOAT, NPY_INT, NPY_FLOAT,
+                                NPY_DOUBLE, NPY_DOUBLE, NPY_INT, NPY_DOUBLE,
+                                NPY_CFLOAT, NPY_CFLOAT, NPY_INT, NPY_CFLOAT,
+                                NPY_CDOUBLE, NPY_CDOUBLE, NPY_INT, NPY_CDOUBLE };
+static char ufn_types_solve_5[] = { NPY_FLOAT, NPY_FLOAT, NPY_FLOAT, NPY_FLOAT, NPY_INT,
+                                NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE, NPY_DOUBLE, NPY_INT,
+                                NPY_CFLOAT, NPY_CFLOAT, NPY_CFLOAT, NPY_CFLOAT, NPY_INT,
+                                NPY_CDOUBLE, NPY_CDOUBLE, NPY_CDOUBLE, NPY_CDOUBLE, NPY_INT };
 
 GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
     { "qr_m", "(m,n)->(m,m),(m,n)", qr__doc__, 4, 1, 2,
@@ -1487,13 +2208,39 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
         FUNC_ARRAY_NAME(qr_rawn), ufn_types_4_3 },
     { "solve", "(n,n),(n,nrhs)->(n,nrhs)", solve__doc__, 4, 2, 1,
         FUNC_ARRAY_NAME(solve), ufn_types_4_3 },
-    { "rsolve", "(nrhs,n),(n,n)->(nrhs,n)", solve__doc__, 4, 2, 1,
-        FUNC_ARRAY_NAME(solve), ufn_types_4_3 },
+    { "rsolve", "(nrhs,n),(n,n)->(nrhs,n)", rsolve__doc__, 4, 2, 1,
+        FUNC_ARRAY_NAME(rsolve), ufn_types_4_3 },
+    { "solve_f", "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)", solve__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(solve_f), ufn_types_solve_5 },
+    { "rsolve_f", "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)", solve__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(rsolve_f), ufn_types_solve_5 },
+    { "solve_fd", "(n,n),(n),(n,nrhs)->(n,nrhs)", solve__doc__, 4, 3, 1,
+        FUNC_ARRAY_NAME(solve_fd), ufn_types_solve_4 },
+    { "rsolve_fd", "(nrhs,n),(n,n),(n)->(nrhs,n)", solve__doc__, 4, 3, 1,
+        FUNC_ARRAY_NAME(rsolve_fd), ufn_types_rsolve_4 },
     { "lstsq", "(m,n),(m,nrhs)->(n,nrhs)", lstsq__doc__, 4, 2, 1,
         FUNC_ARRAY_NAME(lstsq), ufn_types_4_3 },
-    { "rlstsq", "(nrhs,m),(n,m)->(nrhs,n)", lstsq__doc__, 4, 2, 1,
-        FUNC_ARRAY_NAME(lstsq), ufn_types_4_3 }
+    { "rlstsq", "(nrhs,m),(n,m)->(nrhs,n)", rlstsq__doc__, 4, 2, 1,
+        FUNC_ARRAY_NAME(rlstsq), ufn_types_4_3 },
+    { "lstsq_fm", "(m,n),(m,nrhs)->(n,nrhs),(m,n),(m)", lstsq__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(lstsq_fm), ufn_types_4_5 },
+    { "rlstsq_fm", "(nrhs,m),(n,m)->(nrhs,n),(n,m),(m)", rlstsq__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(rlstsq_fm), ufn_types_4_5 },
+    { "lstsq_fn", "(m,n),(m,nrhs)->(n,nrhs),(m,n),(n)", lstsq__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(lstsq_fn), ufn_types_4_5 },
+    { "rlstsq_fn", "(nrhs,m),(n,m)->(nrhs,n),(n,m),(n)", rlstsq__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(rlstsq_fn), ufn_types_4_5 },
+    { "lstsq_fd", "(m,n),(k),(m,nrhs)->(n,nrhs)", lstsq__doc__, 4, 3, 1,
+        FUNC_ARRAY_NAME(lstsq_fd), ufn_types_4_4 },
+    { "rlstsq_fd", "(nrhs,m),(n,m),(k)->(nrhs,n)", rlstsq__doc__, 4, 3, 1,
+        FUNC_ARRAY_NAME(rlstsq_fd), ufn_types_4_4 }
 };
+// lstsq_fm_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(m)";
+// lstsq_fn_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(n)";
+// rlstsq_fm_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(m)"
+// rlstsq_fn_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(n)"
+// lstsq_fd_signature = "(m,n),(k),(m,nrhs)->(n,nrhs)";
+// rlstsq_fd_signature = "(nrhs,m),(k),(n,m)->(nrhs,n)"
 
 /*
 *****************************************************************************
@@ -1539,7 +2286,7 @@ PyObject *PyInit__gufuncs_lapack(void)
     Py_DECREF(version);
 
     /* Load the ufunc operators into the module's namespace */
-    int failure = addUfuncs(d, gufunc_descriptors, 10);
+    int failure = addUfuncs(d, gufunc_descriptors, 20);
 
     if (PyErr_Occurred() || failure) {
         PyErr_SetString(PyExc_RuntimeError,
