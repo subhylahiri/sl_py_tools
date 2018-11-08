@@ -161,7 +161,8 @@ recently moved the headers to a different package. You can find them on
 ```
 > conda install mkl -c intel --no-update-deps
 ```
-Or you can downgrade to a version that has the headers, e.g.
+I found this wreaked havoc with its dependencies.
+Alternatively, you can downgrade to a version that has the headers, e.g.
 ```
 > conda install mkl=2018.0.3
 ```
