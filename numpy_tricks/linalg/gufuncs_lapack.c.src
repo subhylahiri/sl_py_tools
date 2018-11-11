@@ -120,7 +120,7 @@ PyDoc_STRVAR(solve__doc__,
 "    Matrix of result vectors.\n\n"
 "Returns\n-------\n"
 "X: ndarray (...,N,NRHS)\n"
-"    Matrix of solution vectors.\n");
+"    Matrix of solution vectors.");
 
 PyDoc_STRVAR(rsolve__doc__,
 //"solve(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
@@ -128,12 +128,84 @@ PyDoc_STRVAR(rsolve__doc__,
 "Solve the equation `A = XB` for `X`.\n\n"
 "Parameters\n-----------\n"
 "A: ndarray (...,NRHS,N)\n"
-"    Matrix of coefficients.\n"
+"    Matrix of result vectors.\n"
 "B: ndarray (...,N,N)\n"
-"    Matrix of result vectors.\n\n"
+"    Matrix of coefficients.\n\n"
 "Returns\n-------\n"
 "X: ndarray (...,NRHS,N)\n"
-"    Matrix of solution vectors.\n");
+"    Matrix of solution vectors.");
+
+PyDoc_STRVAR(solve_f__doc__,
+//"solve_f(A: ndarray, B: ndarray) -> (C: ndarray, AF: ndarray, IPIV: ndarray)\n\n"
+"Solve linear system.\n\n"
+"Solve  equation `AX = B` for `X`. \n"
+"This version also returns the LU factors of `A` for future use.\n"
+"It is intended for use in binary operators.\n\n"
+"Parameters\n-----------\n"
+"A: ndarray (...,N,N)\n"
+"    Matrix of coefficients.\n"
+"B: ndarray (...,N,NRHS)\n"
+"    Matrix of result vectors.\n\n"
+"Returns\n-------\n"
+"X: ndarray (...,N,NRHS)\n"
+"    Matrix of solution vectors.\n"
+"AF: ndarray (...,N,N)\n"
+"    LU factors of `A`.\n"
+"IPIV: ndarray[int] (...,N)\n"
+"    Pivot indices from LU factoring.");
+
+PyDoc_STRVAR(rsolve_f__doc__,
+//"rsolve_f(A: ndarray, B: ndarray) -> (C: ndarray, BF: ndarray, IPIV: ndarray)\n\n"
+"Solve reversed linear system.\n\n"
+"Solve the equation `A = XB` for `X`.\n\n"
+"This version also returns the LU factors of `B` for future use.\n"
+"It is intended for use in binary operators.\n\n"
+"Parameters\n-----------\n"
+"A: ndarray (...,NRHS,N)\n"
+"    Matrix of result vectors.\n"
+"B: ndarray (...,N,N)\n"
+"    Matrix of coefficients.\n\n"
+"Returns\n-------\n"
+"X: ndarray (...,NRHS,N)\n"
+"    Matrix of solution vectors.\n"
+"BF: ndarray (...,N,N)\n"
+"    LU factors of `B`.\n"
+"IPIV: ndarray[int] (...,N)\n"
+"    Pivot indices from LU factoring.");
+
+PyDoc_STRVAR(solve_fd__doc__,
+//"solve_f(A: ndarray, B: ndarray) -> (C: ndarray, AF: ndarray, IPIV: ndarray)\n\n"
+"Solve linear system.\n\n"
+"Solve  equation `AX = B` for `X`. \n"
+"This version uses the LU factors of `A` from previous use of `(r)solve_f`.\n"
+"It is intended for use in binary operators.\n\n"
+"Parameters\n-----------\n"
+"AF: ndarray (...,N,N)\n"
+"    LU factors of `A`.\n"
+"IPIV: ndarray[int] (...,N)\n"
+"    Pivot indices from LU factoring.\n"
+"B: ndarray (...,N,NRHS)\n"
+"    Matrix of result vectors.\n\n"
+"Returns\n-------\n"
+"X: ndarray (...,N,NRHS)\n"
+"    Matrix of solution vectors.");
+
+PyDoc_STRVAR(rsolve_fd__doc__,
+//"rsolve_f(A: ndarray, B: ndarray) -> (C: ndarray, BF: ndarray, IPIV: ndarray)\n\n"
+"Solve reversed linear system.\n\n"
+"Solve the equation `A = XB` for `X`.\n\n"
+"This version uses the LU factors of `B` from previous use of `(r)solve_f`.\n"
+"It is intended for use in binary operators.\n\n"
+"Parameters\n-----------\n"
+"A: ndarray (...,NRHS,N)\n"
+"    Matrix of result vectors.\n"
+"BF: ndarray (...,N,N)\n"
+"    LU factors of `B`.\n"
+"IPIV: ndarray[int] (...,N)\n"
+"    Pivot indices from LU factoring.\n\n"
+"Returns\n-------\n"
+"X: ndarray (...,NRHS,N)\n"
+"    Matrix of solution vectors.");
 
 PyDoc_STRVAR(lstsq__doc__,
 //"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
@@ -149,7 +221,7 @@ PyDoc_STRVAR(lstsq__doc__,
 "    Matrix of result vectors.\n\n"
 "Returns\n-------\n"
 "X: ndarray (...,N,NRHS)\n"
-"    Matrix of solution vectors.\n");
+"    Matrix of solution vectors.");
 
 PyDoc_STRVAR(rlstsq__doc__,
 //"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
@@ -160,12 +232,109 @@ PyDoc_STRVAR(rlstsq__doc__,
 "It is intended for use in binary operators.\n\n"
 "Parameters\n-----------\n"
 "A: ndarray (...,NRHS,M)\n"
-"    Matrix of coefficients.\n"
+"    Matrix of result vectors.\n"
 "B: ndarray (...,N,M)\n"
-"    Matrix of result vectors.\n\n"
+"    Matrix of coefficients.\n\n"
 "Returns\n-------\n"
 "X: ndarray (...,NRHS,N)\n"
-"    Matrix of solution vectors.\n");
+"    Matrix of solution vectors.");
+
+PyDoc_STRVAR(lstsq_f__doc__,
+//"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
+"Least-square solution of linear system.\n\n"
+"Find the least-square solution of the equation `AX = B` for `X`. \n"
+"Unlike `numpy.linalg.lstsq`, this version uses QR instead of SVD, so it does \n"
+"not work with rank deficient matrices, `A`.\n"
+"This version does not return `residuals`, rank or singuar values. \n"
+"Instead, it returns the QR factors of `A` for future use.\n"
+"It is intended for use in binary operators.\n\n"
+"Parameters\n-----------\n"
+"A: ndarray (...,M,N)\n"
+"    Matrix of coefficients.\n"
+"B: ndarray (...,M,NRHS)\n"
+"    Matrix of result vectors.\n\n"
+"Returns\n-------\n"
+"X: ndarray (...,N,NRHS)\n"
+"    Matrix of solution vectors.\n"
+"AF: ndarray (...,M,N)\n"
+"    QR factors of `A`, with `Q` in Householder form.\n"
+"TAU: ndarray[int] (...,K)\n"
+"    Householder weights for `Q`, `K=min(M,N)`.\n\n"
+"Notes\n-----\n"
+"Nothing will fail if you make the wrong choice of `lstsq_fm` or `lstsq_fn`. \n"
+"You will merely waste memory from keeping unused elements of `TAU`.");
+
+PyDoc_STRVAR(rlstsq_f__doc__,
+//"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
+"Least-square solution of reversed linear system.\n\n"
+"Find the least-square solution of the equation `A = XB` for `X`. \n"
+"Unlike `numpy.linalg.lstsq`, this version uses QR instead of SVD, so it does \n"
+"not work with rank deficient matrices, `A`.\n"
+"This version does not return `residuals`, rank or singuar values. \n"
+"Instead, it returns the QR factors of `B` for future use.\n"
+"It is intended for use in binary operators.\n\n"
+"Parameters\n-----------\n"
+"A: ndarray (...,NRHS,M)\n"
+"    Matrix of result vectors.\n"
+"B: ndarray (...,N,M)\n"
+"    Matrix of coefficients.\n\n"
+"Returns\n-------\n"
+"X: ndarray (...,NRHS,N)\n"
+"    Matrix of solution vectors.\n"
+"BF: ndarray (...,N,M)\n"
+"    QR factors of `B`, with `Q` in Householder form.\n"
+"TAU: ndarray[int] (...,K)\n"
+"    Householder weights for `Q`, `K=min(M,N)`.\n\n"
+"Notes\n-----\n"
+"Nothing will fail if you make the wrong choice of `lstsq_fm` or `lstsq_fn`. \n"
+"You will merely waste memory from keeping unused elements of `TAU`.");
+
+PyDoc_STRVAR(lstsq_fd__doc__,
+//"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
+"Least-square solution of linear system.\n\n"
+"Find the least-square solution of the equation `AX = B` for `X`. \n"
+"Unlike `numpy.linalg.lstsq`, this version uses QR instead of SVD, so it does \n"
+"not work with rank deficient matrices, `A`.\n"
+"This version does not return `residuals`, rank or singuar values. \n"
+"It uses the QR factors of `A` from previous use of `(r)lstsq_f`.\n"
+"Instead, it returns the QR factors of `A` for future use.\n"
+"It is intended for use in binary operators.\n\n"
+"Parameters\n-----------\n"
+"AF: ndarray (...,M,N)\n"
+"    QR factors of `A`, with `Q` in Householder form.\n"
+"TAU: ndarray[int] (...,K)\n"
+"    Householder weights for `Q`, `K=min(M,N)`.\n"
+"B: ndarray (...,M,NRHS)\n"
+"    Matrix of result vectors.\n\n"
+"Returns\n-------\n"
+"X: ndarray (...,N,NRHS)\n"
+"    Matrix of solution vectors.\n\n"
+"Notes\n-----\n"
+"Nothing will fail if you make the wrong choice of `lstsq_fm` or `lstsq_fn`. \n"
+"You will merely waste memory from keeping unused elements of `TAU`.");
+
+PyDoc_STRVAR(rlstsq_fd__doc__,
+//"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
+"Least-square solution of reversed linear system.\n\n"
+"Find the least-square solution of the equation `A = XB` for `X`. \n"
+"Unlike `numpy.linalg.lstsq`, this version uses QR instead of SVD, so it does \n"
+"not work with rank deficient matrices, `A`.\n"
+"This version does not return `residuals`, rank or singuar values. \n"
+"It uses the QR factors of `B` from previous use of `(r)lstsq_f`.\n"
+"It is intended for use in binary operators.\n\n"
+"Parameters\n-----------\n"
+"A: ndarray (...,NRHS,M)\n"
+"    Matrix of result vectors.\n"
+"BF: ndarray (...,N,M)\n"
+"    QR factors of `B`, with `Q` in Householder form.\n"
+"TAU: ndarray[int] (...,K)\n"
+"    Householder weights for `Q`, `K=min(M,N)`.\n\n"
+"Returns\n-------\n"
+"X: ndarray (...,NRHS,N)\n"
+"    Matrix of solution vectors.\n\n"
+"Notes\n-----\n"
+"Nothing will fail if you make the wrong choice of `lstsq_fm` or `lstsq_fn`. \n"
+"You will merely waste memory from keeping unused elements of `TAU`.");
 
 /*
 *****************************************************************************
@@ -1907,8 +2076,8 @@ release_@geqrs@(GEQRF_PARAMS_t *params)
 // lstsqf_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(k)";
 
 static void
-@TYPE@_lstsqf_loop(char **args, npy_intp *dimensions, npy_intp *steps,
-                npy_int overconstrained)
+@TYPE@_lstsq_f(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_5
     npy_intp len_m = *dimensions++;  // rows of a, b
@@ -1927,19 +2096,23 @@ INIT_OUTER_LOOP_5
     GEQRF_PARAMS_t params;
     LINEARIZE_DATA_t a_in, b_in, x_out, a_out;
     LINEARIZE_VDATA_t tau_out;
-    npy_intp len_mn = overconstrained ? len_m : len_n; // max
-    npy_intp len_k = overconstrained ? len_n : len_m; // min
+    int underconstrained = len_m < len_n;
+    //length of tau
+    npy_intp len_k = underconstrained ? len_m : len_n; // min
+    npy_intp len_mn = len_m + len_n - len_k; // max
+    //don't worry if wrong choice of lstsq_fm/lstsq_fn made.
+    //We'll just leave the extra elements of tau unset.
 
-    if(len_mn < len_k) {//value of overconstrained was wrong
-        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
-        init_linearize_data(&a_out, len_n, len_m, stride_af_c, stride_af_r);
-        init_linearize_vdata(&tau_out, len_k, stride_tau);
-        nan_@TYPE@_matrix(args[2], &x_out);
-        nan_@TYPE@_matrix(args[3], &a_out);
-        nan_@TYPE@_vec(args[4], &tau_out);
-        set_fp_invalid_or_clear(error_occurred);
-        return;
-    }
+    // if(len_mn < len_k) {//wrong choice of lstsq_fm/lstsq_fn
+    //     init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
+    //     init_linearize_data(&a_out, len_n, len_m, stride_af_c, stride_af_r);
+    //     init_linearize_vdata(&tau_out, len_k, stride_tau);
+    //     nan_@TYPE@_matrix(args[2], &x_out);
+    //     nan_@TYPE@_matrix(args[3], &a_out);
+    //     nan_@TYPE@_vec(args[4], &tau_out);
+    //     set_fp_invalid_or_clear(error_occurred);
+    //     return;
+    // }
     if(init_@geqrs@(&params, len_m, len_n, len_nrhs, 1)){
         init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
         init_linearize_data_ex(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn);
@@ -1951,10 +2124,10 @@ INIT_OUTER_LOOP_5
             int not_ok;
             linearize_@TYPE@_matrix(params.A, args[0], &a_in);
             linearize_@TYPE@_matrix(params.B, args[1], &b_in);
-            if (overconstrained) {
-                call_@geqrf@(&params);
-            } else {
+            if (underconstrained) {
                 call_@gelqf@(&params);
+            } else {
+                call_@geqrf@(&params);
             }
             not_ok = params.INFO;
             if (not_ok) {
@@ -1965,10 +2138,10 @@ INIT_OUTER_LOOP_5
             } else {
                 delinearize_@TYPE@_matrix(args[3], params.A, &a_out);
                 delinearize_@TYPE@_vec(args[4], params.T, &tau_out);
-                if (overconstrained) {
-                    call_@geqrs@(&params);
-                } else {
+                if (underconstrained) {
                     call_@gelqs@(&params);
+                } else {
+                    call_@geqrs@(&params);
                 }
                 not_ok = params.INFO;
                 if (not_ok) {
@@ -1991,8 +2164,8 @@ INIT_OUTER_LOOP_5
 // rlstsqf_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(k)"
 
 static void
-@TYPE@_rlstsqf_loop(char **args, npy_intp *dimensions, npy_intp *steps,
-                npy_int overconstrained)
+@TYPE@_rlstsq_f(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
 {
     /*swap (A,B,X,AF,TAU) for (B^T,A^T,X^T,AF^T,TAU)
     a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
@@ -2016,11 +2189,11 @@ static void
         steps[10], steps[9],
         steps[12], steps[11], steps[13]};
     //now that we've swapped a,b and transposed, proceed as if we're in lstsqf
-    @TYPE@_lstsqf_loop(rargs, rdimensions, rsteps, overconstrained);
+    @TYPE@_lstsq_f(rargs, rdimensions, rsteps, NULL);
 }
 
 /*********************
-* Outer GUfunc calls *
+* Outer GUfunc calls
 **********************/
 
 // lstsq_fm_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(m)";
@@ -2028,33 +2201,33 @@ static void
 // rlstsq_fm_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(m)"
 // rlstsq_fn_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(n)"
 
-static void
-@TYPE@_lstsq_fm(char **args, npy_intp *dimensions, npy_intp *steps,
-                void *NPY_UNUSED(func))
-{
-    @TYPE@_lstsqf_loop(args, dimensions, steps, 0);
-}
-
-static void
-@TYPE@_lstsq_fn(char **args, npy_intp *dimensions, npy_intp *steps,
-                void *NPY_UNUSED(func))
-{
-    @TYPE@_lstsqf_loop(args, dimensions, steps, 1);
-}
-
-static void
-@TYPE@_rlstsq_fm(char **args, npy_intp *dimensions, npy_intp *steps,
-                void *NPY_UNUSED(func))
-{
-    @TYPE@_rlstsqf_loop(args, dimensions, steps, 0);
-}
-
-static void
-@TYPE@_rlstsq_fn(char **args, npy_intp *dimensions, npy_intp *steps,
-                void *NPY_UNUSED(func))
-{
-    @TYPE@_rlstsqf_loop(args, dimensions, steps, 1);
-}
+// static void
+// @TYPE@_lstsq_fm(char **args, npy_intp *dimensions, npy_intp *steps,
+//                 void *NPY_UNUSED(func))
+// {
+//     @TYPE@_lstsqf_loop(args, dimensions, steps, 0);
+// }
+//
+// static void
+// @TYPE@_lstsq_fn(char **args, npy_intp *dimensions, npy_intp *steps,
+//                 void *NPY_UNUSED(func))
+// {
+//     @TYPE@_lstsqf_loop(args, dimensions, steps, 1);
+// }
+//
+// static void
+// @TYPE@_rlstsq_fm(char **args, npy_intp *dimensions, npy_intp *steps,
+//                 void *NPY_UNUSED(func))
+// {
+//     @TYPE@_rlstsqf_loop(args, dimensions, steps, 0);
+// }
+//
+// static void
+// @TYPE@_rlstsq_fn(char **args, npy_intp *dimensions, npy_intp *steps,
+//                 void *NPY_UNUSED(func))
+// {
+//     @TYPE@_rlstsqf_loop(args, dimensions, steps, 1);
+// }
 
 /************
 * LSTSQFD   *
@@ -2083,11 +2256,14 @@ INIT_OUTER_LOOP_4
     LINEARIZE_VDATA_t tau_in;
     npy_intp len_mn = len_m + len_n - len_k; // max
 
-    if(len_mn < len_k) {//a and tau don't match
-        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
-        nan_@TYPE@_matrix(args[3], &x_out);
-        set_fp_invalid_or_clear(error_occurred);
-        return;
+    if(len_mn < len_k) {//a and tau made from wrong choice of lstsq_fm/lstsq_fn
+        //nevermind, we'll just ignore the extra elements of tau
+        len_k = len_mn;
+        len_mn = len_m + len_n - len_k; // max
+        // init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
+        // nan_@TYPE@_matrix(args[3], &x_out);
+        // set_fp_invalid_or_clear(error_occurred);
+        // return;
     }
     if(init_@geqrs@(&params, len_m, len_n, len_nrhs, 1)){
         init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
@@ -2173,10 +2349,12 @@ GUFUNC_FUNC_ARRAY_REAL_COMPLEX(solve_fd);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rsolve_fd);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq);
-GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_fm);
-GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_fm);
-GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_fn);
-GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_fn);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_f);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_f);
+// GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_fm);
+// GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_fm);
+// GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_fn);
+// GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_fn);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_fd);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_fd);
 
@@ -2210,29 +2388,29 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
         FUNC_ARRAY_NAME(solve), ufn_types_4_3 },
     { "rsolve", "(nrhs,n),(n,n)->(nrhs,n)", rsolve__doc__, 4, 2, 1,
         FUNC_ARRAY_NAME(rsolve), ufn_types_4_3 },
-    { "solve_f", "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)", solve__doc__, 4, 2, 3,
+    { "solve_f", "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)", solve_f__doc__, 4, 2, 3,
         FUNC_ARRAY_NAME(solve_f), ufn_types_solve_5 },
-    { "rsolve_f", "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)", solve__doc__, 4, 2, 3,
+    { "rsolve_f", "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)", rsolve_f__doc__, 4, 2, 3,
         FUNC_ARRAY_NAME(rsolve_f), ufn_types_solve_5 },
-    { "solve_fd", "(n,n),(n),(n,nrhs)->(n,nrhs)", solve__doc__, 4, 3, 1,
+    { "solve_fd", "(n,n),(n),(n,nrhs)->(n,nrhs)", solve_fd__doc__, 4, 3, 1,
         FUNC_ARRAY_NAME(solve_fd), ufn_types_solve_4 },
-    { "rsolve_fd", "(nrhs,n),(n,n),(n)->(nrhs,n)", solve__doc__, 4, 3, 1,
+    { "rsolve_fd", "(nrhs,n),(n,n),(n)->(nrhs,n)", rsolve_fd__doc__, 4, 3, 1,
         FUNC_ARRAY_NAME(rsolve_fd), ufn_types_rsolve_4 },
     { "lstsq", "(m,n),(m,nrhs)->(n,nrhs)", lstsq__doc__, 4, 2, 1,
         FUNC_ARRAY_NAME(lstsq), ufn_types_4_3 },
     { "rlstsq", "(nrhs,m),(n,m)->(nrhs,n)", rlstsq__doc__, 4, 2, 1,
         FUNC_ARRAY_NAME(rlstsq), ufn_types_4_3 },
-    { "lstsq_fm", "(m,n),(m,nrhs)->(n,nrhs),(m,n),(m)", lstsq__doc__, 4, 2, 3,
-        FUNC_ARRAY_NAME(lstsq_fm), ufn_types_4_5 },
-    { "rlstsq_fm", "(nrhs,m),(n,m)->(nrhs,n),(n,m),(m)", rlstsq__doc__, 4, 2, 3,
-        FUNC_ARRAY_NAME(rlstsq_fm), ufn_types_4_5 },
-    { "lstsq_fn", "(m,n),(m,nrhs)->(n,nrhs),(m,n),(n)", lstsq__doc__, 4, 2, 3,
-        FUNC_ARRAY_NAME(lstsq_fn), ufn_types_4_5 },
-    { "rlstsq_fn", "(nrhs,m),(n,m)->(nrhs,n),(n,m),(n)", rlstsq__doc__, 4, 2, 3,
-        FUNC_ARRAY_NAME(rlstsq_fn), ufn_types_4_5 },
-    { "lstsq_fd", "(m,n),(k),(m,nrhs)->(n,nrhs)", lstsq__doc__, 4, 3, 1,
+    { "lstsq_fm", "(m,n),(m,nrhs)->(n,nrhs),(m,n),(m)", lstsq_f__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(lstsq_f), ufn_types_4_5 },
+    { "rlstsq_fm", "(nrhs,m),(n,m)->(nrhs,n),(n,m),(m)", rlstsq_f__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(rlstsq_f), ufn_types_4_5 },
+    { "lstsq_fn", "(m,n),(m,nrhs)->(n,nrhs),(m,n),(n)", lstsq_f__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(lstsq_f), ufn_types_4_5 },
+    { "rlstsq_fn", "(nrhs,m),(n,m)->(nrhs,n),(n,m),(n)", rlstsq_f__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(rlstsq_f), ufn_types_4_5 },
+    { "lstsq_fd", "(m,n),(k),(m,nrhs)->(n,nrhs)", lstsq_fd__doc__, 4, 3, 1,
         FUNC_ARRAY_NAME(lstsq_fd), ufn_types_4_4 },
-    { "rlstsq_fd", "(nrhs,m),(n,m),(k)->(nrhs,n)", rlstsq__doc__, 4, 3, 1,
+    { "rlstsq_fd", "(nrhs,m),(n,m),(k)->(nrhs,n)", rlstsq_fd__doc__, 4, 3, 1,
         FUNC_ARRAY_NAME(rlstsq_fd), ufn_types_4_4 }
 };
 // lstsq_fm_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(m)";

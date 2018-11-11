@@ -1,39 +1,47 @@
 # -*- coding: utf-8 -*-
 import unittest as ut
 import numpy as np
-import sl_py_tools.numpy_tricks.linalg.gufuncs as gf
-import sl_py_tools.numpy_tricks.linalg._lnarray as la
+import unittest_numpy as utn
+import sl_py_tools.numpy_tricks.linalg._gufuncs_cloop as gfc
 # =============================================================================
 
 
-class TestCaseNumpy(ut.TestCase):
-    """Test case mith method for comparing arrays"""
-
-    def setUp(self):
-        self.addTypeEqualityFunc(np.ndarray, self.assertArrayEqual)
-        self.addTypeEqualityFunc(la.lnarray, self.assertArrayEqual)
-
-    def assertArrayEqual(self, x, y, msg=None):
-        """Assert that two arrays are equal
-        """
-        try:
-            np.testing.assert_array_almost_equal_nulp(x, y)
-        except AssertionError:
-            raise self.failureException(msg)
-
-
-class TestCloop(TestCaseNumpy):
+class TestCloop(utn.TestCaseNumpy):
     """Testing norm and rtrue_tdivide"""
 
     def test_rdiv(self):
         x = np.random.randn(3, 5, 6)
         y = np.random.randn(3, 5, 6)
         z = np.random.randn(3, 4, 6)
-        self.assertEqual(gf.rtrue_divide(x, y), y / x, 'x \ y == y / x')
-#        self.assertNotEqual(gf.rtrue_divide(x, y), x / y, 'x \ y != x / y')
+        self.assertArrayAlmostEqual(gfc.rtrue_divide(x, y), y / x,
+                                    'x \\ y == y / x')
+        self.assertArrayNotEqual(gfc.rtrue_divide(x, y), x / y,
+                                 'x \\ y != x / y')
         with self.assertRaisesRegex(ValueError,
                                     'operands could not be broadcast'):
-            gf.rtrue_divide(x, z)
+            gfc.rtrue_divide(x, z)
+
+    def test_norm(self):
+        x = np.random.randn(3, 5, 6)
+        y = np.arange(24).reshape((2, 3, 4))
+        self.assertEqual(gfc.norm(x).shape, (3, 5))
+        self.assertEqual(gfc.norm(x, axis=1).shape, (3, 6))
+        self.assertEqual(gfc.norm(x, axis=1, keepdims=True).shape, (3, 1, 6))
+        self.assertArrayAlmostEqual(gfc.norm(y), np.sqrt([[14, 126, 366],
+                                                          [734, 1230, 1854]]))
+
+    def test_matmul(self):
+        x = np.random.randn(2, 3, 5)
+        y = np.random.randn(5, 2)
+        self.assertArrayAlmostEqual(gfc.matmul(x, y), x @ y)
+
+    def test_rmatmul(self):
+        x = np.random.randn(2, 3, 5)
+        y = np.random.randn(5, 2)
+        with self.assertRaisesRegex(ValueError,
+                                    'has a mismatch in its core dimension'):
+            gfc.rmatmul(x, y)
+        self.assertArrayAlmostEqual(gfc.rmatmul(y, x), x @ y)
 
 
 # =============================================================================
