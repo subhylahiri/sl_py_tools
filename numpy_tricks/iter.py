@@ -84,7 +84,67 @@ class DisplayNDIndex(_it.DisplayMixin):
         return super()._str(*ctrs[0])
 
 
-class DisplayNDIter(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
+class _DispNDIterBase(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
+    """Base class for numpy nditer with display
+
+    Prints loop counter (plus 1), updates in place, and deletes at end.
+    Nested loops display on one line and update correctly if the inner
+    iterator ends before the outer one is updated.
+    Displays look like:
+        ' ii: (3/5, 6/8,  7/10),'
+
+    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there.
+
+    Construction
+    ------------
+    _DispNDIterBase(...)
+
+    Parameters
+    ----------
+    ...
+        Passed to ``_iter_base.AddDisplayToIterables``.
+
+    Yields
+    ------
+    Whatever the underlying ``nditer`` yields.
+
+    See Also
+    --------
+    numpy.nditer
+    """
+    def __init__(self, *args: _it.Args, **kwds: _it.KeyWords):
+        super().__init__(*args, **kwds)
+
+    def _get_len(self):
+        return self._iterables[0].shape
+
+    def __iter__(self):
+        self.display = iter(self.display)
+        self._iterables = (iter(self._iterables[0]),)
+        return self
+
+    def __next__(self):
+        try:
+            next(self.display)
+            output = next(self._iterables[0])
+        except StopIteration:
+            self.end()
+            raise
+        else:
+            return output
+
+    def __enter__(self):
+        self._iterables = (self._iterables[0].__enter__(),)
+        return self
+
+    def __exit__(self, *exc):
+        return self._iterables[0].__exit__(*exc)
+
+
+class DisplayNDIter(_DispNDIterBase):
     """Numpy nditer with display
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -123,33 +183,8 @@ class DisplayNDIter(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
         my_iter = np.nditer(*args, **kwds)
         super().__init__(name, my_iter)
 
-    def _get_len(self):
-        return self._iterables[0].shape
 
-    def __iter__(self):
-        self.display = iter(self.display)
-        self._iterables = iter(self._iterables)
-        return self
-
-    def __next__(self):
-        try:
-            next(self.display)
-            output = next(self._iterables)
-        except StopIteration:
-            self.end()
-            raise
-        else:
-            return output
-
-    def __enter__(self):
-        self._iterables = (self._iterables[0].__enter__(),)
-        return self
-
-    def __exit__(self, *exc):
-        return self._iterables[0].__exit__(*exc)
-
-
-class DisplayNDEnumerate(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
+class DisplayNDEnumerate(_DispNDIterBase):
     """Numpy ndenumerate with display
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -187,24 +222,6 @@ class DisplayNDEnumerate(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
         name, args = _it.extract_name(args, kwds)
         my_iter = np.ndenumerate(*args, **kwds)
         super().__init__(name, my_iter)
-
-    def _get_len(self):
-        return self._iterables[0].shape
-
-    def __iter__(self):
-        self.display = iter(self.display)
-        self._iterables = iter(self._iterables)
-        return self
-
-    def __next__(self):
-        try:
-            next(self.display)
-            output = next(self._iterables)
-        except StopIteration:
-            self.end()
-            raise
-        else:
-            return output
 
 
 # =============================================================================
