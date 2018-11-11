@@ -141,6 +141,13 @@ class DisplayNDIter(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
         else:
             return output
 
+    def __enter__(self):
+        self._iterables = (self._iterables[0].__enter__(),)
+        return self
+
+    def __exit__(self, *exc):
+        return self._iterables[0].__exit__(*exc)
+
 
 class DisplayNDEnumerate(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
     """Numpy ndenumerate with display
