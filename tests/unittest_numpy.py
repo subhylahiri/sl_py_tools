@@ -21,8 +21,10 @@ def wrap_np_test(func):
         """
         try:
             func(actual, desired, **kwds)
+            return
         except AssertionError:
-            raise self.failureException(msg)
+            pass
+        raise self.failureException(msg)
     return wrapped_test
 
 
@@ -88,3 +90,18 @@ class TestCaseNumpy(ut.TestCase):
     def setUp(self):
         self.addTypeEqualityFunc(np.ndarray, self.assertArrayAlmostEqual)
         self.addTypeEqualityFunc(la.lnarray, self.assertArrayAlmostEqual)
+
+
+def mismatch_str(x, y):
+    """Returns a string describing the maximum deviation of x and y
+    """
+    return 'Should be zero: ' + str(np.max(np.abs(x - y)))
+
+
+cmplx = {'i': 0, 'f': 0, 'd': 0, 'F': 1j, 'D': 1j}
+
+
+def asa(x, y, sctype):
+    """Convert x + iy to sctype
+    """
+    return (x + cmplx[sctype] * y).astype(sctype)

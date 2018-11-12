@@ -8,40 +8,73 @@ import sl_py_tools.numpy_tricks.linalg._gufuncs_cloop as gfc
 
 class TestCloop(utn.TestCaseNumpy):
     """Testing norm and rtrue_tdivide"""
+    def setUp(self):
+        self.sctypes = ['i', 'f', 'd', 'F', 'D']
+        self.x = {}
+        self.y = {}
+        self.z = {}
+        self.w = {}
+        self.n = {}
+        for sctype in self.sctypes:
+            self.x[sctype] = utn.asa(np.random.randn(2, 3, 5),
+                                     np.random.randn(2, 3, 5), sctype)
+            self.y[sctype] = utn.asa(np.random.randn(5, 2),
+                                     np.random.randn(5, 2), sctype)
+            self.z[sctype] = self.x[sctype] @ self.y[sctype]
+            self.w[sctype] = utn.asa(np.arange(24).reshape((2, 3, 4)),
+                                     np.arange(8).reshape((2, 1, 4)), sctype)
+            nsq = utn.asa(np.array([[14, 126, 366], [734, 1230, 1854]]),
+                          -1j * np.array([[14], [126]]), sctype)
+            self.n[sctype] = np.sqrt(nsq).real.astype(sctype.lower())
 
     def test_rdiv(self):
-        x = np.random.randn(3, 5, 6)
-        y = np.random.randn(3, 5, 6)
-        z = np.random.randn(3, 4, 6)
-        self.assertArrayAlmostEqual(gfc.rtrue_divide(x, y), y / x,
-                                    'x \\ y == y / x')
-        self.assertArrayNotEqual(gfc.rtrue_divide(x, y), x / y,
-                                 'x \\ y != x / y')
+        # shape
         with self.assertRaisesRegex(ValueError,
                                     'operands could not be broadcast'):
-            gfc.rtrue_divide(x, z)
+            gfc.rtrue_divide(self.x['d'], self.z['d'])
+        # value
+        for sctype in self.sctypes[1:]:
+            with self.subTest(sctype=sctype):
+                x = self.x[sctype]
+                y = self.y[sctype].T[:, None]
+                z = gfc.rtrue_divide(x, y)
+                zz = y / x
+                msg = "x \\ y == y / x. " + utn.mismatch_str(z, zz)
+                self.assertArrayAlmostEqual(z, zz, msg=msg, nulp=3)
+                self.assertArrayNotEqual(z, x / y, msg='x \\ y != x / y')
 
     def test_norm(self):
-        x = np.random.randn(3, 5, 6)
-        y = np.arange(24).reshape((2, 3, 4))
-        self.assertEqual(gfc.norm(x).shape, (3, 5))
-        self.assertEqual(gfc.norm(x, axis=1).shape, (3, 6))
-        self.assertEqual(gfc.norm(x, axis=1, keepdims=True).shape, (3, 1, 6))
-        self.assertArrayAlmostEqual(gfc.norm(y), np.sqrt([[14, 126, 366],
-                                                          [734, 1230, 1854]]))
+        # shape
+        x = self.x['d']
+        self.assertEqual(gfc.norm(x).shape, (2, 3))
+        self.assertEqual(gfc.norm(x, axis=1).shape, (2, 5))
+        self.assertEqual(gfc.norm(x, axis=1, keepdims=True).shape, (2, 1, 5))
+        # value
+        for sctype in self.sctypes[1:]:
+            with self.subTest(sctype=sctype):
+                n = gfc.norm(self.w[sctype])
+                msg = '||w||. ' + utn.mismatch_str(n, self.n[sctype])
+                self.assertArrayAlmostEqual(n, self.n[sctype], msg, nulp=3)
 
     def test_matmul(self):
-        x = np.random.randn(2, 3, 5)
-        y = np.random.randn(5, 2)
-        self.assertArrayAlmostEqual(gfc.matmul(x, y), x @ y)
+        # value
+        for sctype in self.sctypes:
+            with self.subTest(sctype=sctype):
+                z = gfc.matmul(self.x[sctype], self.y[sctype])
+                msg = 'x @ y. ' + utn.mismatch_str(z, self.z[sctype])
+                self.assertArrayAlmostEqual(z, self.z[sctype], msg=msg, nulp=5)
 
     def test_rmatmul(self):
-        x = np.random.randn(2, 3, 5)
-        y = np.random.randn(5, 2)
+        # shape
         with self.assertRaisesRegex(ValueError,
                                     'has a mismatch in its core dimension'):
-            gfc.rmatmul(x, y)
-        self.assertArrayAlmostEqual(gfc.rmatmul(y, x), x @ y)
+            gfc.rmatmul(self.x['d'], self.y['d'])
+        # value
+        for sctype in self.sctypes:
+            with self.subTest(sctype=sctype):
+                z = gfc.rmatmul(self.y[sctype], self.x[sctype])
+                msg = 'y r@ x. ' + utn.mismatch_str(z, self.z[sctype])
+                self.assertArrayAlmostEqual(z, self.z[sctype], msg=msg, nulp=5)
 
 
 # =============================================================================
