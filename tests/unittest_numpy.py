@@ -3,8 +3,19 @@
 """
 import unittest as ut
 from functools import wraps
+from contextlib import contextmanager
 import numpy as np
 import sl_py_tools.numpy_tricks.linalg._lnarray as la
+
+__all__ = [
+        'TestCaseNumpy',
+        'wrap_np_test',
+        'wrap_not_np_test',
+        'mismatch_str',
+        'miss_str',
+        'asa',
+        'errstate'
+        ]
 # =============================================================================
 
 
@@ -95,7 +106,28 @@ class TestCaseNumpy(ut.TestCase):
 def mismatch_str(x, y):
     """Returns a string describing the maximum deviation of x and y
     """
-    return 'Should be zero: ' + str(np.max(np.abs(x - y)))
+    nulp = np.spacing(np.maximum(np.abs(x), np.abs(y)))
+    mismatch = np.abs(x - y)
+    mis_frac = mismatch / nulp
+    ind = np.unravel_index(np.argmax(mis_frac), mis_frac.shape)
+    formatter = 'Should be zero: {:.2g} or {:.2g} = {:.1f} * {:.2g}'
+
+    return formatter.format(np.amax(mismatch), mismatch[ind], mis_frac[ind],
+                            nulp[ind])
+
+
+def miss_str(x, y, atol=1e-8, rtol=1e-5):
+    """Returns a string describing the maximum deviation of x and y
+    """
+    shape = np.broadcast(x, y).shape
+    thresh = atol + rtol * np.abs(np.broadcast_to(y, shape))
+    mismatch = np.abs(x - y)
+    mis_frac = mismatch / thresh
+    ind = np.unravel_index(np.argmax(mis_frac), mis_frac.shape)
+    formatter = 'Should be zero: {:.2g} or {:.2g} = {:.1f} * {:.2g}'
+
+    return formatter.format(np.amax(mismatch), mismatch[ind], mis_frac[ind],
+                            thresh[ind])
 
 
 cmplx = {'i': 0, 'f': 0, 'd': 0, 'F': 1j, 'D': 1j}
@@ -105,3 +137,15 @@ def asa(x, y, sctype):
     """Convert x + iy to sctype
     """
     return (x + cmplx[sctype] * y).astype(sctype)
+
+
+@contextmanager
+def errstate(*args, **kwds):
+    """Context manager like np.errstate that can also be used as a decorator
+    """
+    old_errstate = np.geterr()
+    try:
+        np.seterr(*args, **kwds)
+        yield
+    finally:
+        np.seterr(**old_errstate)
