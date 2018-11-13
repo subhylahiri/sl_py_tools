@@ -14,6 +14,7 @@ errstate = utn.errstate(invalid='raise')
 class TestBlas(utn.TestCaseNumpy):
     """Testing norm, matmul and rmatmul"""
     def setUp(self):
+        super().setUp()
         self.gf = gfb
         self.nulp = 10
         self.sctypes = ['i', 'f', 'd', 'F', 'D']
@@ -44,9 +45,7 @@ class TestBlas(utn.TestCaseNumpy):
         for sctype in self.sctypes[1:]:
             with self.subTest(sctype=sctype):
                 n = self.gf.norm(self.w[sctype])
-                msg = '||w||. ' + utn.mismatch_str(n, self.n[sctype])
-                self.assertArrayAlmostEqual(n, self.n[sctype], msg=msg,
-                                            nulp=self.nulp)
+                self.assertArrayAllClose(n, self.n[sctype])
 
     def test_matmul(self):
         # shape
@@ -57,9 +56,7 @@ class TestBlas(utn.TestCaseNumpy):
         for sctype in self.sctypes:
             with self.subTest(sctype=sctype):
                 z = self.gf.matmul(self.x[sctype], self.y[sctype])
-                msg = 'x @ y. ' + utn.mismatch_str(z, self.z[sctype])
-                self.assertArrayAlmostEqual(z, self.z[sctype], msg=msg,
-                                            nulp=self.nulp)
+                self.assertArrayAllClose(z, self.z[sctype])
 
     def test_rmatmul(self):
         # shape
@@ -70,9 +67,7 @@ class TestBlas(utn.TestCaseNumpy):
         for sctype in self.sctypes:
             with self.subTest(sctype=sctype):
                 z = self.gf.rmatmul(self.y[sctype], self.x[sctype])
-                msg = 'y r@ x. ' + utn.mismatch_str(z, self.z[sctype])
-                self.assertArrayAlmostEqual(z, self.z[sctype], msg=msg,
-                                            nulp=self.nulp)
+                self.assertArrayAllClose(z, self.z[sctype])
 
 
 class TestCloop(TestBlas):
@@ -89,20 +84,20 @@ class TestCloop(TestBlas):
             self.gf.rtrue_divide(self.x['d'], self.z['d'])
         # value
         for sctype in self.sctypes[1:]:
-            with self.subTest(sctype=sctype):
-                x = self.x[sctype]
-                y = self.y[sctype].T[:, None]
-                z = self.gf.rtrue_divide(x, y)
-                zz = y / x
-                msg = "x \\ y == y / x. " + utn.mismatch_str(z, zz)
-                self.assertArrayAlmostEqual(z, zz, msg=msg, nulp=self.nulp)
-                self.assertArrayNotEqual(z, x / y, msg='x \\ y != x / y')
+            x = self.x[sctype]
+            y = self.y[sctype].T[:, None]
+            z = self.gf.rtrue_divide(x, y)
+            zz = y / x
+            with self.subTest(sctype=sctype, msg="x \\ y == y / x. "):
+                self.assertArrayAllClose(z, zz)
+                self.assertArrayNotAllClose(z, x / y, msg='x \\ y != x / y')
 
 
 class TestQR(utn.TestCaseNumpy):
     """Testing gufuncs_blas.qr
     """
     def setUp(self):
+        super().setUp()
         self.sctypes = ['f', 'd', 'F', 'D']
         self.opts = {'atol': 1e-6, 'rtol': 1e-5}
         self.optss = {'equal_nan': True}
@@ -133,17 +128,11 @@ class TestQR(utn.TestCaseNumpy):
             eye = transpose(q.conj()) @ q
             eyet = q @ transpose(q.conj())
             with self.subTest(msg='qr', sctype=sctype):
-                msg = utn.miss_str(wide, self.wide[sctype], **self.opts)
-                self.assertArrayAllClose(wide, self.wide[sctype],
-                                         msg=msg, **self.optss)
+                self.assertArrayAllClose(wide, self.wide[sctype])
             with self.subTest(msg='q^T q', sctype=sctype):
-                msg = utn.miss_str(self.id_small[sctype], eye, **self.opts)
-                self.assertArrayAllClose(self.id_small[sctype], eye,
-                                         msg=msg, **self.optss)
+                self.assertArrayAllClose(self.id_small[sctype], eye)
             with self.subTest(msg='q q^T', sctype=sctype):
-                msg = utn.miss_str(self.id_small[sctype], eyet, **self.opts)
-                self.assertArrayAllClose(self.id_small[sctype], eyet,
-                                         msg=msg, **self.optss)
+                self.assertArrayAllClose(self.id_small[sctype], eyet)
 
     @errstate
     def test_qr_tall(self):
@@ -160,13 +149,9 @@ class TestQR(utn.TestCaseNumpy):
             tall = q @ r
             eye = transpose(q.conj()) @ q
             with self.subTest(msg='qr', sctype=sctype):
-                msg = utn.miss_str(tall, self.tall[sctype], **self.opts)
-                self.assertArrayAllClose(tall, self.tall[sctype],
-                                         msg=msg, **self.optss)
+                self.assertArrayAllClose(tall, self.tall[sctype])
             with self.subTest(msg='q^T q', sctype=sctype):
-                msg = utn.miss_str(self.id_small[sctype], eye, **self.opts)
-                self.assertArrayAllClose(self.id_small[sctype], eye,
-                                         msg=msg, **self.optss)
+                self.assertArrayAllClose(self.id_small[sctype], eye)
 
     def test_qr_complete(self):
         # shape
@@ -180,17 +165,11 @@ class TestQR(utn.TestCaseNumpy):
             eye = transpose(q.conj()) @ q
             eyet = q @ transpose(q.conj())
             with self.subTest(msg='qr', sctype=sctype):
-                msg = utn.miss_str(tall, self.tall[sctype], **self.opts)
-                self.assertArrayAllClose(tall, self.tall[sctype],
-                                         msg=msg, **self.optss)
+                self.assertArrayAllClose(tall, self.tall[sctype])
             with self.subTest(msg='q^T q', sctype=sctype):
-                msg = utn.miss_str(self.id_big[sctype], eye, **self.opts)
-                self.assertArrayAllClose(self.id_big[sctype], eye,
-                                         msg=msg, **self.optss)
+                self.assertArrayAllClose(self.id_big[sctype], eye)
             with self.subTest(msg='q q^T', sctype=sctype):
-                msg = utn.miss_str(self.id_big[sctype], eyet, **self.opts)
-                self.assertArrayAllClose(self.id_big[sctype], eyet,
-                                         msg=msg, **self.optss)
+                self.assertArrayAllClose(self.id_big[sctype], eyet)
 
 
 # =============================================================================

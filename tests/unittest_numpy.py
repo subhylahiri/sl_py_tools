@@ -85,22 +85,28 @@ class TestCaseNumpy(ut.TestCase):
     assertArrayNotLess
         calls numpy.testing.assert_array_less and negates result.
     """
-    assertArrayAlmostEqual = wrap_np_test(
-            np.testing.assert_array_almost_equal_nulp)
-    assertArrayMaxDiff = wrap_np_test(np.testing.assert_array_max_ulp)
     assertArrayEqual = wrap_np_test(np.testing.assert_array_equal)
-    assertArrayAllClose = wrap_np_test(np.testing.assert_allclose)
     assertArrayLess = wrap_np_test(np.testing.assert_array_less)
 
-    assertArrayNotAlmostEqual = wrap_not_np_test(
-            np.testing.assert_array_almost_equal_nulp)
     assertArrayNotEqual = wrap_not_np_test(np.testing.assert_array_equal)
-    assertArrayNotAllClose = wrap_not_np_test(np.testing.assert_allclose)
     assertArrayNotLess = wrap_not_np_test(np.testing.assert_array_less)
 
     def setUp(self):
-        self.addTypeEqualityFunc(np.ndarray, self.assertArrayAlmostEqual)
-        self.addTypeEqualityFunc(la.lnarray, self.assertArrayAlmostEqual)
+        self.all_close_opts = {'atol': 1e-6, 'rtol': 1e-5, 'equal_nan': True}
+        self.addTypeEqualityFunc(np.ndarray, self.assertArrayAllClose)
+        self.addTypeEqualityFunc(la.lnarray, self.assertArrayAllClose)
+
+    def assertArrayAllClose(self, actual, desired, msg=None):
+        if msg is None:
+            msg = miss_str(actual, desired)
+        if not np.allclose(actual, desired, **self.all_close_opts):
+            raise self.failureException(msg)
+
+    def assertArrayNotAllClose(self, actual, desired, msg=None):
+        if msg is None:
+            msg = miss_str(actual, desired)
+        if np.allclose(actual, desired, **self.all_close_opts):
+            raise self.failureException(msg)
 
 
 def mismatch_str(x, y):
@@ -116,7 +122,7 @@ def mismatch_str(x, y):
                             nulp[ind])
 
 
-def miss_str(x, y, atol=1e-8, rtol=1e-5):
+def miss_str(x, y, atol=1e-8, rtol=1e-5, equal_nan=True):
     """Returns a string describing the maximum deviation of x and y
     """
     shape = np.broadcast(x, y).shape
