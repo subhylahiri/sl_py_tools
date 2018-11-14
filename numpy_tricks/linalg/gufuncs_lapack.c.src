@@ -2096,7 +2096,7 @@ INIT_OUTER_LOOP_5
     GEQRF_PARAMS_t params;
     LINEARIZE_DATA_t a_in, b_in, x_out, a_out;
     LINEARIZE_VDATA_t tau_out;
-    int underconstrained = len_m < len_n;
+    int underconstrained = (len_m < len_n) ? 0 : 1;
     //length of tau
     npy_intp len_k = underconstrained ? len_m : len_n; // min
     npy_intp len_mn = len_m + len_n - len_k; // max
@@ -2376,13 +2376,13 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
         FUNC_ARRAY_NAME(qr_m), ufn_types_4_3 },
     { "qr_n", "(m,n)->(m,n),(n,n)", qr__doc__, 4, 1, 2,
         FUNC_ARRAY_NAME(qr_n), ufn_types_4_3 },
-    { "qr_rm", "(m,n)->(m,n)", qr__doc__, 4, 1, 1,
+    { "qr_rm", "(m,n)->(m,n)", qrr__doc__, 4, 1, 1,
         FUNC_ARRAY_NAME(qr_rm), ufn_types_4_2 },
-    { "qr_rn", "(m,n)->(n,n)", qr__doc__, 4, 1, 1,
+    { "qr_rn", "(m,n)->(n,n)", qrr__doc__, 4, 1, 1,
         FUNC_ARRAY_NAME(qr_rn), ufn_types_4_2 },
-    { "qr_rawm", "(m,n)->(n,m),(m)", qr__doc__, 4, 1, 2,
+    { "qr_rawm", "(m,n)->(n,m),(m)", qrraw__doc__, 4, 1, 2,
         FUNC_ARRAY_NAME(qr_rawm), ufn_types_4_3 },
-    { "qr_rawn", "(m,n)->(n,m),(n)", qr__doc__, 4, 1, 2,
+    { "qr_rawn", "(m,n)->(n,m),(n)", qrraw__doc__, 4, 1, 2,
         FUNC_ARRAY_NAME(qr_rawn), ufn_types_4_3 },
     { "solve", "(n,n),(n,nrhs)->(n,nrhs)", solve__doc__, 4, 2, 1,
         FUNC_ARRAY_NAME(solve), ufn_types_4_3 },

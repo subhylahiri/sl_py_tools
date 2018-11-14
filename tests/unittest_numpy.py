@@ -49,7 +49,7 @@ class TestCaseNumpy(ut.TestCase):
 
     def assertArrayAllClose(self, actual, desired, msg=None):
         if msg is None:
-            msg = miss_str(actual, desired)
+            msg = miss_str(actual, desired, **self.all_close_opts)
         if not np.allclose(actual, desired, **self.all_close_opts):
             raise self.failureException(msg)
 
@@ -67,7 +67,7 @@ class TestCaseNumpy(ut.TestCase):
 
     def assertArrayNotAllClose(self, actual, desired, msg=None):
         if msg is None:
-            msg = miss_str(actual, desired)
+            msg = miss_str(actual, desired, **self.all_close_opts)
         if np.allclose(actual, desired, **self.all_close_opts):
             raise self.failureException(msg)
 
@@ -98,10 +98,10 @@ def miss_str(x, y, atol=1e-8, rtol=1e-5, equal_nan=True):
     mismatch = np.abs(x - y)
     mis_frac = mismatch / thresh
     ind = np.unravel_index(np.argmax(mis_frac), mis_frac.shape)
-    formatter = 'Should be zero: {:.2g}\nor: {:.2g} = {:.2g} * {:.1f}'
+    formatter = 'Should be zero: {:.2g}\nor: {:.2g} = {:.2g} * {:.1f} at {}'
 
     return formatter.format(np.amax(mismatch), mismatch[ind], thresh[ind],
-                            mis_frac[ind])
+                            mis_frac[ind], ind)
 
 
 cmplx = {'b': 0, 'h': 0, 'i': 0, 'l': 0, 'p': 0, 'q': 0,

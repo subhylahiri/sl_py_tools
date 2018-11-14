@@ -99,10 +99,6 @@ class TestQR(utn.TestCaseNumpy):
     def setUp(self):
         super().setUp()
         self.sctypes = ['f', 'd', 'F', 'D']
-        self.opts = {'atol': 1e-6, 'rtol': 1e-5}
-        self.optss = {'equal_nan': True}
-        self.optss.update(self.opts)
-        self.longMessage = False
         self.wide = {}
         self.tall = {}
         self.wide = {}
@@ -170,6 +166,47 @@ class TestQR(utn.TestCaseNumpy):
                 self.assertArrayAllClose(self.id_big[sctype], eye)
             with self.subTest(msg='q q^T', sctype=sctype):
                 self.assertArrayAllClose(self.id_big[sctype], eyet)
+
+    def test_qr_r(self):
+        for sctype in self.sctypes:
+            with self.subTest(msg='r_m', sctype=sctype):
+                r = gfl.qr_rm(self.wide[sctype])
+                rr = gfl.qr_m(self.wide[sctype])[1]
+                self.assertArrayAllClose(r, rr)
+            with self.subTest(msg='r_n', sctype=sctype):
+                r = gfl.qr_rn(self.tall[sctype])
+                rr = gfl.qr_n(self.tall[sctype])[1]
+                self.assertArrayAllClose(r, rr)
+
+    def test_qr_raw(self):
+        for sctype in self.sctypes:
+            rr = gfl.qr_m(self.wide[sctype])[1]
+            ht, tau = gfl.qr_rawm(self.wide[sctype])
+            h = transpose(ht)
+            v = np.tril(h[..., :5], -1)
+            v[..., np.diag_indices(5)] = 1
+            r = np.triu(h)
+            with self.subTest(msg='raw_m', sctype=sctype):
+                self.assertArrayAllClose(r, rr)
+#            for k in range(1, 6):
+#                vr = v[..., None, :, -k] @ r
+#                r -= tau[..., None, None, -k] * v[..., -k, None] * vr
+#            with self.subTest(msg='h_m', sctype=sctype):
+#                self.assertArrayAllClose(r, self.wide[sctype])
+
+            rr = gfl.qr_n(self.tall[sctype])[1]
+            ht, tau = gfl.qr_rawn(self.tall[sctype])
+            h = transpose(ht)
+            v = np.tril(h, -1)
+            v[..., np.diag_indices(5)] = 1
+            r = np.triu(h)
+            with self.subTest(msg='raw_n', sctype=sctype):
+                self.assertArrayAllClose(r[..., :5, :], rr)
+#            for k in range(1, 6):
+#                vr = v[..., None, :, -k] @ r
+#                r -= tau[..., None, None, -k] * v[..., -k, None] * vr
+#            with self.subTest(msg='h_n', sctype=sctype):
+#                self.assertArrayAllClose(r, self.tall[sctype])
 
 
 # =============================================================================
