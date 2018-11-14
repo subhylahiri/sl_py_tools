@@ -2,7 +2,9 @@
 """
 """
 import unittest as ut
-from contextlib import contextmanager
+import contextlib as cxl
+import sys
+import types
 import numpy as np
 import sl_py_tools.numpy_tricks.linalg._lnarray as la
 
@@ -15,32 +17,37 @@ __all__ = [
 # =============================================================================
 
 
+def _fake_tb(lineno):
+    return types.TracebackType(None, sys._getframe(2), 1, lineno)
+
+
 class TestCaseNumpy(ut.TestCase):
     """Test case mith methods for comparing numpy arrays.
 
     Subclass this class to make your own unit test suite.
     It has several assertArray... methods that call numpy functions and
-    process the results how a unittest.TestCase method should.
+    process the results like a unittest.TestCase method.
     If you write a setUp method, be sure to call super().setUp().
 
     Methods
     -------
     assertArrayAllClose
-        calls numpy.allclose.
+        Calls numpy.allclose (so it broadcasts, unlike
+        numpy.testing.assert_allclose).
     assertArrayNotAllClose
-        calls numpy.allclose and negates result.
+        Calls numpy.allclose and negates result.
     assertArrayEqual
-        calls numpy.all(numpy.equal(...)).
+        Calls numpy.all(numpy.equal(...)).
     assertArrayNotEqual
-        calls numpy.all(numpy.not_equal(...)).
+        Calls numpy.all(numpy.not_equal(...)).
     assertArrayLess
-        calls numpy.all(numpy.less(...)).
+        Calls numpy.all(numpy.less(...)).
     assertArrayNotLess
-        calls numpy.all(numpy.greater_equal(...)).
+        Calls numpy.all(numpy.greater_equal(...)).
     assertArrayGreater
-        calls numpy.all(numpy.greater(...)).
+        Calls numpy.all(numpy.greater(...)).
     assertArrayNotGreater
-        calls numpy.less_equal(...)).
+        Calls numpy.all(numpy.less_equal(...)).
     """
     def setUp(self):
         self.all_close_opts = {'atol': 1e-6, 'rtol': 1e-5, 'equal_nan': True}
@@ -48,40 +55,66 @@ class TestCaseNumpy(ut.TestCase):
         self.addTypeEqualityFunc(la.lnarray, self.assertArrayAllClose)
 
     def assertArrayAllClose(self, actual, desired, msg=None):
+        """Calls numpy.allclose (so it broadcasts, unlike
+        numpy.testing.assert_allclose) and processes the results like a
+        unittest.TestCase method.
+        """
         if msg is None:
             msg = miss_str(actual, desired, **self.all_close_opts)
         if not np.allclose(actual, desired, **self.all_close_opts):
-            raise self.failureException(msg)
+            self.fail(msg)
 
     def assertArrayEqual(self, actual, desired, msg=None):
+        """Calls numpy.all(numpy.equal(...)) and processes the results like a
+        unittest.TestCase method.
+        """
         if np.any(actual != desired):
-            raise self.failureException(msg)
+            self.fail(msg)
 
     def assertArrayLess(self, actual, desired, msg=None):
+        """Calls numpy.all(numpy.less(...)) and processes the results like a
+        unittest.TestCase method.
+        """
         if np.any(actual >= desired):
-            raise self.failureException(msg)
+            self.fail(msg)
 
     def assertArrayGreater(self, actual, desired, msg=None):
+        """Calls numpy.all(numpy.greater(...)) and processes the results like a
+        unittest.TestCase method.
+        """
         if np.any(actual <= desired):
-            raise self.failureException(msg)
+            self.fail(msg)
 
     def assertArrayNotAllClose(self, actual, desired, msg=None):
+        """Calls numpy.allclose (so it broadcasts, unlike
+        numpy.testing.assert_allclose), negates and processes the results like
+        a unittest.TestCase method.
+        """
         if msg is None:
             msg = miss_str(actual, desired, **self.all_close_opts)
         if np.allclose(actual, desired, **self.all_close_opts):
-            raise self.failureException(msg)
+            self.fail(msg)
 
     def assertArrayNotEqual(self, actual, desired, msg=None):
+        """Calls numpy.all(numpy.not_equal(...)) and processes the results like
+        a unittest.TestCase method.
+        """
         if np.any(actual == desired):
-            raise self.failureException(msg)
+            self.fail(msg)
 
     def assertArrayNotLess(self, actual, desired, msg=None):
+        """Calls numpy.all(numpy.greater_equal(...)) and processes the results
+        like a unittest.TestCase method.
+        """
         if np.any(actual < desired):
-            raise self.failureException(msg)
+            self.fail(msg)
 
     def assertArrayNotGreater(self, actual, desired, msg=None):
+        """Calls numpy.all(numpy.less_equal(...)) and processes the results
+        like a unittest.TestCase method.
+        """
         if np.any(actual > desired):
-            raise self.failureException(msg)
+            self.fail(msg)
 
 
 def miss_str(x, y, atol=1e-8, rtol=1e-5, equal_nan=True):
@@ -122,25 +155,18 @@ def asa(x, y, sctype):
     return (x + imag * y).astype(sctype)
 
 
-@contextmanager
+@cxl.contextmanager
 def errstate(*args, **kwds):
-    """Context manager like np.errstate that is also a decorator
+    """Context manager like np.errstate can also be used as a decorator
     """
+    call = kwds.pop('call', None)
     old_errstate = np.geterr()
     try:
-        np.seterr(*args, **kwds)
-        yield
+        old_errstate = np.seterr(*args, **kwds)
+        if call is not None:
+            old_call = np.seterrcall(call)
+        yield np.geterr()
     finally:
         np.seterr(**old_errstate)
-
-
-@contextmanager
-def printoptions(*args, **kwds):
-    """Context manager like np.printoptions that is also a decorator
-    """
-    old_errstate = np.get_printoptions()
-    try:
-        np.set_printoptions(*args, **kwds)
-        yield
-    finally:
-        np.set_printoptions(**old_errstate)
+        if call is not None:
+            np.seterrcall(old_call)

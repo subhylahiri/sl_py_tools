@@ -187,7 +187,7 @@ class TestQR(utn.TestCaseNumpy):
             v[..., np.diag_indices(5)] = 1
             r = np.triu(h)
             with self.subTest(msg='raw_m', sctype=sctype):
-                self.assertArrayAllClose(r, rr)
+                self.assertArrayAllClose(r, rr, lineno=190)
 #            for k in range(1, 6):
 #                vr = v[..., None, :, -k] @ r
 #                r -= tau[..., None, None, -k] * v[..., -k, None] * vr
@@ -201,7 +201,7 @@ class TestQR(utn.TestCaseNumpy):
             v[..., np.diag_indices(5)] = 1
             r = np.triu(h)
             with self.subTest(msg='raw_n', sctype=sctype):
-                self.assertArrayAllClose(r[..., :5, :], rr)
+                self.assertArrayAllClose(r[..., :5, :], rr, lineno=204)
 #            for k in range(1, 6):
 #                vr = v[..., None, :, -k] @ r
 #                r -= tau[..., None, None, -k] * v[..., -k, None] * vr
