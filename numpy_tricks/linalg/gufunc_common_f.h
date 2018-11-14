@@ -1,3 +1,4 @@
+/* Mode: C */
 /* Common code for creating GUFuncs and calling BLAS/Lapack
 */
 /*

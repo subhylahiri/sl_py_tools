@@ -1,5 +1,4 @@
-/* Basic GUFuncs without BLAS
-*/
+/* -*- Mode: C -*- */
 /*
 Adapted from https://github.com/numpy/numpy/numpy/linalg/umath_linalg.c.src
 Copyright/licence info for that file:
