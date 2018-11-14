@@ -43,7 +43,7 @@ class TestBlas(utn.TestCaseNumpy):
                          (2, 3, 1))
         # value
         for sctype in self.sctypes[1:]:
-            with self.subTest(sctype=sctype):
+            with self.subTest(sctype=sctype, msg='norm'):
                 n = self.gf.norm(self.w[sctype])
                 self.assertArrayAllClose(n, self.n[sctype])
 
@@ -54,7 +54,7 @@ class TestBlas(utn.TestCaseNumpy):
             self.gf.matmul(self.y['d'], self.x['d'])
         # value
         for sctype in self.sctypes:
-            with self.subTest(sctype=sctype):
+            with self.subTest(sctype=sctype, msg='matmul'):
                 z = self.gf.matmul(self.x[sctype], self.y[sctype])
                 self.assertArrayAllClose(z, self.z[sctype])
 
@@ -65,7 +65,7 @@ class TestBlas(utn.TestCaseNumpy):
             self.gf.rmatmul(self.x['d'], self.y['d'])
         # value
         for sctype in self.sctypes:
-            with self.subTest(sctype=sctype):
+            with self.subTest(sctype=sctype, msg='rmatmul'):
                 z = self.gf.rmatmul(self.y[sctype], self.x[sctype])
                 self.assertArrayAllClose(z, self.z[sctype])
 
