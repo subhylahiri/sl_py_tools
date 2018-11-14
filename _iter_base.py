@@ -102,7 +102,7 @@ def and_reverse(it_func: Callable):
 
 
 class DisplayCntState(DisplayState):
-    """Internal stae of a DisplayCount, etc."""
+    """Internal state of a DisplayCount, etc."""
     prefix: Union[str, DisplayTemporary]
     formatter: str
 
@@ -184,7 +184,7 @@ class AddDisplayToIterables(Iterator):
 
     Specify ``displayer`` in keyword arguments of class definition to customise
     display. No default, but ``DisplayCount`` is suggested.
-    The constructor signature is ``displayer(name, self._min_len(), **kwds)``.
+    The constructor signature is ``displayer(name, self._get_len(), **kwds)``.
     """
     _iterables: ZipArgs
     display: DisplayMixin
