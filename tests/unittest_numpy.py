@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 """
-import unittest as ut
-import contextlib as cxl
-import sys
+import unittest
+import contextlib
+import functools
 import types
+import sys
 import numpy as np
 import sl_py_tools.numpy_tricks.linalg._lnarray as la
 
@@ -14,6 +15,7 @@ __all__ = [
         'asa',
         'errstate'
         ]
+__unittest = True
 # =============================================================================
 
 
@@ -21,7 +23,13 @@ def _fake_tb(lineno):
     return types.TracebackType(None, sys._getframe(2), 1, lineno)
 
 
-class TestCaseNumpy(ut.TestCase):
+class TestResultNumpy(unittest.TextTestResult):
+    def _is_relevant_tb_level(self, tb):
+        f_vars = {**tb.tb_frame.f_globals, **tb.tb_frame.f_locals}
+        return '__unittest' in f_vars and '__notunittest' not in f_vars
+
+
+class TestCaseNumpy(unittest.TestCase):
     """Test case mith methods for comparing numpy arrays.
 
     Subclass this class to make your own unit test suite.
@@ -53,6 +61,25 @@ class TestCaseNumpy(ut.TestCase):
         self.all_close_opts = {'atol': 1e-6, 'rtol': 1e-5, 'equal_nan': True}
         self.addTypeEqualityFunc(np.ndarray, self.assertArrayAllClose)
         self.addTypeEqualityFunc(la.lnarray, self.assertArrayAllClose)
+
+#    def defaultTestResult(self):
+#        return TestResultNumpy
+
+    @classmethod
+    def loop(cls, msg=None, attr_name='sctype', attr_inds=slice(None)):
+        """Decorator to loop a test over an attribute
+        """
+        def loop_dec(func):
+            @functools.wraps(func)
+            def loop_func(self, *args, **kwds):
+                the_attr = getattr(self, attr_name)
+#                __notunittest = True
+                for val in the_attr[attr_inds]:
+                    opts = {attr_name: val}
+                    with self.subTest(msg=msg, **opts):
+                        func(self, *args, **opts, **kwds)
+            return loop_func
+        return loop_dec
 
     def assertArrayAllClose(self, actual, desired, msg=None):
         """Calls numpy.allclose (so it broadcasts, unlike
@@ -155,7 +182,7 @@ def asa(x, y, sctype):
     return (x + imag * y).astype(sctype)
 
 
-@cxl.contextmanager
+@contextlib.contextmanager
 def errstate(*args, **kwds):
     """Context manager like np.errstate can also be used as a decorator
     """
