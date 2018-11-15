@@ -1117,34 +1117,34 @@ INIT_OUTER_LOOP_3
     if(len_m < len_nc) {//signature demands a wide matrix for q, impossible for qr_n.
         // PyErr_SetString(PyExc_ValueError, "qr_n can only be called when m >= n.");
         error_occurred = 1;
-        init_linearize_data_ex(&r_out, len_n, len_m, stride_r_n, stride_r_m, len_m);
+        init_linearize_data_ex(&r_out, len_n, len_m, stride_r_m, stride_r_n, len_m);
         init_linearize_vdata(&tau_out, len_nc, stride_tau);
         nan_@TYPE@_matrix(args[1], &r_out);
         nan_@TYPE@_vec(args[2], &tau_out);
-    } else {
-        if(init_@geqrf@(&params, len_m, len_n, len_nc, 0)){
-            init_linearize_data(&a_in, len_n, len_m, stride_a_n, stride_a_m);
-            init_linearize_data(&r_out, len_m, len_n, stride_r_m, stride_r_n);
-            init_linearize_vdata(&tau_out, len_nc, stride_tau);
+        return;
+    }
+    if(init_@geqrf@(&params, len_m, len_n, len_nc, 0)) {
+        init_linearize_data(&a_in, len_n, len_m, stride_a_n, stride_a_m);
+        init_linearize_data_ex(&r_out, len_n, len_m, stride_r_n, stride_r_m, len_m);
+        init_linearize_vdata(&tau_out, len_nc, stride_tau);
 
-            BEGIN_OUTER_LOOP
-                // copy input to buffer
-                linearize_@TYPE@_matrix(params.A, args[0], &a_in);
-                // QR decompose
-                call_@geqrf@(&params);
-                if (params.INFO < 0) {
-                    error_occurred = 1;
-                    nan_@TYPE@_matrix(args[1], &r_out);
-                    nan_@TYPE@_vec(args[1], &tau_out);
-                } else{
-                    // Copy r & h from buffer
-                    delinearize_@TYPE@_matrix(args[1], params.A, &r_out);
-                    // Copy tau from buffer
-                    delinearize_@TYPE@_vec(args[2], params.T, &tau_out);
-                }
-            END_OUTER_LOOP_3
-            release_@geqrf@(&params);
-        }
+        BEGIN_OUTER_LOOP
+            // copy input to buffer
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            // QR decompose
+            call_@geqrf@(&params);
+            if (params.INFO < 0) {
+                error_occurred = 1;
+                nan_@TYPE@_matrix(args[1], &r_out);
+                nan_@TYPE@_vec(args[2], &tau_out);
+            } else{
+                // Copy r & h from buffer
+                delinearize_@TYPE@_matrix(args[1], params.A, &r_out);
+                // Copy tau from buffer
+                delinearize_@TYPE@_vec(args[2], params.T, &tau_out);
+            }
+        END_OUTER_LOOP_3
+        release_@geqrf@(&params);
     }
     set_fp_invalid_or_clear(error_occurred);
 }
