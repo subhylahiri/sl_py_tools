@@ -17,7 +17,7 @@ class TestBlas(utn.TestCaseNumpy):
         super().setUp()
         self.gf = gfb
         self.nulp = 10
-        self.sctype = ['i', 'f', 'd', 'F', 'D']
+        self.sctype.append('i')
         self.x = {}
         self.y = {}
         self.z = {}
@@ -70,6 +70,7 @@ class TestBlas(utn.TestCaseNumpy):
         z = self.gf.rmatmul(self.y[sctype], self.x[sctype])
         self.assertArrayAllClose(z, self.z[sctype])
 
+
 class TestCloop(TestBlas):
     """Testing norm, matmul, rmatmul and rtrue_tdivide
     """
@@ -99,7 +100,6 @@ class TestQR(utn.TestCaseNumpy):
     """
     def setUp(self):
         super().setUp()
-        self.sctype = ['f', 'd', 'F', 'D']
         self.wide = {}
         self.tall = {}
         self.wide = {}
@@ -195,11 +195,12 @@ class TestQR(utn.TestCaseNumpy):
         with self.subTest(msg='raw_m'):
             self.assertArrayAllClose(r, rr)
             self.assertArrayAllClose(vn[..., :-1], 2)
-        for k in range(1, n+1):
+            self.assertArrayAllClose(vn[..., -1], 0)
+        for k in range(2, n+1):
             vr = v[..., None, :, -k] @ r
             r -= tau[..., None, None, -k] * v[..., -k, None] * vr
         with self.subTest(msg='h_m'):
-           self.assertArrayAllClose(r, self.wide[sctype])
+            self.assertArrayAllClose(r, self.wide[sctype])
 
         rr = gfl.qr_n(self.tall[sctype])[1]
         n = rr.shape[-1]

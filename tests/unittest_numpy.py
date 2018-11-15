@@ -58,6 +58,7 @@ class TestCaseNumpy(unittest.TestCase):
         Calls numpy.all(numpy.less_equal(...)).
     """
     def setUp(self):
+        self.sctype = ['f', 'd', 'F', 'D']
         self.all_close_opts = {'atol': 1e-6, 'rtol': 1e-5, 'equal_nan': True}
         self.addTypeEqualityFunc(np.ndarray, self.assertArrayAllClose)
         self.addTypeEqualityFunc(la.lnarray, self.assertArrayAllClose)
