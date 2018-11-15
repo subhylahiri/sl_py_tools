@@ -14,7 +14,6 @@ errstate = utn.errstate(invalid='raise')
 class TestBlas(utn.TestCaseNumpy):
     """Testing norm, matmul and rmatmul"""
     def setUp(self):
-        self.skipTest('speed')
         super().setUp()
         self.gf = gfb
         self.nulp = 10
@@ -75,7 +74,6 @@ class TestCloop(TestBlas):
     """Testing norm, matmul, rmatmul and rtrue_tdivide
     """
     def setUp(self):
-        self.skipTest('speed')
         super().setUp()
         self.gf = gfc
 
@@ -115,7 +113,6 @@ class TestQR(utn.TestCaseNumpy):
             self.id_small[sctype] = np.eye(5, dtype=sctype)
             self.id_big[sctype] = np.eye(16, dtype=sctype)
 
-    @ut.skip('speed')
     @errstate
     def test_qr_shape(self):
         with self.subTest(msg='wide'):
@@ -138,7 +135,6 @@ class TestQR(utn.TestCaseNumpy):
             self.assertEqual(h.shape, (120, 10, 5, 16))
             self.assertEqual(tau.shape, (120, 10, 5))
 
-    @ut.skip('speed')
     @utn.TestCaseNumpy.loop(msg='wide')
     def test_qr_wide(self, sctype):
         q, r = gfl.qr_m(self.wide[sctype])
@@ -152,7 +148,6 @@ class TestQR(utn.TestCaseNumpy):
         with self.subTest(msg='q q^T'):
             self.assertArrayAllClose(self.id_small[sctype], eyet)
 
-    @ut.skip('speed')
     @utn.TestCaseNumpy.loop(msg='tall')
     def test_qr_tall(self, sctype):
         q, r = gfl.qr_n(self.tall[sctype])
@@ -163,7 +158,6 @@ class TestQR(utn.TestCaseNumpy):
         with self.subTest(msg='q^T q'):
             self.assertArrayAllClose(self.id_small[sctype], eye)
 
-    @ut.skip('speed')
     @utn.TestCaseNumpy.loop(msg='complete')
     def test_qr_complete(self, sctype):
         q, r = gfl.qr_m(self.tall[sctype])
@@ -177,7 +171,6 @@ class TestQR(utn.TestCaseNumpy):
         with self.subTest(msg='q q^T'):
             self.assertArrayAllClose(self.id_big[sctype], eyet)
 
-    @ut.skip('speed')
     @utn.TestCaseNumpy.loop()
     def test_qr_r(self, sctype):
         with self.subTest(msg='r_m'):
@@ -189,31 +182,37 @@ class TestQR(utn.TestCaseNumpy):
             rr = gfl.qr_n(self.tall[sctype])[1]
             self.assertArrayAllClose(r, rr)
 
-    @utn.TestCaseNumpy.loop()
+    @utn.TestCaseNumpy.loop(attr_inds=1)
     def test_qr_raw(self, sctype):
         rr = gfl.qr_m(self.wide[sctype])[1]
+        n = rr.shape[-2]
         ht, tau = gfl.qr_rawm(self.wide[sctype])
         h = transpose(ht)
-        v = np.tril(h[..., :5], -1)
-        v[..., np.diag_indices(5)] = 1
+        v = np.tril(h[..., :n], -1)
+        v[(...,) + np.diag_indices(n)] = 1
+        vn = gfb.norm(v, axis=-2)**2 * tau
         r = np.triu(h)
         with self.subTest(msg='raw_m'):
             self.assertArrayAllClose(r, rr)
-        for k in range(1, 6):
+            self.assertArrayAllClose(vn[..., :-1], 2)
+        for k in range(1, n+1):
             vr = v[..., None, :, -k] @ r
             r -= tau[..., None, None, -k] * v[..., -k, None] * vr
         with self.subTest(msg='h_m'):
            self.assertArrayAllClose(r, self.wide[sctype])
 
         rr = gfl.qr_n(self.tall[sctype])[1]
+        n = rr.shape[-1]
         ht, tau = gfl.qr_rawn(self.tall[sctype])
         h = transpose(ht)
         v = np.tril(h, -1)
-        v[..., np.diag_indices(5)] = 1
+        v[(...,) + np.diag_indices(n)] = 1
+        vn = gfb.norm(v, axis=-2)**2 * tau
         r = np.triu(h)
         with self.subTest(msg='raw_n'):
             self.assertArrayAllClose(r[..., :5, :], rr)
-        for k in range(1, 6):
+            self.assertArrayAllClose(vn, 2)
+        for k in range(1, n+1):
             vr = v[..., None, :, -k] @ r
             r -= tau[..., None, None, -k] * v[..., -k, None] * vr
         with self.subTest(msg='h_n'):
