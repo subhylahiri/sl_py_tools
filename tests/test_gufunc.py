@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import unittest as ut
+import unittest
 import numpy as np
 import unittest_numpy as utn
 import sl_py_tools.numpy_tricks.linalg._gufuncs_cloop as gfc
@@ -16,7 +16,6 @@ class TestBlas(utn.TestCaseNumpy):
     def setUp(self):
         super().setUp()
         self.gf = gfb
-        self.nulp = 10
         self.sctype.append('i')
         self.x = {}
         self.y = {}
@@ -222,5 +221,5 @@ class TestQR(utn.TestCaseNumpy):
 
 # =============================================================================
 if __name__ == '__main__':
-    ut.main()
+    unittest.main()
 #    ut.main(testRunner=ut.TextTestRunner(resultclass=utn.TestResultNumpy))
