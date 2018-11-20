@@ -791,6 +791,22 @@ delinearize_INT_vec(void *dst_in,
     }
 }
 
+/**begin repeat
+    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
+    #typ = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
+    #cmplx = 0, 0, 1, 1#
+*/
+static NPY_INLINE fortran_int
+@TYPE@_real_int(@typ@ val)
+{
+#if @cmplx@
+    return (fortran_int)val.r;
+#else
+    return (fortran_int)val;
+#endif
+}
+/**end repeat**/
+
 /*
 *****************************************************************************
 **                         QR DECOMPOSITION                                **
@@ -905,11 +921,7 @@ init_@geqrf@(GEQRF_PARAMS_t *params,
     if (params->INFO < 0) {
         goto error;
     }
-#if @cmplx@
-    LWR = (fortran_int)work_size.r;
-#else
-    LWR = (fortran_int)work_size;
-#endif
+    LWR = @TYPE@_real_int(work_size);
     safe_LWR = LWR;
 
     if (do_org) {
@@ -920,11 +932,7 @@ init_@geqrf@(GEQRF_PARAMS_t *params,
     } else {
         work_size = @zero@;
     }
-#if @cmplx@
-    LWQ = (fortran_int)work_size.r;
-#else
-    LWQ = (fortran_int)work_size;
-#endif
+    LWQ = @TYPE@_real_int(work_size);
     safe_LWQ = LWQ;
 
     mem_buff2 = malloc(safe_LWR * sizeof(@ftyp@)
@@ -1233,7 +1241,7 @@ typedef struct gesv_params_struct
 */
 
 /**************************************************
-* Calling BLAS/Lapack functions _gesv             *
+* Calling BLAS/Lapack functions _gesv, _getr{f,s} *
 ***************************************************/
 
 static NPY_INLINE void
@@ -1716,9 +1724,10 @@ init_@gelsd@(GELSD_PARAMS_t *params, npy_intp M_in, npy_intp N_in, npy_intp NRHS
     params->LW = -1;
     params->W = &work_size;
     params->IW = &iwork_size;
-    params->RW = NULL;
 #if @cmplx@
     params->RW = &rwork_size;
+#else
+    params->RW = NULL;
 #endif
 
     *(@rftyp@ *)params->RCOND = MNx * @eps@;
@@ -1727,11 +1736,10 @@ init_@gelsd@(GELSD_PARAMS_t *params, npy_intp M_in, npy_intp N_in, npy_intp NRHS
     if (params->INFO) {
         goto error;
     }
+    LW = @TYPE@_real_int(work_size);
 #if @cmplx@
-    LW = (fortran_int)work_size.r;
     safe_LRW = (size_t)rwork_size;
 #else
-    LW = (fortran_int)work_size;
     safe_LRW = 0;
 #endif
     safe_LW = LW;
@@ -2012,11 +2020,7 @@ init_@geqrs@(GEQRF_PARAMS_t *params,
     if (params->INFO < 0) {
         goto error;
     }
-#if @cmplx@
-    LWQ = (fortran_int)work_size.r;
-#else
-    LWQ = (fortran_int)work_size;
-#endif
+    LWQ = @TYPE@_real_int(work_size);
     safe_LWQ = LWQ;
 
     if (do_qrf) {
@@ -2027,11 +2031,7 @@ init_@geqrs@(GEQRF_PARAMS_t *params,
     } else {
         work_size = @zero@;
     }
-#if @cmplx@
-    LWR = (fortran_int)work_size.r;
-#else
-    LWR = (fortran_int)work_size;
-#endif
+    LWR = @TYPE@_real_int(work_size);
     safe_LWR = LWR;
 
     mem_buff2 = malloc(safe_LWQ * sizeof(@ftyp@)
@@ -2104,16 +2104,6 @@ INIT_OUTER_LOOP_5
     //don't worry if wrong choice of lstsq_fm/lstsq_fn made.
     //We'll just leave the extra elements of tau unset.
 
-    // if(len_mn < len_k) {//wrong choice of lstsq_fm/lstsq_fn
-    //     init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
-    //     init_linearize_data(&a_out, len_n, len_m, stride_af_c, stride_af_r);
-    //     init_linearize_vdata(&tau_out, len_k, stride_tau);
-    //     nan_@TYPE@_matrix(args[2], &x_out);
-    //     nan_@TYPE@_matrix(args[3], &a_out);
-    //     nan_@TYPE@_vec(args[4], &tau_out);
-    //     set_fp_invalid_or_clear(error_occurred);
-    //     return;
-    // }
     if(init_@geqrs@(&params, len_m, len_n, len_nrhs, 1)){
         init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
         init_linearize_data_ex(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn);
@@ -2193,42 +2183,6 @@ static void
     @TYPE@_lstsq_f(rargs, rdimensions, rsteps, NULL);
 }
 
-/*********************
-* Outer GUfunc calls
-**********************/
-
-// lstsq_fm_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(m)";
-// lstsq_fn_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(n)";
-// rlstsq_fm_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(m)"
-// rlstsq_fn_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(n)"
-
-// static void
-// @TYPE@_lstsq_fm(char **args, npy_intp *dimensions, npy_intp *steps,
-//                 void *NPY_UNUSED(func))
-// {
-//     @TYPE@_lstsqf_loop(args, dimensions, steps, 0);
-// }
-//
-// static void
-// @TYPE@_lstsq_fn(char **args, npy_intp *dimensions, npy_intp *steps,
-//                 void *NPY_UNUSED(func))
-// {
-//     @TYPE@_lstsqf_loop(args, dimensions, steps, 1);
-// }
-//
-// static void
-// @TYPE@_rlstsq_fm(char **args, npy_intp *dimensions, npy_intp *steps,
-//                 void *NPY_UNUSED(func))
-// {
-//     @TYPE@_rlstsqf_loop(args, dimensions, steps, 0);
-// }
-//
-// static void
-// @TYPE@_rlstsq_fn(char **args, npy_intp *dimensions, npy_intp *steps,
-//                 void *NPY_UNUSED(func))
-// {
-//     @TYPE@_rlstsqf_loop(args, dimensions, steps, 1);
-// }
 
 /************
 * LSTSQFD   *
@@ -2255,16 +2209,12 @@ INIT_OUTER_LOOP_4
     GEQRF_PARAMS_t params;
     LINEARIZE_DATA_t a_in, b_in, x_out;
     LINEARIZE_VDATA_t tau_in;
-    npy_intp len_mn = len_m + len_n - len_k; // max
 
+    npy_intp len_mn = len_m + len_n - len_k; // max
     if(len_mn < len_k) {//a and tau made from wrong choice of lstsq_fm/lstsq_fn
         //nevermind, we'll just ignore the extra elements of tau
         len_k = len_mn;
         len_mn = len_m + len_n - len_k; // max
-        // init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
-        // nan_@TYPE@_matrix(args[3], &x_out);
-        // set_fp_invalid_or_clear(error_occurred);
-        // return;
     }
     if(init_@geqrs@(&params, len_m, len_n, len_nrhs, 1)){
         init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
@@ -2414,12 +2364,6 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
     { "rlstsq_fd", "(nrhs,m),(n,m),(k)->(nrhs,n)", rlstsq_fd__doc__, 4, 3, 1,
         FUNC_ARRAY_NAME(rlstsq_fd), ufn_types_4_4 }
 };
-// lstsq_fm_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(m)";
-// lstsq_fn_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(n)";
-// rlstsq_fm_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(m)"
-// rlstsq_fn_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(n)"
-// lstsq_fd_signature = "(m,n),(k),(m,nrhs)->(n,nrhs)";
-// rlstsq_fd_signature = "(nrhs,m),(k),(n,m)->(nrhs,n)"
 
 /*
 *****************************************************************************
