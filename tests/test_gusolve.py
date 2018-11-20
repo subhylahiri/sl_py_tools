@@ -32,9 +32,10 @@ class TestSolve(utn.TestCaseNumpy):
     def test_solve_shape(self):
         a = gfl.solve(self.x['d'], self.y['d'])
         self.assertEqual(a.shape, (2, 5, 2))
-        with self.assertRaisesRegex(ValueError,
-                                    'has a mismatch in its core dimension'):
+        with self.assertRaisesRegex(*utn.core_dim_err):
             gfl.solve(self.x['d'], transpose(self.y['d']))
+        with self.assertRaisesRegex(*utn.core_dim_err):
+            gfl.solve(transpose(self.y['d']), self.x['d'])
         b = gfl.rsolve(transpose(self.y['d']), self.x['d'])
         self.assertEqual(b.shape, (2, 2, 5))
 
@@ -64,6 +65,26 @@ class TestSolve(utn.TestCaseNumpy):
         b = gfl.rsolve(self.v[sctype], self.x[sctype])
         with self.subTest(msg='rsolve'):
             self.assertArrayAllClose(self.v[sctype], b @ self.x[sctype])
+
+    @utn.TestCaseNumpy.loop(attr_inds=1)
+    def test_solvelu_val(self, sctype):
+        a, xf, p = gfl.solve_lu(self.x[sctype], self.y[sctype])
+        aa = gfl.lu_solve(xf, p, self.y[sctype])
+        with self.subTest('solve(lu)'):
+            self.assertArrayAllClose(a, aa)
+        b = gfl.rlu_solve(self.v[sctype], xf, p)
+        with self.subTest('rsolve(lu)'):
+            self.assertArrayAllClose(self.v[sctype], b @ self.x[sctype])
+
+    @utn.TestCaseNumpy.loop(attr_inds=1)
+    def test_rsolvelu_val(self, sctype):
+        a, xf, p = gfl.rsolve_lu(self.w['d'], self.x['d'])
+        aa = gfl.rlu_solve(self.w['d'], xf, p)
+        with self.subTest('rsolve(rlu)'):
+            self.assertArrayAllClose(a, aa)
+        b = gfl.lu_solve(xf, p, self.z[sctype])
+        with self.subTest('solve(rlu)'):
+            self.assertArrayAllClose(self.x[sctype] @ b, self.z[sctype])
 
 
 # =============================================================================
