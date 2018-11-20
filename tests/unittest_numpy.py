@@ -17,6 +17,10 @@ __all__ = [
         ]
 __unittest = True
 # =============================================================================
+broadcast_err = (ValueError, 'operands could not be broadcast')
+core_dim_err = (ValueError, 'mismatch in its core dimension')
+invalid_err = (FloatingPointError, 'invalid value encountered')
+# =============================================================================
 
 
 def _fake_tb(lineno):

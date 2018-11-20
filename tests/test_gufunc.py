@@ -49,8 +49,7 @@ class TestBlas(utn.TestCaseNumpy):
 
     def test_matmul_shape(self):
         # shape
-        with self.assertRaisesRegex(ValueError,
-                                    'has a mismatch in its core dimension'):
+        with self.assertRaisesRegex(*utn.core_dim_err):
             self.gf.matmul(self.y['d'], self.x['d'])
 
     @utn.TestCaseNumpy.loop(msg='matmul val')
@@ -60,8 +59,7 @@ class TestBlas(utn.TestCaseNumpy):
         self.assertArrayAllClose(z, self.z[sctype])
 
     def test_rmatmul_shape(self):
-        with self.assertRaisesRegex(ValueError,
-                                    'has a mismatch in its core dimension'):
+        with self.assertRaisesRegex(*utn.core_dim_err):
             self.gf.rmatmul(self.x['d'], self.y['d'])
 
     @utn.TestCaseNumpy.loop(msg='rmatmul val')
@@ -79,8 +77,7 @@ class TestCloop(TestBlas):
 
     def test_rdiv_shape(self):
         # shape
-        with self.assertRaisesRegex(ValueError,
-                                    'operands could not be broadcast'):
+        with self.assertRaisesRegex(*utn.broadcast_err):
             self.gf.rtrue_divide(self.x['d'], self.z['d'])
 
     @utn.TestCaseNumpy.loop(msg="x \\ y == y / x. ", attr_inds=slice(1, None))
@@ -122,8 +119,7 @@ class TestQR(utn.TestCaseNumpy):
             q, r = gfl.qr_n(self.tall['d'])
             self.assertEqual(q.shape, (120, 10, 16, 5))
             self.assertEqual(r.shape, (120, 10, 5, 5))
-            with self.assertRaisesRegex(FloatingPointError,
-                                        'invalid value encountered in qr_n'):
+            with self.assertRaisesRegex(*utn.invalid_err):
                 gfl.qr_n(self.wide['d'])
         with self.subTest(msg='complete'):
             q, r = gfl.qr_m(self.tall['d'])
