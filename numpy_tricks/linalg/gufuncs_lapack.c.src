@@ -395,18 +395,16 @@ extern void
 FNAME(@gesv@)(int *n, int *nrhs,
             @typ@ *a, int *lda, int * ipiv,
             @typ@ *b, int *ldb, int *info);
-
 /* LU factors of a */
 extern void
 FNAME(@getrf@)(int *m, int *n, @typ@ *a, int *lda, int * ipiv, int *info);
-
 /* solve a x = b for x using LU factors of a */
 extern void
 FNAME(@getrs@)(char *trans, int *n, int *nrhs,
             @typ@ *a, int *lda, int * ipiv,
             @typ@ *b, int *ldb, int *info);
 
-// /* least square solution of a x = b for x from qr/lq*/
+// /* least square solution of a x = b for x from qr/lq */
 // extern void
 // FNAME(@geqrs@)(int *m, int *n, int *nrhs,
 //             @typ@ *a, int *lda, @typ@ *tau, @typ@ *b, int *ldb,
@@ -415,7 +413,7 @@ FNAME(@getrs@)(char *trans, int *n, int *nrhs,
 // FNAME(@gelqs@)(int *m, int *n, int *nrhs,
 //             @typ@ *a, int *lda, @typ@ *tau, @typ@ *b, int *ldb,
 //             @typ@ *work, int *lwork, int *info);
-/* multiply b by q from qr/lq*/
+/* multiply b by q from qr/lq */
 extern void
 FNAME(@ormqr@)(char *side, char *trans, int *m, int *n, int *k,
             @typ@ *a, int *lda, @typ@ *tau, @typ@ *c, int *ldc,
@@ -424,7 +422,7 @@ extern void
 FNAME(@ormlq@)(char *side, char *trans, int *m, int *n, int *k,
             @typ@ *a, int *lda, @typ@ *tau, @typ@ *c, int *ldc,
             @typ@ *work, int *lwork, int *info);
-/* solution of a x = b for triangular a from qr/lq*/
+/* solution of a x = b for triangular a from qr/lq */
 extern void
 FNAME(@trsm@)(char *side, char *uplo, char *trans, char *diag,
             int *m, int *n, @typ@ *alpha,
@@ -754,7 +752,7 @@ linearize_INT_vec(void *dst_in,
     if (dst) {
         npy_int* rv = dst;
         fortran_int len = (fortran_int)data->len;
-        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_intp));
+        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_int));
         int j;
         for (j = 0; j < len; ++j) {
             *dst = (fortran_int)*src;
@@ -778,10 +776,10 @@ delinearize_INT_vec(void *dst_in,
     if (dst) {
         npy_int* rv = dst;
         fortran_int len = (fortran_int)data->len;
-        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_intp));
+        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_int));
         int j;
         for (j = 0; j < len; ++j) {
-            *dst = (npy_intp)*src;
+            *dst = (npy_int)*src;
             src += 1;
             dst += strides;
         }

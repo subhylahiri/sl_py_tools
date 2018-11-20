@@ -64,22 +64,28 @@ class TestSolve(utn.TestCaseNumpy):
             self.assertArrayAllClose(self.x[sctype] @ a, self.y[sctype])
         b = gfl.rsolve(self.v[sctype], self.x[sctype])
         with self.subTest(msg='rsolve'):
-            self.assertArrayAllClose(self.v[sctype], b @ self.x[sctype])
+            self.assertArrayAllClose(b @ self.x[sctype], self.v[sctype])
 
-    @utn.TestCaseNumpy.loop(attr_inds=1)
+    @utn.TestCaseNumpy.loop()
     def test_solvelu_val(self, sctype):
+        a0 = gfl.solve(self.x[sctype], self.y[sctype])
         a, xf, p = gfl.solve_lu(self.x[sctype], self.y[sctype])
+        with self.subTest('solve0'):
+            self.assertArrayAllClose(a, a0)
         aa = gfl.lu_solve(xf, p, self.y[sctype])
         with self.subTest('solve(lu)'):
-            self.assertArrayAllClose(a, aa)
+            self.assertArrayAllClose(aa, a)
         b = gfl.rlu_solve(self.v[sctype], xf, p)
         with self.subTest('rsolve(lu)'):
-            self.assertArrayAllClose(self.v[sctype], b @ self.x[sctype])
+            self.assertArrayAllClose(b @ self.x[sctype], self.v[sctype])
 
-    @utn.TestCaseNumpy.loop(attr_inds=1)
+    @utn.TestCaseNumpy.loop()
     def test_rsolvelu_val(self, sctype):
-        a, xf, p = gfl.rsolve_lu(self.w['d'], self.x['d'])
-        aa = gfl.rlu_solve(self.w['d'], xf, p)
+        a0 = gfl.rsolve(self.w[sctype], self.x[sctype])
+        a, xf, p = gfl.rsolve_lu(self.w[sctype], self.x[sctype])
+        with self.subTest('rsolve0'):
+            self.assertArrayAllClose(a, a0)
+        aa = gfl.rlu_solve(self.w[sctype], xf, p)
         with self.subTest('rsolve(rlu)'):
             self.assertArrayAllClose(a, aa)
         b = gfl.lu_solve(xf, p, self.z[sctype])
