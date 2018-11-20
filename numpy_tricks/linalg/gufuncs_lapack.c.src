@@ -136,8 +136,8 @@ PyDoc_STRVAR(rsolve__doc__,
 "X: ndarray (...,NRHS,N)\n"
 "    Matrix of solution vectors.");
 
-PyDoc_STRVAR(solve_f__doc__,
-//"solve_f(A: ndarray, B: ndarray) -> (C: ndarray, AF: ndarray, IPIV: ndarray)\n\n"
+PyDoc_STRVAR(solve_lu__doc__,
+//"solve_lu(A: ndarray, B: ndarray) -> (C: ndarray, AF: ndarray, IPIV: ndarray)\n\n"
 "Solve linear system.\n\n"
 "Solve  equation `AX = B` for `X`. \n"
 "This version also returns the LU factors of `A` for future use.\n"
@@ -155,8 +155,8 @@ PyDoc_STRVAR(solve_f__doc__,
 "IPIV: ndarray[int] (...,N)\n"
 "    Pivot indices from LU factoring.");
 
-PyDoc_STRVAR(rsolve_f__doc__,
-//"rsolve_f(A: ndarray, B: ndarray) -> (C: ndarray, BF: ndarray, IPIV: ndarray)\n\n"
+PyDoc_STRVAR(rsolve_lu__doc__,
+//"rsolve_lu(A: ndarray, B: ndarray) -> (C: ndarray, BF: ndarray, IPIV: ndarray)\n\n"
 "Solve reversed linear system.\n\n"
 "Solve the equation `A = XB` for `X`.\n\n"
 "This version also returns the LU factors of `B` for future use.\n"
@@ -174,8 +174,8 @@ PyDoc_STRVAR(rsolve_f__doc__,
 "IPIV: ndarray[int] (...,N)\n"
 "    Pivot indices from LU factoring.");
 
-PyDoc_STRVAR(solve_fd__doc__,
-//"solve_f(A: ndarray, B: ndarray) -> (C: ndarray, AF: ndarray, IPIV: ndarray)\n\n"
+PyDoc_STRVAR(lu_solve__doc__,
+//"lu_solve(A: ndarray, B: ndarray) -> (C: ndarray, AF: ndarray, IPIV: ndarray)\n\n"
 "Solve linear system.\n\n"
 "Solve  equation `AX = B` for `X`. \n"
 "This version uses the LU factors of `A` from previous use of `(r)solve_f`.\n"
@@ -191,8 +191,8 @@ PyDoc_STRVAR(solve_fd__doc__,
 "X: ndarray (...,N,NRHS)\n"
 "    Matrix of solution vectors.");
 
-PyDoc_STRVAR(rsolve_fd__doc__,
-//"rsolve_f(A: ndarray, B: ndarray) -> (C: ndarray, BF: ndarray, IPIV: ndarray)\n\n"
+PyDoc_STRVAR(rlu_solve__doc__,
+//"rlu_rsolve(A: ndarray, B: ndarray) -> (C: ndarray, BF: ndarray, IPIV: ndarray)\n\n"
 "Solve reversed linear system.\n\n"
 "Solve the equation `A = XB` for `X`.\n\n"
 "This version uses the LU factors of `B` from previous use of `(r)solve_f`.\n"
@@ -240,7 +240,7 @@ PyDoc_STRVAR(rlstsq__doc__,
 "X: ndarray (...,NRHS,N)\n"
 "    Matrix of solution vectors.");
 
-PyDoc_STRVAR(lstsq_f__doc__,
+PyDoc_STRVAR(lstsq_qr__doc__,
 //"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
 "Least-square solution of linear system.\n\n"
 "Find the least-square solution of the equation `AX = B` for `X`. \n"
@@ -262,10 +262,10 @@ PyDoc_STRVAR(lstsq_f__doc__,
 "TAU: ndarray[int] (...,K)\n"
 "    Householder weights for `Q`, `K=min(M,N)`.\n\n"
 "Notes\n-----\n"
-"Nothing will fail if you make the wrong choice of `lstsq_fm` or `lstsq_fn`. \n"
+"Nothing will fail if you make the wrong choice of `lstsq_qrm` or `lstsq_qrn`. \n"
 "You will merely waste memory from keeping unused elements of `TAU`.");
 
-PyDoc_STRVAR(rlstsq_f__doc__,
+PyDoc_STRVAR(rlstsq_qr__doc__,
 //"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
 "Least-square solution of reversed linear system.\n\n"
 "Find the least-square solution of the equation `A = XB` for `X`. \n"
@@ -287,17 +287,17 @@ PyDoc_STRVAR(rlstsq_f__doc__,
 "TAU: ndarray[int] (...,K)\n"
 "    Householder weights for `Q`, `K=min(M,N)`.\n\n"
 "Notes\n-----\n"
-"Nothing will fail if you make the wrong choice of `lstsq_fm` or `lstsq_fn`. \n"
+"Nothing will fail if you make the wrong choice of `lstsq_qrm` or `lstsq_qrn`. \n"
 "You will merely waste memory from keeping unused elements of `TAU`.");
 
-PyDoc_STRVAR(lstsq_fd__doc__,
+PyDoc_STRVAR(qr_lstsq__doc__,
 //"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
 "Least-square solution of linear system.\n\n"
 "Find the least-square solution of the equation `AX = B` for `X`. \n"
 "Unlike `numpy.linalg.lstsq`, this version uses QR instead of SVD, so it does \n"
 "not work with rank deficient matrices, `A`.\n"
 "This version does not return `residuals`, rank or singuar values. \n"
-"It uses the QR factors of `A` from previous use of `(r)lstsq_f`.\n"
+"It uses the QR factors of `A` from previous use of `(r)lstsq_qr`.\n"
 "Instead, it returns the QR factors of `A` for future use.\n"
 "It is intended for use in binary operators.\n\n"
 "Parameters\n-----------\n"
@@ -311,17 +311,17 @@ PyDoc_STRVAR(lstsq_fd__doc__,
 "X: ndarray (...,N,NRHS)\n"
 "    Matrix of solution vectors.\n\n"
 "Notes\n-----\n"
-"Nothing will fail if you make the wrong choice of `lstsq_fm` or `lstsq_fn`. \n"
+"Nothing will fail if you make the wrong choice of `lstsq_qrm` or `lstsq_qrn`. \n"
 "You will merely waste memory from keeping unused elements of `TAU`.");
 
-PyDoc_STRVAR(rlstsq_fd__doc__,
+PyDoc_STRVAR(rqr_lstsq__doc__,
 //"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
 "Least-square solution of reversed linear system.\n\n"
 "Find the least-square solution of the equation `A = XB` for `X`. \n"
 "Unlike `numpy.linalg.lstsq`, this version uses QR instead of SVD, so it does \n"
 "not work with rank deficient matrices, `A`.\n"
 "This version does not return `residuals`, rank or singuar values. \n"
-"It uses the QR factors of `B` from previous use of `(r)lstsq_f`.\n"
+"It uses the QR factors of `B` from previous use of `(r)lstsq_qr`.\n"
 "It is intended for use in binary operators.\n\n"
 "Parameters\n-----------\n"
 "A: ndarray (...,NRHS,M)\n"
@@ -334,7 +334,7 @@ PyDoc_STRVAR(rlstsq_fd__doc__,
 "X: ndarray (...,NRHS,N)\n"
 "    Matrix of solution vectors.\n\n"
 "Notes\n-----\n"
-"Nothing will fail if you make the wrong choice of `lstsq_fm` or `lstsq_fn`. \n"
+"Nothing will fail if you make the wrong choice of `lstsq_qrm` or `lstsq_qrn`. \n"
 "You will merely waste memory from keeping unused elements of `TAU`.");
 
 /*
@@ -395,18 +395,16 @@ extern void
 FNAME(@gesv@)(int *n, int *nrhs,
             @typ@ *a, int *lda, int * ipiv,
             @typ@ *b, int *ldb, int *info);
-
 /* LU factors of a */
 extern void
 FNAME(@getrf@)(int *m, int *n, @typ@ *a, int *lda, int * ipiv, int *info);
-
 /* solve a x = b for x using LU factors of a */
 extern void
 FNAME(@getrs@)(char *trans, int *n, int *nrhs,
             @typ@ *a, int *lda, int * ipiv,
             @typ@ *b, int *ldb, int *info);
 
-// /* least square solution of a x = b for x from qr/lq*/
+// /* least square solution of a x = b for x from qr/lq */
 // extern void
 // FNAME(@geqrs@)(int *m, int *n, int *nrhs,
 //             @typ@ *a, int *lda, @typ@ *tau, @typ@ *b, int *ldb,
@@ -415,7 +413,7 @@ FNAME(@getrs@)(char *trans, int *n, int *nrhs,
 // FNAME(@gelqs@)(int *m, int *n, int *nrhs,
 //             @typ@ *a, int *lda, @typ@ *tau, @typ@ *b, int *ldb,
 //             @typ@ *work, int *lwork, int *info);
-/* multiply b by q from qr/lq*/
+/* multiply b by q from qr/lq */
 extern void
 FNAME(@ormqr@)(char *side, char *trans, int *m, int *n, int *k,
             @typ@ *a, int *lda, @typ@ *tau, @typ@ *c, int *ldc,
@@ -424,7 +422,7 @@ extern void
 FNAME(@ormlq@)(char *side, char *trans, int *m, int *n, int *k,
             @typ@ *a, int *lda, @typ@ *tau, @typ@ *c, int *ldc,
             @typ@ *work, int *lwork, int *info);
-/* solution of a x = b for triangular a from qr/lq*/
+/* solution of a x = b for triangular a from qr/lq */
 extern void
 FNAME(@trsm@)(char *side, char *uplo, char *trans, char *diag,
             int *m, int *n, @typ@ *alpha,
@@ -754,7 +752,7 @@ linearize_INT_vec(void *dst_in,
     if (dst) {
         npy_int* rv = dst;
         fortran_int len = (fortran_int)data->len;
-        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_intp));
+        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_int));
         int j;
         for (j = 0; j < len; ++j) {
             *dst = (fortran_int)*src;
@@ -778,10 +776,10 @@ delinearize_INT_vec(void *dst_in,
     if (dst) {
         npy_int* rv = dst;
         fortran_int len = (fortran_int)data->len;
-        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_intp));
+        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_int));
         int j;
         for (j = 0; j < len; ++j) {
-            *dst = (npy_intp)*src;
+            *dst = (npy_int)*src;
             src += 1;
             dst += strides;
         }
@@ -1125,34 +1123,34 @@ INIT_OUTER_LOOP_3
     if(len_m < len_nc) {//signature demands a wide matrix for q, impossible for qr_n.
         // PyErr_SetString(PyExc_ValueError, "qr_n can only be called when m >= n.");
         error_occurred = 1;
-        init_linearize_data_ex(&r_out, len_n, len_m, stride_r_n, stride_r_m, len_m);
+        init_linearize_data_ex(&r_out, len_n, len_m, stride_r_m, stride_r_n, len_m);
         init_linearize_vdata(&tau_out, len_nc, stride_tau);
         nan_@TYPE@_matrix(args[1], &r_out);
         nan_@TYPE@_vec(args[2], &tau_out);
-    } else {
-        if(init_@geqrf@(&params, len_m, len_n, len_nc, 0)){
-            init_linearize_data(&a_in, len_n, len_m, stride_a_n, stride_a_m);
-            init_linearize_data(&r_out, len_m, len_n, stride_r_m, stride_r_n);
-            init_linearize_vdata(&tau_out, len_nc, stride_tau);
+        return;
+    }
+    if(init_@geqrf@(&params, len_m, len_n, len_nc, 0)) {
+        init_linearize_data(&a_in, len_n, len_m, stride_a_n, stride_a_m);
+        init_linearize_data_ex(&r_out, len_n, len_m, stride_r_n, stride_r_m, len_m);
+        init_linearize_vdata(&tau_out, len_nc, stride_tau);
 
-            BEGIN_OUTER_LOOP
-                // copy input to buffer
-                linearize_@TYPE@_matrix(params.A, args[0], &a_in);
-                // QR decompose
-                call_@geqrf@(&params);
-                if (params.INFO < 0) {
-                    error_occurred = 1;
-                    nan_@TYPE@_matrix(args[1], &r_out);
-                    nan_@TYPE@_vec(args[1], &tau_out);
-                } else{
-                    // Copy r & h from buffer
-                    delinearize_@TYPE@_matrix(args[1], params.A, &r_out);
-                    // Copy tau from buffer
-                    delinearize_@TYPE@_vec(args[2], params.T, &tau_out);
-                }
-            END_OUTER_LOOP_3
-            release_@geqrf@(&params);
-        }
+        BEGIN_OUTER_LOOP
+            // copy input to buffer
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            // QR decompose
+            call_@geqrf@(&params);
+            if (params.INFO < 0) {
+                error_occurred = 1;
+                nan_@TYPE@_matrix(args[1], &r_out);
+                nan_@TYPE@_vec(args[2], &tau_out);
+            } else{
+                // Copy r & h from buffer
+                delinearize_@TYPE@_matrix(args[1], params.A, &r_out);
+                // Copy tau from buffer
+                delinearize_@TYPE@_vec(args[2], params.T, &tau_out);
+            }
+        END_OUTER_LOOP_3
+        release_@geqrf@(&params);
     }
     set_fp_invalid_or_clear(error_occurred);
 }
@@ -1213,10 +1211,10 @@ static void
 
 // solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
 // rsolve_signature = (nrhs,n),(n,n)->(nrhs,n)"
-// solvef_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
-// rsolvef_signature = "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)";
-// solvefd_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
-// rsolvefd_signature = "(nrhs,n),(n,n),(n)->(nrhs,n)";
+// solvelu_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
+// rsolvelu_signature = "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)";
+// lusolve_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
+// rlusolve_signature = "(nrhs,n),(n,n),(n)->(nrhs,n)";
 
 typedef struct gesv_params_struct
 {
@@ -1412,13 +1410,13 @@ static void
 }
 
 /*************
-* SOLVEF     *
+* SOLVELU    *
 **************/
 
-// solvef_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
+// solvelu_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
 
 static void
-@TYPE@_solvef_loop(char **args, npy_intp *dimensions, npy_intp *steps, char trans)
+@TYPE@_solvelu_loop(char **args, npy_intp *dimensions, npy_intp *steps, char trans)
 {
 INIT_OUTER_LOOP_5
     npy_intp len_n = *dimensions++;  // rows
@@ -1465,23 +1463,23 @@ INIT_OUTER_LOOP_5
     set_fp_invalid_or_clear(error_occurred);
 }
 
-// solvef_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
+// solvelu_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
 
 static void
-@TYPE@_solve_f(char **args, npy_intp *dimensions, npy_intp *steps,
+@TYPE@_solve_lu(char **args, npy_intp *dimensions, npy_intp *steps,
             void *NPY_UNUSED(func))
 {
-    @TYPE@_solvef_loop(args, dimensions, steps, 'N');
+    @TYPE@_solvelu_loop(args, dimensions, steps, 'N');
 }
 
 /*************
-* RSOLVEF    *
+* RSOLVELU   *
 **************/
 
-// rsolvef_signature = "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)";
+// rsolvelu_signature = "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)";
 
 static void
-@TYPE@_rsolve_f(char **args, npy_intp *dimensions, npy_intp *steps,
+@TYPE@_rsolve_lu(char **args, npy_intp *dimensions, npy_intp *steps,
             void *NPY_UNUSED(func))
 {
     /*swap (A,B,X,Af,P) for (B^T,A,X^T,Af,P)
@@ -1490,33 +1488,33 @@ static void
     // dimensions = {N, len_nrhs, len_n};
     // rdimensions[] = {N, len_n, len_nrhs};
     npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[1]};
-    // steps = {strides_b, strides_a, strides_x,    0-2
-    //     strides_b_c, strides_b_r,                3-4
-    //     strides_a_r, strides_a_c,                5-6
-    //     strides_x_c, strides_x_r,                7-8
-    //     strides_af_r, strides_af_c, strides_ip}; 9-11
+    // steps = {strides_b, strides_a, strides_x, strides_af, strides_p,    0-4
+    //     strides_b_c, strides_b_r,                5-6
+    //     strides_a_r, strides_a_c,                7-8
+    //     strides_x_c, strides_x_r,                9-10
+    //     strides_af_r, strides_af_c, strides_ip}; 11-13
     // rsteps = {strides_a, strides_b, strides_x,
     //     strides_a_r, strides_a_c,
     //     strides_b_r, strides_b_c,
     //     strides_x_r, strides_x_c,
     //     strides_af_r, strides_af_c, strides_ip};
-    npy_intp rsteps[] = {steps[1], steps[0], steps[2],
-            steps[5], steps[6],
-            steps[4], steps[3],
-            steps[8], steps[7],
-            steps[9], steps[10], steps[11]};
+    npy_intp rsteps[] = {steps[1], steps[0], steps[2], steps[3], steps[4],
+            steps[7], steps[8],
+            steps[6], steps[5],
+            steps[10], steps[9],
+            steps[11], steps[12], steps[13]};
     //now that we've swapped a,b and transposed, proceed as if we're in solve
-    @TYPE@_solvef_loop(rargs, rdimensions, rsteps, 'T');
+    @TYPE@_solvelu_loop(rargs, rdimensions, rsteps, 'T');
 }
 
 /*************
-* SOLVEFD    *
+* LUSOLVE    *
 **************/
 
-// solvefd_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
+// lusolve_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
 
 static void
-@TYPE@_solvefd_loop(char **args, npy_intp *dimensions, npy_intp *steps, char trans)
+@TYPE@_lusolve_loop(char **args, npy_intp *dimensions, npy_intp *steps, char trans)
 {
 INIT_OUTER_LOOP_4
     npy_intp len_n = *dimensions++;  // rows
@@ -1558,45 +1556,45 @@ INIT_OUTER_LOOP_4
     set_fp_invalid_or_clear(error_occurred);
 }
 
-// solvefd_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
+// lusolve_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
 
 static void
-@TYPE@_solve_fd(char **args, npy_intp *dimensions, npy_intp *steps,
+@TYPE@_lu_solve(char **args, npy_intp *dimensions, npy_intp *steps,
             void *NPY_UNUSED(func))
 {
-    @TYPE@_solvefd_loop(args, dimensions, steps, 'N');
+    @TYPE@_lusolve_loop(args, dimensions, steps, 'N');
 }
 
 /*************
-* RSOLVEFD   *
+* RLUSOLVE   *
 **************/
 
-// rsolvefd_signature = "(nrhs,n),(n,n),(n)->(nrhs,n)";
+// rlusolve_signature = "(nrhs,n),(n,n),(n)->(nrhs,n)";
 
 static void
-@TYPE@_rsolve_fd(char **args, npy_intp *dimensions, npy_intp *steps,
+@TYPE@_rlu_solve(char **args, npy_intp *dimensions, npy_intp *steps,
             void *NPY_UNUSED(func))
 {
     /*swap (A,P,B,X) for (B^T,A,P,X^T)
     a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
-    char *rargs[] = {args[2], args[0], args[1], args[3]};
+    char *rargs[] = {args[1], args[2], args[0], args[3]};
     // dimensions = {N, len_nrhs, len_n};
     // rdimensions[] = {N, len_n, len_nrhs};
     npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[1]};
-    // steps = {strides_b, strides_a, strides_x,    0-2
-    //     strides_b_c, strides_b_r,                3-4
-    //     strides_a_r, strides_a_c, strides_ip     5-7
-    //     strides_x_c, strides_x_r};               8-9
-    // rsteps = {strides_a, strides_b, strides_x,
+    // steps = {strides_b, strides_a, strides_p, strides_x, 0-3
+    //     strides_b_c, strides_b_r,                        4-5
+    //     strides_a_r, strides_a_c, strides_ip             6-8
+    //     strides_x_c, strides_x_r};                       9-10
+    // rsteps = {strides_a, strides_p, strides_b, strides_x,
     //     strides_a_r, strides_a_c, strides_ip
     //     strides_b_r, strides_b_c,
     //     strides_x_r, strides_x_c};
-    npy_intp rsteps[] = {steps[1], steps[0], steps[2],
-            steps[5], steps[6], steps[7],
-            steps[4], steps[3],
-            steps[9], steps[8]};
+    npy_intp rsteps[] = {steps[1], steps[2], steps[0], steps[3],
+            steps[6], steps[7], steps[8],
+            steps[5], steps[4],
+            steps[10], steps[9]};
     //now that we've swapped a,b and transposed, proceed as if we're in solve
-    @TYPE@_solvefd_loop(rargs, rdimensions, rsteps, 'T');
+    @TYPE@_lusolve_loop(rargs, rdimensions, rsteps, 'T');
 }
 
 /**end repeat**/
@@ -1870,14 +1868,14 @@ static void
 
 /*
 *****************************************************************************
-**                         LSTSQF                                          **
+**                         LSTSQQR                                          **
 *****************************************************************************
 */
 
-// lstsqf_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(k)";
-// rlstsqf_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(k)"
-// lstsqfd_signature = "(m,n),(k),(m,nrhs)->(n,nrhs)";
-// rlstsqfd_signature = "(nrhs,m),(k),(n,m)->(nrhs,n)"
+// lstsqqr_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(k)";
+// rlstsqqr_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(k)"
+// lstsqqrd_signature = "(m,n),(k),(m,nrhs)->(n,nrhs)";
+// rlstsqqrd_signature = "(nrhs,m),(k),(n,m)->(nrhs,n)"
 
 /**begin repeat
     #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
@@ -1908,6 +1906,7 @@ call_@gelqf@(GEQRF_PARAMS_t *params)
                     params->T, params->WR, &params->LWR, &params->INFO);
 }
 
+// the version of lapack that I have doesn't include _geqrs, so:
 static NPY_INLINE void
 call_@geqrs@(GEQRF_PARAMS_t *params)
 {
@@ -1925,6 +1924,7 @@ call_@geqrs@(GEQRF_PARAMS_t *params)
                     params->A, &params->LDA, params->B, &params->LDB);
 }
 
+// the version of lapack that I have doesn't include _gelqs, so:
 static NPY_INLINE void
 call_@gelqs@(GEQRF_PARAMS_t *params)
 {
@@ -2074,10 +2074,10 @@ release_@geqrs@(GEQRF_PARAMS_t *params)
 * Inner GUfunc loop  *
 **********************/
 
-// lstsqf_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(k)";
+// lstsqqr_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(k)";
 
 static void
-@TYPE@_lstsq_f(char **args, npy_intp *dimensions, npy_intp *steps,
+@TYPE@_lstsq_qr(char **args, npy_intp *dimensions, npy_intp *steps,
                 void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_5
@@ -2101,7 +2101,7 @@ INIT_OUTER_LOOP_5
     //length of tau
     npy_intp len_k = underconstrained ? len_m : len_n; // min
     npy_intp len_mn = len_m + len_n - len_k; // max
-    //don't worry if wrong choice of lstsq_fm/lstsq_fn made.
+    //don't worry if wrong choice of lstsq_qrm/lstsq_qrn made.
     //We'll just leave the extra elements of tau unset.
 
     if(init_@geqrs@(&params, len_m, len_n, len_nrhs, 1)){
@@ -2149,13 +2149,13 @@ INIT_OUTER_LOOP_5
 }
 
 /************
-* RLSTSQF   *
+* RLSTSQQR   *
 *************/
 
-// rlstsqf_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(k)"
+// rlstsqqr_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(k)"
 
 static void
-@TYPE@_rlstsq_f(char **args, npy_intp *dimensions, npy_intp *steps,
+@TYPE@_rlstsq_qr(char **args, npy_intp *dimensions, npy_intp *steps,
                 void *NPY_UNUSED(func))
 {
     /*swap (A,B,X,AF,TAU) for (B^T,A^T,X^T,AF^T,TAU)
@@ -2180,17 +2180,16 @@ static void
         steps[10], steps[9],
         steps[12], steps[11], steps[13]};
     //now that we've swapped a,b and transposed, proceed as if we're in lstsqf
-    @TYPE@_lstsq_f(rargs, rdimensions, rsteps, NULL);
+    @TYPE@_lstsq_qr(rargs, rdimensions, rsteps, NULL);
 }
 
-
 /************
-* LSTSQFD   *
+* QRLSTSQ   *
 *************/
 
-// lstsq_fd_signature = "(m,n),(k),(m,nrhs)->(n,nrhs)";
+// qr_lstsq_signature = "(m,n),(k),(m,nrhs)->(n,nrhs)";
 static void
-@TYPE@_lstsq_fd(char **args, npy_intp *dimensions, npy_intp *steps,
+@TYPE@_qr_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
                 void *NPY_UNUSED(func))
 {
 INIT_OUTER_LOOP_4
@@ -2246,13 +2245,13 @@ INIT_OUTER_LOOP_4
 }
 
 /************
-* RLSTSQFD  *
+* RQRLSTSQ  *
 *************/
 
-// rlstsq_fd_signature = "(nrhs,m),(k),(n,m)->(nrhs,n)"
+// rqr_lstsq_signature = "(nrhs,m),(k),(n,m)->(nrhs,n)"
 
 static void
-@TYPE@_rlstsq_fd(char **args, npy_intp *dimensions, npy_intp *steps,
+@TYPE@_rqr_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
                 void *NPY_UNUSED(func))
 {
     /*swap (A,TAU,B,X) for (B^T,A^T,TAU,X^T)
@@ -2274,7 +2273,7 @@ static void
         steps[7], steps[6], steps[8],
         steps[10], steps[9]};
     //now that we've swapped a,b and transposed, proceed as if we're in lstsqfd
-    @TYPE@_lstsq_fd(rargs, rdimensions, rsteps, NULL);
+    @TYPE@_qr_lstsq(rargs, rdimensions, rsteps, NULL);
 }
 
 /**end repeat**/
@@ -2294,20 +2293,16 @@ GUFUNC_FUNC_ARRAY_REAL_COMPLEX(qr_rawm);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(qr_rawn);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(solve);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rsolve);
-GUFUNC_FUNC_ARRAY_REAL_COMPLEX(solve_f);
-GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rsolve_f);
-GUFUNC_FUNC_ARRAY_REAL_COMPLEX(solve_fd);
-GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rsolve_fd);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(solve_lu);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rsolve_lu);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lu_solve);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlu_solve);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq);
-GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_f);
-GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_f);
-// GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_fm);
-// GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_fm);
-// GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_fn);
-// GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_fn);
-GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_fd);
-GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_fd);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lstsq_qr);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlstsq_qr);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(qr_lstsq);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rqr_lstsq);
 
 static char ufn_types_solve_4[] = { NPY_FLOAT, NPY_INT, NPY_FLOAT, NPY_FLOAT,
                                 NPY_DOUBLE, NPY_INT, NPY_DOUBLE, NPY_DOUBLE,
@@ -2339,30 +2334,30 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
         FUNC_ARRAY_NAME(solve), ufn_types_4_3 },
     { "rsolve", "(nrhs,n),(n,n)->(nrhs,n)", rsolve__doc__, 4, 2, 1,
         FUNC_ARRAY_NAME(rsolve), ufn_types_4_3 },
-    { "solve_f", "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)", solve_f__doc__, 4, 2, 3,
-        FUNC_ARRAY_NAME(solve_f), ufn_types_solve_5 },
-    { "rsolve_f", "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)", rsolve_f__doc__, 4, 2, 3,
-        FUNC_ARRAY_NAME(rsolve_f), ufn_types_solve_5 },
-    { "solve_fd", "(n,n),(n),(n,nrhs)->(n,nrhs)", solve_fd__doc__, 4, 3, 1,
-        FUNC_ARRAY_NAME(solve_fd), ufn_types_solve_4 },
-    { "rsolve_fd", "(nrhs,n),(n,n),(n)->(nrhs,n)", rsolve_fd__doc__, 4, 3, 1,
-        FUNC_ARRAY_NAME(rsolve_fd), ufn_types_rsolve_4 },
+    { "solve_lu", "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)", solve_lu__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(solve_lu), ufn_types_solve_5 },
+    { "rsolve_lu", "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)", rsolve_lu__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(rsolve_lu), ufn_types_solve_5 },
+    { "lu_solve", "(n,n),(n),(n,nrhs)->(n,nrhs)", lu_solve__doc__, 4, 3, 1,
+        FUNC_ARRAY_NAME(lu_solve), ufn_types_solve_4 },
+    { "rlu_solve", "(nrhs,n),(n,n),(n)->(nrhs,n)", rlu_solve__doc__, 4, 3, 1,
+        FUNC_ARRAY_NAME(rlu_solve), ufn_types_rsolve_4 },
     { "lstsq", "(m,n),(m,nrhs)->(n,nrhs)", lstsq__doc__, 4, 2, 1,
         FUNC_ARRAY_NAME(lstsq), ufn_types_4_3 },
     { "rlstsq", "(nrhs,m),(n,m)->(nrhs,n)", rlstsq__doc__, 4, 2, 1,
         FUNC_ARRAY_NAME(rlstsq), ufn_types_4_3 },
-    { "lstsq_fm", "(m,n),(m,nrhs)->(n,nrhs),(m,n),(m)", lstsq_f__doc__, 4, 2, 3,
-        FUNC_ARRAY_NAME(lstsq_f), ufn_types_4_5 },
-    { "rlstsq_fm", "(nrhs,m),(n,m)->(nrhs,n),(n,m),(m)", rlstsq_f__doc__, 4, 2, 3,
-        FUNC_ARRAY_NAME(rlstsq_f), ufn_types_4_5 },
-    { "lstsq_fn", "(m,n),(m,nrhs)->(n,nrhs),(m,n),(n)", lstsq_f__doc__, 4, 2, 3,
-        FUNC_ARRAY_NAME(lstsq_f), ufn_types_4_5 },
-    { "rlstsq_fn", "(nrhs,m),(n,m)->(nrhs,n),(n,m),(n)", rlstsq_f__doc__, 4, 2, 3,
-        FUNC_ARRAY_NAME(rlstsq_f), ufn_types_4_5 },
-    { "lstsq_fd", "(m,n),(k),(m,nrhs)->(n,nrhs)", lstsq_fd__doc__, 4, 3, 1,
-        FUNC_ARRAY_NAME(lstsq_fd), ufn_types_4_4 },
-    { "rlstsq_fd", "(nrhs,m),(n,m),(k)->(nrhs,n)", rlstsq_fd__doc__, 4, 3, 1,
-        FUNC_ARRAY_NAME(rlstsq_fd), ufn_types_4_4 }
+    { "lstsq_qrm", "(m,n),(m,nrhs)->(n,nrhs),(m,n),(m)", lstsq_qr__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(lstsq_qr), ufn_types_4_5 },
+    { "rlstsq_qrm", "(nrhs,m),(n,m)->(nrhs,n),(n,m),(m)", rlstsq_qr__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(rlstsq_qr), ufn_types_4_5 },
+    { "lstsq_qrn", "(m,n),(m,nrhs)->(n,nrhs),(m,n),(n)", lstsq_qr__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(lstsq_qr), ufn_types_4_5 },
+    { "rlstsq_qrn", "(nrhs,m),(n,m)->(nrhs,n),(n,m),(n)", rlstsq_qr__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(rlstsq_qr), ufn_types_4_5 },
+    { "qr_lstsq", "(m,n),(k),(m,nrhs)->(n,nrhs)", qr_lstsq__doc__, 4, 3, 1,
+        FUNC_ARRAY_NAME(qr_lstsq), ufn_types_4_4 },
+    { "rqr_lstsq", "(nrhs,m),(n,m),(k)->(nrhs,n)", rqr_lstsq__doc__, 4, 3, 1,
+        FUNC_ARRAY_NAME(rqr_lstsq), ufn_types_4_4 }
 };
 
 /*
