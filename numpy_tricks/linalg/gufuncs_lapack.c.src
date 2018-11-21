@@ -2233,7 +2233,7 @@ INIT_OUTER_LOOP_4
             linearize_@TYPE@_matrix(params.A, args[0], &a_in);
             linearize_@TYPE@_vec(args[1], params.T, &tau_in);
             linearize_@TYPE@_matrix(params.B, args[2], &b_in);
-            if (len_k == len_m) {
+            if (len_k == len_n) {
                 call_@geqrs@(&params);
             } else {
                 call_@gelqs@(&params);
