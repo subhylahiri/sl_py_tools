@@ -136,10 +136,10 @@ class TestLstsq(utn.TestCaseNumpy):
         self.assertArrayEqual(a.shape, (2, 5, 2))
         self.assertArrayEqual(xf.shape, (2, 8, 5))
         self.assertArrayEqual(tau.shape, (2, 5))
-#        b = gfl.qr_lstsq(xf, tau, self.z['d'])
-#        self.assertArrayEqual(b.shape, (3, 2, 5, 4))
-#        c = gfl.rqr_lstsq(self.w['d'], xf, tau)
-#        self.assertArrayEqual(c.shape, (3, 2, 1, 8))
+        b = gfl.qr_lstsq(xf, tau, self.z['d'])
+        self.assertArrayEqual(b.shape, (3, 2, 5, 4))
+        c = gfl.rqr_lstsq(self.w['d'], xf, tau)
+        self.assertArrayEqual(c.shape, (3, 2, 1, 8))
 
     @unittest.skip("kills kernel")
     def test_rlstsqqr_shape(self):
