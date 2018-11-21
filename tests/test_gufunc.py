@@ -23,10 +23,8 @@ class TestBlas(utn.TestCaseNumpy):
         self.w = {}
         self.n = {}
         for sctype in self.sctype:
-            self.x[sctype] = utn.asa(np.random.randn(2, 3, 5),
-                                     np.random.randn(2, 3, 5), sctype)
-            self.y[sctype] = utn.asa(np.random.randn(5, 2),
-                                     np.random.randn(5, 2), sctype)
+            self.x[sctype] = utn.randn_asa((2, 3, 5), sctype)
+            self.y[sctype] = utn.randn_asa((5, 2), sctype)
             self.z[sctype] = self.x[sctype] @ self.y[sctype]
             self.w[sctype] = utn.asa(np.arange(24).reshape((2, 3, 4)),
                                      np.arange(8).reshape((2, 1, 4)), sctype)

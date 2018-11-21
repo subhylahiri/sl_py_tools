@@ -190,6 +190,11 @@ def asa(x, y, sctype):
     return (x + imag * y).astype(sctype)
 
 
+def randn_asa(shape, sctype):
+    return asa(np.random.standard_normal(shape),
+               np.random.standard_normal(shape), sctype)
+
+
 @contextlib.contextmanager
 def errstate(*args, **kwds):
     """Context manager like np.errstate that can also be used as a decorator
