@@ -1937,8 +1937,10 @@ call_@gelqs@(GEQRF_PARAMS_t *params)
                     &params->M, &params->NC, &@one@,
                     params->A, &params->LDA, params->B, &params->LDB);
     // B is modified by ?LASET to zero out bottom N-M rows
-    LAPACK(@laset@)(&char_F, &params->MN, &params->NC,
-                    &@zero@, &@zero@, params->B, &params->LDB);
+    if (params->MN) {
+        LAPACK(@laset@)(&char_F, &params->MN, &params->NC, &@zero@, &@zero@,
+                    params->B + (params->M * sizeof(@ftyp@)), &params->LDB);
+    }
     // B is modified by ?ORMLQ to carry Q^T B
     LAPACK(@ormlq@)(&char_L, &char_T, &params->M, &params->NC, &params->N,
                     params->A, &params->LDA, params->T, params->B, &params->LDB,
@@ -2097,16 +2099,12 @@ INIT_OUTER_LOOP_5
     GEQRF_PARAMS_t params;
     LINEARIZE_DATA_t a_in, b_in, x_out, a_out;
     LINEARIZE_VDATA_t tau_out;
-    int underconstrained = (len_m < len_n) ? 0 : 1;
+    int underconstrained = (len_m < len_n) ? 1 : 0;
     //length of tau
     npy_intp len_k = underconstrained ? len_m : len_n; // min
     npy_intp len_mn = len_m + len_n - len_k; // max
     //don't worry if wrong choice of lstsq_qrm/lstsq_qrn made.
     //We'll just leave the extra elements of tau unset.
-    if(len_mn < len_k) {
-        len_k = len_mn;
-        len_mn = len_m + len_n - len_k; // max
-    }
 
     if(init_@geqrs@(&params, len_m, len_n, len_nrhs, 1)){
         init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
