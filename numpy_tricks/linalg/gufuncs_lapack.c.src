@@ -821,6 +821,7 @@ typedef struct geqrf_params_struct
     void *B; /* B is (N,NC) of base type */
     void *WR; /* WR is (N*B,) of base type, work for _ge{qr,lq}f */
     void *WQ; /* WQ is (N*B,) of base type, work for _orgqr,_ge{qr,lq}s */
+    void *BZ; /* BZ is (N-M,NC) of base type, zeroed for _gelqs */
 
     fortran_int M;
     fortran_int N;
@@ -901,6 +902,8 @@ init_@geqrf@(GEQRF_PARAMS_t *params,
 
     params->A = a;
     params->T = b;
+    params->B = NULL;
+    params->BZ = NULL;
     params->M = M;
     params->N = N;
     params->K = K;
@@ -1939,7 +1942,7 @@ call_@gelqs@(GEQRF_PARAMS_t *params)
     // B is modified by ?LASET to zero out bottom N-M rows
     if (params->MN) {
         LAPACK(@laset@)(&char_F, &params->MN, &params->NC, &@zero@, &@zero@,
-                    params->B + (params->M * sizeof(@ftyp@)), &params->LDB);
+                    params->BZ, &params->LDB);
     }
     // B is modified by ?ORMLQ to carry Q^T B
     LAPACK(@ormlq@)(&char_L, &char_T, &params->M, &params->NC, &params->N,
@@ -1969,7 +1972,7 @@ init_@geqrs@(GEQRF_PARAMS_t *params,
 {
     npy_uint8 *mem_buff = NULL;
     npy_uint8 *mem_buff2 = NULL;
-    npy_uint8 *a, *b, *c;
+    npy_uint8 *a, *b, *c, *d;
     fortran_int M, N, NC, K, MN, lda, ldb, MNx, LWQ, LWR;
     size_t safe_M, safe_N, safe_NC, safe_K, safe_MNx, safe_LWQ, safe_LWR;
     @ftyp@ work_size;
@@ -1996,10 +1999,12 @@ init_@geqrs@(GEQRF_PARAMS_t *params,
     a = mem_buff;
     b = a + safe_M * safe_N * sizeof(@ftyp@);
     c = b + safe_K * sizeof(@ftyp@);
+    d = c + safe_M * sizeof(@ftyp@);
 
     params->A = a;
     params->T = b;
     params->B = c;
+    params->BZ = d;
     params->M = M;
     params->N = N;
     params->NC = NC;
