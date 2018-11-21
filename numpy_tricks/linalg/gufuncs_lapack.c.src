@@ -2103,6 +2103,10 @@ INIT_OUTER_LOOP_5
     npy_intp len_mn = len_m + len_n - len_k; // max
     //don't worry if wrong choice of lstsq_qrm/lstsq_qrn made.
     //We'll just leave the extra elements of tau unset.
+    if(len_mn < len_k) {
+        len_k = len_mn;
+        len_mn = len_m + len_n - len_k; // max
+    }
 
     if(init_@geqrs@(&params, len_m, len_n, len_nrhs, 1)){
         init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);

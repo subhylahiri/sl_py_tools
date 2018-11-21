@@ -63,28 +63,12 @@ class TestCaseNumpy(unittest.TestCase):
     """
     def setUp(self):
         self.sctype = ['f', 'd', 'F', 'D']
-        self.all_close_opts = {'atol': 1e-6, 'rtol': 1e-5, 'equal_nan': True}
+        self.all_close_opts = {'atol': 1e-5, 'rtol': 1e-5, 'equal_nan': True}
         self.addTypeEqualityFunc(np.ndarray, self.assertArrayAllClose)
         self.addTypeEqualityFunc(la.lnarray, self.assertArrayAllClose)
 
 #    def defaultTestResult(self):
 #        return TestResultNumpy
-
-    @classmethod
-    def loop(cls, msg=None, attr_name='sctype', attr_inds=slice(None)):
-        """Decorator to loop a test over an attribute
-        """
-        def loop_dec(func):
-            @functools.wraps(func)
-            def loop_func(self, *args, **kwds):
-                the_attr = getattr(self, attr_name)
-#                __notunittest = True
-                for val in the_attr[attr_inds]:
-                    opts = {attr_name: val}
-                    with self.subTest(msg=msg, **opts):
-                        func(self, *args, **opts, **kwds)
-            return loop_func
-        return loop_dec
 
     def assertArrayAllClose(self, actual, desired, msg=None):
         """Calls numpy.allclose (so it broadcasts, unlike
@@ -149,6 +133,25 @@ class TestCaseNumpy(unittest.TestCase):
             self.fail(msg)
 
 
+def loop_test(msg=None, attr_name='sctype', attr_inds=slice(None)):
+    """Return decorator to loop a test over a sequence attribute of a TestCase.
+
+    Note: This is not a decorator - it is a function that returns a decorator.
+    Even when there are no arguments, you must call it as ``@loop_test()``.
+    """
+    def loop_dec(func):
+        @functools.wraps(func)
+        def loop_func(self, *args, **kwds):
+            the_attr = getattr(self, attr_name)
+#                __notunittest = True
+            for val in the_attr[attr_inds]:
+                opts = {attr_name: val}
+                with self.subTest(msg=msg, **opts):
+                    func(self, *args, **opts, **kwds)
+        return loop_func
+    return loop_dec
+
+
 def miss_str(x, y, atol=1e-8, rtol=1e-5, equal_nan=True):
     """Returns a string describing the maximum deviation of x and y
 
@@ -189,7 +192,7 @@ def asa(x, y, sctype):
 
 @contextlib.contextmanager
 def errstate(*args, **kwds):
-    """Context manager like np.errstate can also be used as a decorator
+    """Context manager like np.errstate that can also be used as a decorator
     """
     call = kwds.pop('call', None)
     old_errstate = np.geterr()

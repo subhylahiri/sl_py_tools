@@ -433,7 +433,7 @@ class pinvarray(NDArrayOperatorsMixin):
     __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(matmul, 'matmul')
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        """Handling ufunce with pinvarrays
+        """Handling ufuncs with pinvarrays
         """
         # which inputs are we converting?
         # For most inputs, we swap multiplication & division instead of inverse
