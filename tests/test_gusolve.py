@@ -121,71 +121,83 @@ class TestLstsq(utn.TestCaseNumpy):
             self.yt[sctype] = transpose(self.y[sctype])
 
     def test_lstsq_shape(self):
+        # overconstrained
         a = gfl.lstsq(self.x['d'], self.y['d'])
         self.assertEqual(a.shape, (2, 5, 2))
         with self.assertRaisesRegex(*utn.core_dim_err):
             gfl.lstsq(self.x['d'], self.yt['d'])
         with self.assertRaisesRegex(*utn.core_dim_err):
             gfl.lstsq(self.yt['d'], self.xt['d'])
+        # underconstrained
         b = gfl.rlstsq(self.yt['d'], self.xt['d'])
         self.assertEqual(b.shape, (2, 2, 5))
 
-#    @unittest.skip("kills kernel")
     def test_lstsqqr_shape(self):
+        # overconstrained
         a, xf, tau = gfl.lstsq_qrn(self.x['d'], self.y['d'])
         self.assertArrayEqual(a.shape, (2, 5, 2))
         self.assertArrayEqual(xf.shape, (2, 8, 5))
         self.assertArrayEqual(tau.shape, (2, 5))
+        # overconstrained
         b = gfl.qr_lstsq(xf, tau, self.z['d'])
         self.assertArrayEqual(b.shape, (3, 2, 5, 4))
-        c = gfl.rqr_lstsq(self.w['d'], xf, tau)
-        self.assertArrayEqual(c.shape, (3, 2, 1, 8))
+        # underconstrained
+#        c = gfl.rqr_lstsq(self.w['d'], xf, tau)
+#        self.assertArrayEqual(c.shape, (3, 2, 1, 8))
 
-    @unittest.skip("kills kernel")
     def test_rlstsqqr_shape(self):
-        a, xf, tau = gfl.rlstsq_qrn(self.w['d'], self.x['d'])
+        # underconstrained
+        a, xf, tau = gfl.rlstsq_qrm(self.w['d'], self.x['d'])
         self.assertArrayEqual(a.shape, (3, 2, 1, 8))
-        self.assertArrayEqual(xf.shape, (3, 2, 5, 8))
+        self.assertArrayEqual(xf.shape, (3, 2, 8, 5))
         self.assertArrayEqual(tau.shape, (3, 2, 5))
-        b = gfl.rqr_lstsq(self.v['d'], xf, tau)
-        self.assertArrayEqual(b.shape, (3, 2, 4, 8))
+        # underconstrained
+#        b = gfl.rqr_lstsq(self.v['d'], xf, tau)
+#        self.assertArrayEqual(b.shape, (3, 2, 4, 8))
 
     @utn.loop_test(attr_inds=1)
     def test_lstsq_val(self, sctype):
+        # overconstrained
         a = gfl.lstsq(self.x[sctype], self.y[sctype])
         with self.subTest(msg='lstsq(over)'):
             self.assertArrayNotAllClose(self.x[sctype] @ a, self.y[sctype])
+        # underconstrained
         b = gfl.rlstsq(self.v[sctype], self.x[sctype])
         with self.subTest(msg='rlstsq(under)'):
             self.assertArrayAllClose(b @ self.x[sctype], self.v[sctype])
 
-    @unittest.skip("kills kernel")
     @utn.loop_test(attr_inds=1)
     def test_lstsqqr_val(self, sctype):
+        # overconstrained
         a0 = gfl.lstsq(self.x[sctype], self.y[sctype])
-        a, xf, p = gfl.lstsq_qrn(self.x[sctype], self.y[sctype])
-        with self.subTest('lstsq0'):
+        a, xf, tau = gfl.lstsq_qrn(self.x[sctype], self.y[sctype])
+        with self.subTest('lstsq0(over)'):
             self.assertArrayAllClose(a, a0)
-        aa = gfl.qr_lstsq(xf, p, self.y[sctype])
-        with self.subTest('lstsq(lu)'):
+        # overconstrained
+        aa = gfl.qr_lstsq(xf, tau, self.y[sctype])
+        with self.subTest('lstsq(qr)'):
             self.assertArrayAllClose(aa, a)
-        b = gfl.rqr_lstsq(self.v[sctype], xf, p)
-        with self.subTest('rlstsq(lu)'):
-            self.assertArrayAllClose(b @ self.x[sctype], self.v[sctype])
+        # underconstrained
+#        b = gfl.rqr_lstsq(self.v[sctype], xf, tau)
+#        with self.subTest('rlstsq(qr)'):
+#            self.assertArrayAllClose(b @ self.x[sctype], self.v[sctype])
 
-    @unittest.skip("kills kernel")
     @utn.loop_test(attr_inds=1)
     def test_rlstsqqr_val(self, sctype):
+        # underconstrained
         a0 = gfl.rlstsq(self.w[sctype], self.x[sctype])
-        a, xf, p = gfl.rlstsq_qrn(self.w[sctype], self.x[sctype])
-        with self.subTest('rlstsq0'):
+        # underconstrained
+        a, xf, tau = gfl.rlstsq_qrn(self.w[sctype], self.x[sctype])
+        with self.subTest('rlstsq0(under)'):
             self.assertArrayAllClose(a, a0)
-        aa = gfl.rqr_lstsq(self.w[sctype], xf, p)
-        with self.subTest('rlstsq(rlu)'):
-            self.assertArrayAllClose(a, aa)
-        b = gfl.qr_lstsq(xf, p, self.z[sctype])
+        # underconstrained
+#        aa = gfl.rqr_lstsq(self.w[sctype], xf, tau)
+#        with self.subTest('rlstsq(rlu)'):
+#            self.assertArrayAllClose(a, aa)
+        # overconstrained
+        b = gfl.qr_lstsq(xf, tau, self.z[sctype])
         with self.subTest('lstsq(rlu)'):
-            self.assertArrayAllClose(self.x[sctype] @ b, self.z[sctype])
+            self.assertArrayNotAllClose(self.x[sctype] @ b, self.z[sctype])
 
     @unittest.expectedFailure
     @utn.errstate(invalid='raise')
