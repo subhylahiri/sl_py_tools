@@ -168,7 +168,7 @@ def miss_str(x, y, atol=1e-8, rtol=1e-5, equal_nan=True):
     ind = np.unravel_index(np.argmax(mis_frac), mis_frac.shape)
     formatter = 'Should be zero: {:.2g}\nor: {:.2g} = {:.2g} * {:.1f} at {}'
 
-    return formatter.format(np.amax(mismatch), mismatch[ind], thresh[ind],
+    return formatter.format(np.nanmax(mismatch), mismatch[ind], thresh[ind],
                             mis_frac[ind], ind)
 
 
