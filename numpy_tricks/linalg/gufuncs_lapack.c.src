@@ -1945,7 +1945,7 @@ call_@gelqs@(GEQRF_PARAMS_t *params)
                     params->BZ, &params->LDB);
     }
     // B is modified by ?ORMLQ to carry Q^T B
-    LAPACK(@ormlq@)(&char_L, &char_T, &params->M, &params->NC, &params->N,
+    LAPACK(@ormlq@)(&char_L, &char_T, &params->M, &params->NC, &params->K,
                     params->A, &params->LDA, params->T, params->B, &params->LDB,
                     params->WQ, &params->LWQ, &params->INFO);
 }
