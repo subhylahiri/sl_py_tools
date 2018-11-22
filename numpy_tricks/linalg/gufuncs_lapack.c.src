@@ -2047,7 +2047,7 @@ init_@geqrs@(GEQRF_PARAMS_t *params,
         goto error;
     }
     a = mem_buff2;
-    b = c + safe_LWQ * sizeof(@ftyp@);
+    b = a + safe_LWQ * sizeof(@ftyp@);
     params->WQ = a;
     params->LWQ = LWQ;
     params->LWR = LWR;
