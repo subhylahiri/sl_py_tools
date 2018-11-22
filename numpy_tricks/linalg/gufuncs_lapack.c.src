@@ -55,7 +55,7 @@ Copyright/licence info for that file:
 
 #include "gufunc_common_f.h"
 
-static const char* gufuncs_lapack_version_string = "0.1.0";
+static const char* gufuncs_lapack_version_string = "0.2.0";
 
 /*
 *****************************************************************************
@@ -2356,10 +2356,10 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
         FUNC_ARRAY_NAME(rlstsq), ufn_types_4_3 },
     { "lstsq_qrm", "(m,n),(m,nrhs)->(n,nrhs),(m,n),(m)", lstsq_qr__doc__, 4, 2, 3,
         FUNC_ARRAY_NAME(lstsq_qr), ufn_types_4_5 },
-    { "rlstsq_qrm", "(nrhs,m),(n,m)->(nrhs,n),(n,m),(m)", rlstsq_qr__doc__, 4, 2, 3,
-        FUNC_ARRAY_NAME(rlstsq_qr), ufn_types_4_5 },
     { "lstsq_qrn", "(m,n),(m,nrhs)->(n,nrhs),(m,n),(n)", lstsq_qr__doc__, 4, 2, 3,
         FUNC_ARRAY_NAME(lstsq_qr), ufn_types_4_5 },
+    { "rlstsq_qrm", "(nrhs,m),(n,m)->(nrhs,n),(n,m),(m)", rlstsq_qr__doc__, 4, 2, 3,
+        FUNC_ARRAY_NAME(rlstsq_qr), ufn_types_4_5 },
     { "rlstsq_qrn", "(nrhs,m),(n,m)->(nrhs,n),(n,m),(n)", rlstsq_qr__doc__, 4, 2, 3,
         FUNC_ARRAY_NAME(rlstsq_qr), ufn_types_4_5 },
     { "qr_lstsq", "(m,n),(k),(m,nrhs)->(n,nrhs)", qr_lstsq__doc__, 4, 3, 1,
@@ -2393,8 +2393,6 @@ static struct PyModuleDef moduledef = {
 PyObject *PyInit__gufuncs_lapack(void)
 {
     PyObject *m;
-    PyObject *d;
-    PyObject *version;
 
     init_constants();
     m = PyModule_Create(&moduledef);
@@ -2405,14 +2403,8 @@ PyObject *PyInit__gufuncs_lapack(void)
     import_array();
     import_ufunc();
 
-    d = PyModule_GetDict(m);
-
-    version = PyString_FromString(gufuncs_lapack_version_string);
-    PyDict_SetItemString(d, "__version__", version);
-    Py_DECREF(version);
-
     /* Load the ufunc operators into the module's namespace */
-    int failure = addUfuncs(d, gufunc_descriptors, 20);
+    int failure = addUfuncs(m, gufunc_descriptors, 20, gufuncs_lapack_version_string);
 
     if (PyErr_Occurred() || failure) {
         PyErr_SetString(PyExc_RuntimeError,

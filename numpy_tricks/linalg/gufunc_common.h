@@ -339,8 +339,18 @@ typedef struct gufunc_descriptor_struct {
 } GUFUNC_DESCRIPTOR_t;
 
 static int
-addUfuncs(PyObject *dictionary, const GUFUNC_DESCRIPTOR_t guf_descriptors[],
-            const int gufunc_count) {
+addUfuncs(PyObject *module, const GUFUNC_DESCRIPTOR_t guf_descriptors[],
+            const int gufunc_count, const char *version_string)
+{
+    PyObject *dictionary;
+    PyObject *version;
+
+    dictionary = PyModule_GetDict(module);
+
+    version = PyString_FromString(version_string);
+    PyDict_SetItemString(dictionary, "__version__", version);
+    Py_DECREF(version);
+
     PyObject *f;
     int i;
     for (i = 0; i < gufunc_count; i++) {

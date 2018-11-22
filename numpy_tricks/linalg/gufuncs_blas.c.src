@@ -700,8 +700,6 @@ static struct PyModuleDef moduledef = {
 PyObject *PyInit__gufuncs_blas(void)
 {
     PyObject *m;
-    PyObject *d;
-    PyObject *version;
 
     init_constants();
     m = PyModule_Create(&moduledef);
@@ -712,14 +710,8 @@ PyObject *PyInit__gufuncs_blas(void)
     import_array();
     import_ufunc();
 
-    d = PyModule_GetDict(m);
-
-    version = PyString_FromString(gufuncs_blas_version_string);
-    PyDict_SetItemString(d, "__version__", version);
-    Py_DECREF(version);
-
     /* Load the ufunc operators into the module's namespace */
-    int failure = addUfuncs(d, gufunc_descriptors, 3);
+    int failure = addUfuncs(m, gufunc_descriptors, 3, gufuncs_blas_version_string);
 
     if (PyErr_Occurred() || failure) {
         PyErr_SetString(PyExc_RuntimeError,
