@@ -5,6 +5,7 @@ import unittest_numpy as utn
 import sl_py_tools.numpy_tricks.linalg._gufuncs_lapack as gfl
 from sl_py_tools.numpy_tricks.linalg import transpose
 
+errstate = utn.errstate(invalid='raise')
 # =============================================================================
 
 
@@ -120,6 +121,7 @@ class TestLstsq(utn.TestCaseNumpy):
             self.xt[sctype] = transpose(self.x[sctype])
             self.yt[sctype] = transpose(self.y[sctype])
 
+    @errstate
     def test_lstsq_shape(self):
         # overconstrained
         a = gfl.lstsq(self.x['d'], self.y['d'])
@@ -132,6 +134,7 @@ class TestLstsq(utn.TestCaseNumpy):
         b = gfl.rlstsq(self.yt['d'], self.xt['d'])
         self.assertEqual(b.shape, (2, 2, 5))
 
+    @errstate
     def test_lstsqqr_shape(self):
         # overconstrained
         a, xf, tau = gfl.lstsq_qrn(self.x['d'], self.y['d'])
@@ -145,6 +148,7 @@ class TestLstsq(utn.TestCaseNumpy):
         c = gfl.rqr_lstsq(self.w['d'], xf, tau)
         self.assertArrayEqual(c.shape, (3, 2, 1, 8))
 
+    @errstate
     def test_rlstsqqr_shape(self):
         # underconstrained
         a, xf, tau = gfl.rlstsq_qrm(self.w['d'], self.x['d'])
@@ -155,6 +159,7 @@ class TestLstsq(utn.TestCaseNumpy):
         b = gfl.rqr_lstsq(self.v['d'], xf, tau)
         self.assertArrayEqual(b.shape, (3, 2, 4, 8))
 
+    @errstate
     @utn.loop_test(attr_inds=1)
     def test_lstsq_val(self, sctype):
         # overconstrained
@@ -166,6 +171,7 @@ class TestLstsq(utn.TestCaseNumpy):
         with self.subTest(msg='rlstsq(under)'):
             self.assertArrayAllClose(b @ self.x[sctype], self.v[sctype])
 
+    @errstate
     @utn.loop_test(attr_inds=1)
     def test_lstsqqr_val(self, sctype):
         # overconstrained
@@ -176,31 +182,32 @@ class TestLstsq(utn.TestCaseNumpy):
         # overconstrained
         aa = gfl.qr_lstsq(xf, tau, self.y[sctype])
         with self.subTest('lstsq(qr,over)'):
-            self.assertArrayAllClose(aa, a)
+            self.assertArrayAllClose(aa, a0)
         # underconstrained
         b = gfl.rqr_lstsq(self.v[sctype], xf, tau)
         with self.subTest('rlstsq(qr,under)'):
             self.assertArrayAllClose(b @ self.x[sctype], self.v[sctype])
 
+    @errstate
     @utn.loop_test(attr_inds=1)
     def test_rlstsqqr_val(self, sctype):
         # underconstrained
         a0 = gfl.rlstsq(self.w[sctype], self.x[sctype])
         # underconstrained
-        a, xf, tau = gfl.rlstsq_qrn(self.w[sctype], self.x[sctype])
+        a, xf, tau = gfl.rlstsq_qrm(self.w[sctype], self.x[sctype])
         with self.subTest('rlstsq0(under)'):
             self.assertArrayAllClose(a, a0)
         # underconstrained
         aa = gfl.rqr_lstsq(self.w[sctype], xf, tau)
         with self.subTest('rlstsq(rqr,under)'):
-            self.assertArrayAllClose(a, aa)
+            self.assertArrayAllClose(aa, a0)
         # overconstrained
         b = gfl.qr_lstsq(xf, tau, self.z[sctype])
         with self.subTest('lstsq(rqr,over)'):
             self.assertArrayNotAllClose(self.x[sctype] @ b, self.z[sctype])
 
     @unittest.expectedFailure
-    @utn.errstate(invalid='raise')
+    @errstate
     @utn.loop_test(msg='rank')
     def test_rank(self, sctype):
         yy = self.y[sctype] @ self.yt[sctype]

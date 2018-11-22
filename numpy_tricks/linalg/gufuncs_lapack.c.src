@@ -677,7 +677,7 @@ linearize_@TYPE@_vec(void *dst_in,
              */
             int j;
             for (j = 0; j < len; ++j) {
-                memcpy((@typ@*)dst, (@typ@*)src + j, sizeof(@typ@));
+                memcpy((@typ@*)dst + j, (@typ@*)src, sizeof(@typ@));
             }
         }
         return rv;
@@ -1918,7 +1918,7 @@ call_@geqrs@(GEQRF_PARAMS_t *params)
     //                 params->A, &params->LDA, params->T, params->B, &params->LDB,
     //                 params->WQ, &params->LWQ, &params->INFO);
     // B is modified by ?ORMQR to carry Q^T B
-    LAPACK(@ormqr@)(&char_L, &char_T, &params->M, &params->NC, &params->N,
+    LAPACK(@ormqr@)(&char_L, &char_T, &params->M, &params->NC, &params->K,
                     params->A, &params->LDA, params->T, params->B, &params->LDB,
                     params->WQ, &params->LWQ, &params->INFO);
     // B is modified by ?TRSM to carry R^-1 B
@@ -2231,7 +2231,7 @@ INIT_OUTER_LOOP_4
         BEGIN_OUTER_LOOP_4
             int not_ok;
             linearize_@TYPE@_matrix(params.A, args[0], &a_in);
-            linearize_@TYPE@_vec(args[1], params.T, &tau_in);
+            linearize_@TYPE@_vec(params.T, args[1], &tau_in);
             linearize_@TYPE@_matrix(params.B, args[2], &b_in);
             if (len_k == len_n) {
                 call_@geqrs@(&params);
