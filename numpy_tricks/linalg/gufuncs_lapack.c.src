@@ -1945,7 +1945,7 @@ call_@gelqs@(GEQRF_PARAMS_t *params)
                     params->BZ, &params->LDB);
     }
     // B is modified by ?ORMLQ to carry Q^T B
-    LAPACK(@ormlq@)(&char_L, &char_T, &params->M, &params->NC, &params->K,
+    LAPACK(@ormlq@)(&char_L, &char_T, &params->N, &params->NC, &params->K,
                     params->A, &params->LDA, params->T, params->B, &params->LDB,
                     params->WQ, &params->LWQ, &params->INFO);
 }
@@ -1961,7 +1961,7 @@ call_@ormqr@(GEQRF_PARAMS_t *params)
 }
 
 /***************************************************************************
-* Initialize the parameters to use in the lapack functions _geqrf &  _orgqr*
+* Initialize the parameters to use in the lapack functions _geqrf & _orgqr *
 * Handles buffer allocation.
 * First: initialize for geqrf only
 * Second: initialize for _geqrf and _orgqr
@@ -2064,9 +2064,9 @@ init_@geqrs@(GEQRF_PARAMS_t *params,
     return 0;
 }
 
-/**********************
-* Deallocate buffer   *
-***********************/
+/*************************************
+*          Deallocate buffer         *
+**************************************/
 
 static NPY_INLINE void
 release_@geqrs@(GEQRF_PARAMS_t *params)
@@ -2077,9 +2077,9 @@ release_@geqrs@(GEQRF_PARAMS_t *params)
     memset(params, 0, sizeof(*params));
 }
 
-/*********************
-* Inner GUfunc loop  *
-**********************/
+/**************************************
+*          Inner GUfunc loop          *
+***************************************/
 
 // lstsqqr_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(k)";
 
