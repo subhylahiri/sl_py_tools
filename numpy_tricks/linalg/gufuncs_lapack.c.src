@@ -2217,7 +2217,7 @@ INIT_OUTER_LOOP_4
     LINEARIZE_VDATA_t tau_in;
 
     npy_intp len_mn = len_m + len_n - len_k; // max
-    if(len_mn < len_k) {//a and tau made from wrong choice of lstsq_fm/lstsq_fn
+    if(len_mn < len_k) {//a and tau made from wrong choice of lstsq_qrm/lstsq_qrn
         //nevermind, we'll just ignore the extra elements of tau
         len_k = len_mn;
         len_mn = len_m + len_n - len_k; // max
@@ -2255,7 +2255,7 @@ INIT_OUTER_LOOP_4
 * RQRLSTSQ  *
 *************/
 
-// rqr_lstsq_signature = "(nrhs,m),(k),(n,m)->(nrhs,n)"
+// rqr_lstsq_signature = "(nrhs,m),(n,m),(k)->(nrhs,n)"
 
 static void
 @TYPE@_rqr_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
@@ -2264,10 +2264,10 @@ static void
     /*swap (A,TAU,B,X) for (B^T,A^T,TAU,X^T)
     a,b here are not the same as A,B  in docstring: a=B^T, b=A^T */
     char *rargs[] = {args[1], args[2], args[0], args[3]};
-    // dimensions = {N, len_nrhs, len_m, len_k, len_n};
+    // dimensions = {N, len_nrhs, len_m, len_n, len_k};
     // rdimensions[] = {N, len_m, len_n, len_k, len_nrhs};
-    npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[4],
-                                dimensions[3], dimensions[1]};
+    npy_intp rdimensions[] = {dimensions[0], dimensions[2], dimensions[3],
+                                dimensions[4], dimensions[1]};
     // steps = {strides_b, strides_a, strides_t, strides_x, 0-3
     //     strides_b_c, strides_b_r,                        4-5
     //     strides_a_c, strides_a_r, strides_tau,           6-8
@@ -2280,7 +2280,7 @@ static void
         steps[7], steps[6], steps[8],
         steps[5], steps[4],
         steps[10], steps[9]};
-    //now that we've swapped a,b and transposed, proceed as if we're in lstsqfd
+    //now that we've swapped a,b and transposed, proceed as if we're in qr_lstsq
     @TYPE@_qr_lstsq(rargs, rdimensions, rsteps, NULL);
 }
 

@@ -245,7 +245,7 @@ class TestLstsq(utn.TestCaseNumpy):
         # overconstrained
         a0 = gfl.rlstsq(self.yt[sctype], self.xt[sctype])
         # overconstrained
-        a, xf, tau = gfl.rlstsq_qrm(self.yt[sctype], self.xt[sctype])
+        a, xf, tau = gfl.rlstsq_qrn(self.yt[sctype], self.xt[sctype])
         with self.subTest('rlstsq(qr,over)'):
             self.assertArrayAllClose(a, a0)
         # overconstrained
