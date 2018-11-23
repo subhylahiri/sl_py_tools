@@ -31,6 +31,8 @@ class TestSolve(utn.TestCaseNumpy):
             self.yt[sctype] = transpose(self.y[sctype])
 
     def test_solve_shape(self):
+        """Check if solve, rsolve return arrays with the expected shape
+        """
         a = gfl.solve(self.x['d'], self.y['d'])
         self.assertEqual(a.shape, (2, 5, 2))
         with self.assertRaisesRegex(*utn.core_dim_err):
@@ -41,6 +43,8 @@ class TestSolve(utn.TestCaseNumpy):
         self.assertEqual(b.shape, (2, 2, 5))
 
     def test_solvelu_shape(self):
+        """Check if solve_lu, lu_solve return arrays with the expected shape
+        """
         a, xf, p = gfl.solve_lu(self.x['d'], self.y['d'])
         self.assertArrayEqual(a.shape, (2, 5, 2))
         self.assertArrayEqual(xf.shape, (2, 5, 5))
@@ -51,6 +55,8 @@ class TestSolve(utn.TestCaseNumpy):
         self.assertArrayEqual(c.shape, (3, 2, 1, 5))
 
     def test_rsolvelu_shape(self):
+        """Check if rsolve_lu, rlu_solve return arrays with the expected shape
+        """
         a, xf, p = gfl.rsolve_lu(self.w['d'], self.x['d'])
         self.assertArrayEqual(a.shape, (3, 2, 1, 5))
         self.assertArrayEqual(xf.shape, (3, 2, 5, 5))
@@ -60,6 +66,8 @@ class TestSolve(utn.TestCaseNumpy):
 
     @utn.loop_test()
     def test_solve_val(self, sctype):
+        """Check if solve, rsolve return the expected values
+        """
         a = gfl.solve(self.x[sctype], self.y[sctype])
         with self.subTest(msg='solve'):
             self.assertArrayAllClose(self.x[sctype] @ a, self.y[sctype])
@@ -69,6 +77,8 @@ class TestSolve(utn.TestCaseNumpy):
 
     @utn.loop_test()
     def test_solvelu_val(self, sctype):
+        """Check if solve_lu, lu_solve, rlu_solve return the expected values
+        """
         a0 = gfl.solve(self.x[sctype], self.y[sctype])
         a, xf, p = gfl.solve_lu(self.x[sctype], self.y[sctype])
         with self.subTest('solve0'):
@@ -82,6 +92,8 @@ class TestSolve(utn.TestCaseNumpy):
 
     @utn.loop_test()
     def test_rsolvelu_val(self, sctype):
+        """Check if rsolve_lu, lu_solve, rlu_solve return the expected values
+        """
         a0 = gfl.rsolve(self.w[sctype], self.x[sctype])
         a, xf, p = gfl.rsolve_lu(self.w[sctype], self.x[sctype])
         with self.subTest('rsolve0'):
@@ -97,6 +109,8 @@ class TestSolve(utn.TestCaseNumpy):
     @utn.errstate(invalid='raise')
     @utn.loop_test(msg='rank')
     def test_rank(self, sctype):
+        """Check if solve raises an exception when divisor is rank deficient
+        """
         yy = self.y[sctype] @ self.yt[sctype]
         with self.assertRaisesRegex(*utn.invalid_err):
             gfl.solve(yy, self.z[sctype])
@@ -105,6 +119,8 @@ class TestSolve(utn.TestCaseNumpy):
 # =============================================================================
 # %% Test lstsq
 # =============================================================================
+sh_ufuncs = [gfl.lstsq_qrm, gfl.lstsq_qrn]
+rsh_ufuncs = [gfl.rlstsq_qrm, gfl.rlstsq_qrn]
 
 
 class TestLstsq(utn.TestCaseNumpy):
@@ -135,6 +151,8 @@ class TestLstsq(utn.TestCaseNumpy):
 
     @errstate
     def test_lstsq_shape(self):
+        """Check if (r)lstsq return arrays with the expected shape
+        """
         # overconstrained
         a = gfl.lstsq(self.x['d'], self.y['d'])
         self.assertEqual(a.shape, (2, 5, 2))
@@ -146,9 +164,14 @@ class TestLstsq(utn.TestCaseNumpy):
         b = gfl.rlstsq(self.yt['d'], self.xt['d'])
         self.assertEqual(b.shape, (2, 2, 5))
 
-    @errstate
     def test_lstsqqr_shape(self):
+        """Check if lstsq_qrn, (r)qr_lstsq return arrays of the expected shape
+        """
         # overconstrained
+        a, xf, tau = gfl.lstsq_qrm(self.x['d'], self.y['d'])
+        self.assertArrayEqual(a.shape, (2, 5, 2))
+        self.assertArrayEqual(xf.shape, (2, 8, 5))
+        self.assertArrayEqual(tau.shape, (2, 8))
         a, xf, tau = gfl.lstsq_qrn(self.x['d'], self.y['d'])
         self.assertArrayEqual(a.shape, (2, 5, 2))
         self.assertArrayEqual(xf.shape, (2, 8, 5))
@@ -160,20 +183,26 @@ class TestLstsq(utn.TestCaseNumpy):
         c = gfl.rqr_lstsq(self.w['d'], xf, tau)
         self.assertArrayEqual(c.shape, (3, 2, 1, 8))
 
-    @errstate
     def test_rlstsqqr_shape(self):
+        """Check if rlstsq_qrm, (r)qr_lstsq return arrays of the expected shape
+        """
         # underconstrained
         a, xf, tau = gfl.rlstsq_qrm(self.w['d'], self.x['d'])
         self.assertArrayEqual(a.shape, (3, 2, 1, 8))
         self.assertArrayEqual(xf.shape, (3, 2, 8, 5))
         self.assertArrayEqual(tau.shape, (3, 2, 5))
+        a, xf, tau = gfl.rlstsq_qrn(self.w['d'], self.x['d'])
+        self.assertArrayEqual(a.shape, (3, 2, 1, 8))
+        self.assertArrayEqual(xf.shape, (3, 2, 8, 5))
+        self.assertArrayEqual(tau.shape, (3, 2, 8))
         # underconstrained
         b = gfl.rqr_lstsq(self.v['d'], xf, tau)
         self.assertArrayEqual(b.shape, (3, 2, 4, 8))
 
-    @errstate
     @utn.loop_test(attr_inds=1)
     def test_lstsq_val(self, sctype):
+        """Check if (r)lstsq return the expected values
+        """
         # overconstrained
         a = gfl.lstsq(self.x[sctype], self.y[sctype])
         with self.subTest(msg='lstsq(over)'):
@@ -184,86 +213,97 @@ class TestLstsq(utn.TestCaseNumpy):
         with self.subTest(msg='rlstsq(under)'):
             self.assertArrayAllClose(b @ self.x[sctype], self.v[sctype])
 
-    @errstate
     @utn.loop_test(attr_inds=1)
     def test_lstsqqr_val(self, sctype):
+        """Check if lstsq_qr{m,n}, (r)qr_lstsq return the expected values (tall)
+        """
         # overconstrained
         a0 = gfl.lstsq(self.x[sctype], self.y[sctype])
-        a, xf, tau = gfl.lstsq_qrn(self.x[sctype], self.y[sctype])
-        with self.subTest('lstsq(qr,over)'):
-            self.assertArrayAllClose(a, a0)
         # overconstrained
-        aa = gfl.qr_lstsq(xf, tau, self.y[sctype])
-        with self.subTest('(qr)lstsq(over)'):
-            self.assertArrayAllClose(aa, a0)
-        # underconstrained
-        b = gfl.rqr_lstsq(self.v[sctype], xf, tau)
-        with self.subTest('(rqr)lstsq(under)'):
-            self.assertArrayAllClose(b @ self.x[sctype], self.v[sctype])
+        for ufunc, suffix in zip(sh_ufuncs, [',cross)', ')']):
+            a, xf, tau = ufunc(self.x[sctype], self.y[sctype])
+            with self.subTest('lstsq(qr,over' + suffix):
+                self.assertArrayAllClose(a, a0)
+            # overconstrained
+            aa = gfl.qr_lstsq(xf, tau, self.y[sctype])
+            with self.subTest('(qr)lstsq(over' + suffix):
+                self.assertArrayAllClose(aa, a0)
+            # underconstrained
+            b = gfl.rqr_lstsq(self.v[sctype], xf, tau)
+            with self.subTest('(rqr)lstsq(under' + suffix):
+                self.assertArrayAllClose(b @ self.x[sctype], self.v[sctype])
 
-    @errstate
     @utn.loop_test(attr_inds=1)
     def test_rlstsqqr_val(self, sctype):
+        """Check rlstsq_qr{m,n}, (r)qr_lstsq return the expected values (wide)
+        """
         # underconstrained
         a0 = gfl.rlstsq(self.w[sctype], self.x[sctype])
         # underconstrained
-        a, xf, tau = gfl.rlstsq_qrm(self.w[sctype], self.x[sctype])
-        with self.subTest('rlstsq(qr,under)'):
-            self.assertArrayAllClose(a, a0)
-        # underconstrained
-        aa = gfl.rqr_lstsq(self.w[sctype], xf, tau)
-        with self.subTest('(rqr)rlstsq(under)'):
-            self.assertArrayAllClose(aa, a0)
-        # overconstrained
-        b = gfl.qr_lstsq(xf, tau, self.z[sctype])
-        with self.subTest('(qr)rlstsq(over)'):
-            self.assertArrayAllClose(self.xt[sctype] @ self.x[sctype] @ b,
-                                     self.xt[sctype] @ self.z[sctype])
+        for ufunc, suffix in zip(rsh_ufuncs, [')', ',cross)']):
+            a, xf, tau = ufunc(self.w[sctype], self.x[sctype])
+            with self.subTest('rlstsq(qr,under' + suffix):
+                self.assertArrayAllClose(a, a0)
+            # underconstrained
+            aa = gfl.rqr_lstsq(self.w[sctype], xf, tau)
+            with self.subTest('(rqr)rlstsq(under' + suffix):
+                self.assertArrayAllClose(aa, a0)
+            # overconstrained
+            b = gfl.qr_lstsq(xf, tau, self.z[sctype])
+            with self.subTest('(qr)rlstsq(over' + suffix):
+                self.assertArrayAllClose(self.xt[sctype] @ self.x[sctype] @ b,
+                                         self.xt[sctype] @ self.z[sctype])
 
-    @errstate
     @utn.loop_test(attr_inds=1)
     def test_lstsqqrt_val(self, sctype):
+        """Check if lstsq_qr{m,n}, (r)qr_lstsq return the expected values (wide)
+        """
         # underconstrained
         a0 = gfl.lstsq(self.xt[sctype], self.u[sctype])
         # underconstrained
-        a, xf, tau = gfl.lstsq_qrm(self.xt[sctype], self.u[sctype])
-        with self.subTest('lstsq(qr,under)'):
-            self.assertArrayAllClose(a, a0)
-        # underconstrained
-        aa = gfl.qr_lstsq(xf, tau, self.u[sctype])
-        with self.subTest('(qr)lstsq(under)'):
-            self.assertArrayAllClose(aa, a0)
-        # overconstrained
-        b = gfl.rqr_lstsq(self.zt[sctype], xf, tau)
-        with self.subTest('(rqr)lstsq(over)'):
-            self.assertArrayAllClose(b @ self.xt[sctype] @ self.x[sctype],
-                                     self.zt[sctype] @ self.x[sctype])
+        for ufunc, suffix in zip(sh_ufuncs, [')', ',cross)']):
+            a, xf, tau = ufunc(self.xt[sctype], self.u[sctype])
+            with self.subTest('lstsq(qr,under' + suffix):
+                self.assertArrayAllClose(a, a0)
+            # underconstrained
+            aa = gfl.qr_lstsq(xf, tau, self.u[sctype])
+            with self.subTest('(qr)lstsq(under' + suffix):
+                self.assertArrayAllClose(aa, a0)
+            # overconstrained
+            b = gfl.rqr_lstsq(self.zt[sctype], xf, tau)
+            with self.subTest('(rqr)lstsq(over' + suffix):
+                self.assertArrayAllClose(b @ self.xt[sctype] @ self.x[sctype],
+                                         self.zt[sctype] @ self.x[sctype])
 
-    @errstate
     @utn.loop_test(attr_inds=1)
     def test_rlstsqqrt_val(self, sctype):
+        """Check  rlstsq_qr{m,n}, (r)qr_lstsq return the expected values (tall)
+        """
         # overconstrained
         a0 = gfl.rlstsq(self.yt[sctype], self.xt[sctype])
         # overconstrained
-        a, xf, tau = gfl.rlstsq_qrn(self.yt[sctype], self.xt[sctype])
-        with self.subTest('rlstsq(qr,over)'):
-            self.assertArrayAllClose(a, a0)
-        # overconstrained
-        aa = gfl.rqr_lstsq(self.yt[sctype], xf, tau)
-        with self.subTest('(rqr)rlstsq(over)'):
-            self.assertArrayAllClose(aa, a0)
-        # underconstrained
-        b = gfl.qr_lstsq(xf, tau, self.wt[sctype])
-        with self.subTest('(qr)rlstsq(under)'):
-            self.assertArrayAllClose(self.xt[sctype] @ b, self.wt[sctype])
+        for ufunc, suffix in zip(rsh_ufuncs, [',cross)', ')']):
+            a, xf, tau = ufunc(self.yt[sctype], self.xt[sctype])
+            with self.subTest('rlstsq(qr,over' + suffix):
+                self.assertArrayAllClose(a, a0)
+            # overconstrained
+            aa = gfl.rqr_lstsq(self.yt[sctype], xf, tau)
+            with self.subTest('(rqr)rlstsq(over' + suffix):
+                self.assertArrayAllClose(aa, a0)
+            # underconstrained
+            b = gfl.qr_lstsq(xf, tau, self.wt[sctype])
+            with self.subTest('(qr)rlstsq(under' + suffix):
+                self.assertArrayAllClose(self.xt[sctype] @ b, self.wt[sctype])
 
     @unittest.expectedFailure
     @errstate
     @utn.loop_test(msg='rank')
     def test_rank(self, sctype):
+        """Check if lstsq_qr raises an exception when divisor is rank deficient
+        """
         yy = self.y[sctype] @ self.yt[sctype]
         with self.assertRaisesRegex(*utn.invalid_err):
-            gfl.lstsq(yy, self.z[sctype])
+            gfl.lstsq_qr(yy, self.z[sctype])
 
 
 # =============================================================================
