@@ -15,12 +15,17 @@ __all__ = [
         'asa',
         'errstate'
         ]
-__unittest = True
+# =============================================================================
+# %% Error specs for assertRaisesRegex
 # =============================================================================
 broadcast_err = (ValueError, 'operands could not be broadcast')
 core_dim_err = (ValueError, 'mismatch in its core dimension')
 invalid_err = (FloatingPointError, 'invalid value encountered')
+
 # =============================================================================
+# %% Trying to customise traceback display
+# =============================================================================
+__unittest = True
 
 
 def _fake_tb(lineno):
@@ -31,6 +36,10 @@ class TestResultNumpy(unittest.TextTestResult):
     def _is_relevant_tb_level(self, tb):
         f_vars = {**tb.tb_frame.f_globals, **tb.tb_frame.f_locals}
         return '__unittest' in f_vars and '__notunittest' not in f_vars
+
+# =============================================================================
+# %% TestCaseNumpy base class
+# =============================================================================
 
 
 class TestCaseNumpy(unittest.TestCase):
@@ -133,11 +142,27 @@ class TestCaseNumpy(unittest.TestCase):
             self.fail(msg)
 
 
+# =============================================================================
+# %% Helpers for TestCaseNumpy methods
+# =============================================================================
+
+
 def loop_test(msg=None, attr_name='sctype', attr_inds=slice(None)):
     """Return decorator to loop a test over a sequence attribute of a TestCase.
 
+    Decorated function must take ``attr_name`` as a keyword argument.
+
     Note: This is not a decorator - it is a function that returns a decorator.
     Even when there are no arguments, you must call it as ``@loop_test()``.
+
+    Parameters
+    ----------
+    msg: str, optional
+        message to pass to ``TestCase.subTest``.
+    attr_name: str, default:'sctype'
+        name of iterable, indexable attribute of ``TestCase`` to loop over.
+    attr_inds: int, slice, default:slice(None)
+        which elements of ``TestCase.attr_name`` to loop over.
     """
     def loop_dec(func):
         @functools.wraps(func)
@@ -151,15 +176,22 @@ def loop_test(msg=None, attr_name='sctype', attr_inds=slice(None)):
         return loop_func
     return loop_dec
 
-
 def miss_str(x, y, atol=1e-8, rtol=1e-5, equal_nan=True):
     """Returns a string describing the maximum deviation of x and y
+
+    Parameters
+    ----------
+    x,y: ndarray[float]
+        actual/desired value, must broadcast.
+    atol, rtol, equal_nan
+        arguments of ``np.allclose``.
 
     Returns
     -------
     msg: str
+        A string that looks lik the following with <> placeholders
         'Should be zero: <maximum devation>
-         or: <max dev (rel)> = <tolerance> * <max dev relative to tolerance>'
+         or: <relative-max dev> = <tolerance> * <max dev relative to tolerance>'
     """
     shape = np.broadcast(x, y).shape
     thresh = atol + rtol * np.abs(np.broadcast_to(y, shape))
@@ -167,8 +199,12 @@ def miss_str(x, y, atol=1e-8, rtol=1e-5, equal_nan=True):
     mis_frac = mismatch / thresh
     ind = np.unravel_index(np.argmax(mis_frac), mis_frac.shape)
     formatter = 'Should be zero: {:.2g}\nor: {:.2g} = {:.2g} * {:.1f} at {}'
+    if equal_nan:
+        worst = np.nanmax(mismatch)
+    else:
+        worst = np.amax(mismatch)
 
-    return formatter.format(np.nanmax(mismatch), mismatch[ind], thresh[ind],
+    return formatter.format(worst, mismatch[ind], thresh[ind],
                             mis_frac[ind], ind)
 
 
@@ -191,6 +227,15 @@ def asa(x, y, sctype):
 
 
 def randn_asa(shape, sctype):
+    """standard normal array with scalar type
+
+    Parameters
+    ----------
+    shape: tuple[int]
+        shape of arrray
+    sctype
+        a numpy scalar type code, e.g. 'f,d,g,F,D,G'
+    """
     return asa(np.random.standard_normal(shape),
                np.random.standard_normal(shape), sctype)
 

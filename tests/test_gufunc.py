@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+"""
+"""
 import unittest
 import numpy as np
 import unittest_numpy as utn
@@ -8,6 +10,10 @@ import sl_py_tools.numpy_tricks.linalg._gufuncs_lapack as gfl
 from sl_py_tools.numpy_tricks.linalg import transpose
 
 errstate = utn.errstate(invalid='raise')
+# =============================================================================
+
+# =============================================================================
+# %% Test BLAS ufuncs
 # =============================================================================
 
 
@@ -66,6 +72,11 @@ class TestBlas(utn.TestCaseNumpy):
         self.assertArrayAllClose(z, self.z[sctype])
 
 
+# =============================================================================
+# %% Test cloop ufuncs
+# =============================================================================
+
+
 class TestCloop(TestBlas):
     """Testing norm, matmul, rmatmul and rtrue_tdivide
     """
@@ -87,6 +98,11 @@ class TestCloop(TestBlas):
         zz = y / x
         self.assertArrayAllClose(z, zz)
         self.assertArrayNotAllClose(z, x / y, msg='x \\ y != x / y')
+
+
+# =============================================================================
+# %% Test qr
+# =============================================================================
 
 
 class TestQR(utn.TestCaseNumpy):

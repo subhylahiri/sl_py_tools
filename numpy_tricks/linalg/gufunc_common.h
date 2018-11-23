@@ -345,9 +345,9 @@ addUfuncs(PyObject *module, const GUFUNC_DESCRIPTOR_t guf_descriptors[],
     PyObject *dictionary;
     PyObject *version;
 
-    dictionary = PyModule_GetDict(module);
+    dictionary = PyModule_GetDict(module);  // borrowed reference
 
-    version = PyString_FromString(version_string);
+    version = PyString_FromString(version_string);  // new reference
     PyDict_SetItemString(dictionary, "__version__", version);
     Py_DECREF(version);
 
