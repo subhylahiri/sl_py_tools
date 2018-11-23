@@ -34,8 +34,9 @@ def _fake_tb(lineno):
 
 class TestResultNumpy(unittest.TextTestResult):
     def _is_relevant_tb_level(self, tb):
-        f_vars = {**tb.tb_frame.f_globals, **tb.tb_frame.f_locals}
-        return '__unittest' in f_vars and '__notunittest' not in f_vars
+        f_vars = tb.tb_frame.f_globals.copy()
+        f_vars.update(tb.tb_frame.f_locals)
+        return '__unittest' in f_vars and f_vars['__unittest']
 
 # =============================================================================
 # %% TestCaseNumpy base class

@@ -1878,7 +1878,7 @@ static void
 // lstsqqr_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(k)";
 // rlstsqqr_signature = "(nrhs,m),(n,m)->(nrhs,n),(n,m),(k)"
 // lstsqqrd_signature = "(m,n),(k),(m,nrhs)->(n,nrhs)";
-// rlstsqqrd_signature = "(nrhs,m),(k),(n,m)->(nrhs,n)"
+// rlstsqqrd_signature = "(nrhs,m),(n,m),(k)->(nrhs,n)"
 
 /**begin repeat
     #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
@@ -2195,6 +2195,7 @@ static void
 *************/
 
 // qr_lstsq_signature = "(m,n),(k),(m,nrhs)->(n,nrhs)";
+
 static void
 @TYPE@_qr_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
                 void *NPY_UNUSED(func))
