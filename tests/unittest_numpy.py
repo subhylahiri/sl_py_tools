@@ -169,7 +169,7 @@ def loop_test(msg=None, attr_name='sctype', attr_inds=slice(None)):
         @functools.wraps(func)
         def loop_func(self, *args, **kwds):
             the_attr = getattr(self, attr_name)
-#                __notunittest = True
+#                __unittest = False
             for val in the_attr[attr_inds]:
                 opts = {attr_name: val}
                 with self.subTest(msg=msg, **opts):
