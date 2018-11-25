@@ -63,6 +63,10 @@ static const char* gufuncs_lapack_version_string = "0.2.0";
 *****************************************************************************
 */
 
+/*****************
+*       QR       *
+******************/
+
 PyDoc_STRVAR(qr__doc__,
 //"qr(A: ndarray) -> (Q: ndarray, R: ndarray)\n\n"
 "QR decomposition.\n\n"
@@ -109,6 +113,10 @@ PyDoc_STRVAR(qrraw__doc__,
 "    Below the diagonal: the Householder reflectors `v`.\n"
 "tau: ndarray (...,K,)\n"
 "    Scaling factors for Householder reflectors.");
+
+/*****************
+*     SOLVE      *
+******************/
 
 PyDoc_STRVAR(solve__doc__,
 //"solve(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
@@ -208,6 +216,10 @@ PyDoc_STRVAR(rlu_solve__doc__,
 "X: ndarray (...,NRHS,N)\n"
 "    Matrix of solution vectors.");
 
+/*****************
+*     LSTSQ      *
+******************/
+
 PyDoc_STRVAR(lstsq__doc__,
 //"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
 "Least-square solution of linear system.\n\n"
@@ -263,7 +275,10 @@ PyDoc_STRVAR(lstsq_qr__doc__,
 "    Householder weights for `Q`, `K=min(M,N)`.\n\n"
 "Notes\n-----\n"
 "Nothing will fail if you make the wrong choice of `lstsq_qrm` or `lstsq_qrn`. \n"
-"You will merely waste memory from keeping unused elements of `TAU`.");
+"You will merely waste memory from keeping unused elements of `TAU`."
+"See Also\n--------\n"
+"qr in 'raw' mode."
+);
 
 PyDoc_STRVAR(rlstsq_qr__doc__,
 //"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
@@ -288,7 +303,10 @@ PyDoc_STRVAR(rlstsq_qr__doc__,
 "    Householder weights for `Q`, `K=min(M,N)`.\n\n"
 "Notes\n-----\n"
 "Nothing will fail if you make the wrong choice of `lstsq_qrm` or `lstsq_qrn`. \n"
-"You will merely waste memory from keeping unused elements of `TAU`.");
+"You will merely waste memory from keeping unused elements of `TAU`."
+"See Also\n--------\n"
+"qr in 'raw' mode."
+);
 
 PyDoc_STRVAR(qr_lstsq__doc__,
 //"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
@@ -312,7 +330,10 @@ PyDoc_STRVAR(qr_lstsq__doc__,
 "    Matrix of solution vectors.\n\n"
 "Notes\n-----\n"
 "Nothing will fail if you make the wrong choice of `lstsq_qrm` or `lstsq_qrn`. \n"
-"You will merely waste memory from keeping unused elements of `TAU`.");
+"You will merely waste memory from keeping unused elements of `TAU`."
+"See Also\n--------\n"
+"qr in 'raw' mode."
+);
 
 PyDoc_STRVAR(rqr_lstsq__doc__,
 //"lstsq(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
@@ -335,7 +356,10 @@ PyDoc_STRVAR(rqr_lstsq__doc__,
 "    Matrix of solution vectors.\n\n"
 "Notes\n-----\n"
 "Nothing will fail if you make the wrong choice of `lstsq_qrm` or `lstsq_qrn`. \n"
-"You will merely waste memory from keeping unused elements of `TAU`.");
+"You will merely waste memory from keeping unused elements of `TAU`."
+"See Also\n--------\n"
+"qr in 'raw' mode."
+);
 
 /*
 *****************************************************************************

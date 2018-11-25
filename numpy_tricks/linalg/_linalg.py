@@ -16,6 +16,8 @@ row
     Treat multi-dim array as a stack of row vectors.
 scal
     Treat multi-dim array as a stack of scalars.
+matmul
+    Matrix multiplication.
 matldiv
     Matrix division from left.
 matrdiv
@@ -23,11 +25,21 @@ matrdiv
 qr
     QR decomposition with broadcasting and subclass passing.
 """
-
+import functools
+import typing
 import numpy as np
 from numpy.linalg.linalg import transpose
-from typing import Tuple
 from . import gufuncs as gf
+
+__all__ = [
+    'col',
+    'row',
+    'scal',
+    'matmul',
+    'matldiv',
+    'matrdiv',
+    'qr',
+]
 
 # =============================================================================
 # Reshaping for linear algebra
@@ -91,7 +103,7 @@ def scal(a: np.ndarray) -> np.ndarray:
 # =============================================================================
 
 
-def return_shape_mat(x: np.ndarray, y: np.ndarray) -> Tuple[int, ...]:
+def return_shape_mat(x: np.ndarray, y: np.ndarray) -> typing.Tuple[int, ...]:
     """Shape of result of broadcasted matrix multiplication
     """
     if x.ndim == 0 or y.ndim == 0:
@@ -104,42 +116,54 @@ def return_shape_mat(x: np.ndarray, y: np.ndarray) -> Tuple[int, ...]:
     return np.broadcast(x[..., :1], y[..., :1, :]).shape
 
 
+_vec_doc = """Does matrix-matrix, matrix-vector, vector-matrix and vector-vector
+versions, with vector versions used *only* when one-dimensional.
+"""
+def _vec_wrap(gufunc, *args):
+    """Wrap a gufunc with special handling for vectors
+    """
+    @functools.wraps(gufunc)
+    def wrapper(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
+        squeeze = [False, False]
+        if x.ndim == 1:
+            x = x[None, :]
+            squeeze[0] = True
+        if y.ndim == 1:
+            y = y[:, None]
+            squeeze[1] = True
+        with np.errstate(invalid='raise'):
+            try:
+                z = gufunc(x, y, *args, **kwargs)
+            except FloatingPointError:
+                raise np.linalg.LinAlgError("Failure in linalg routine "
+                                            + gufunc.__name__)
+
+        axs = (-2,) * squeeze[0] + (-1,) * squeeze[1]
+        z = z.squeeze(axis=axs)
+        return z[()] if z.ndim == 0 else z
+    wrapper.__doc__ = wrapper.__doc__.replace("\nParameters",
+                                              "\n" + _vec_doc + "\nParameters")
+    wrapper.__doc__ = wrapper.__doc__.replace("(...,M,NRHS)",
+                                              "(...,M,NRHS) or (M,)")
+    wrapper.__doc__ = wrapper.__doc__.replace("(...,NRHS,M)",
+                                              "(...,NRHS,M) or (M,)")
+    wrapper.__doc__ = wrapper.__doc__.replace("(...,N,NRHS)",
+                                              "(...,N,NRHS) or (N,)")
+    wrapper.__doc__ = wrapper.__doc__.replace("(...,NRHS,N)",
+                                              "(...,NRHS,N) or (N,)")
+    if len(args) > 0:
+        wrapper.__doc__ = wrapper.__doc__.replace(*args)
+    return wrapper
+
 # =============================================================================
 # Division & Multiplication
 # =============================================================================
-
-
-def matmul(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
-    """Matrix product.
-
-    Does matrix-matrix, matrix-vector, vector-matrix and vector-vector versions
-    with vector versions used *only* when one-dimensional.
-
-    Parameters
-    -----------
-    X: ndarray (...,M,N) or (N,)
-        Matrix multiplying from left.
-    Y: ndarray (...,N,P) or (N,)
-        Matrix multiplying from right.
-
-    Returns
-    -------
-    Z: ndarray (...,M,P), (...,P), (...,M) or scalar
-        Result of matrix multiplication.
-    """
-    to_squeeze = [False, False]
-    if x.ndim == 1:
-        x = x[..., None, :]
-        to_squeeze[0] = True
-    if y.ndim == 1:
-        y = y[..., None, :]
-        to_squeeze[1] = True
-
-    z = gf.matmul(x, y, *args, **kwargs)
-
-    axs = (-2,) * to_squeeze[0] + (-1,) * to_squeeze[1]
-    z = z.squeeze(axis=axs)
-    return z
+_bin_doc = "It is intended for use in binary operators.\n"
+matmul = _vec_wrap(gf.matmul)
+solve = _vec_wrap(gf.solve)
+rsolve = _vec_wrap(gf.rsolve)
+lstsq = _vec_wrap(gf.lstsq, _bin_doc, "")
+rlstsq = _vec_wrap(gf.rlstsq, _bin_doc, "")
 
 
 def matldiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
@@ -153,23 +177,22 @@ def matldiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
 
     Parameters
     ----------
-    x : {(..., M, N), (..., N, N)} array_like
+    x : (..., M, N) array_like
         Divisor or Denominator.
-    y : {(..., N), (..., N, K)} array_like
+    y : {(M,), (..., M, K)} array_like
         Dividend or Numerator.
-    out : {(..., M), (..., M, K), (..., N), (..., N, K)} np.ndarray
+    out : {(N,), (..., N, K)} np.ndarray
         array to store the output in.
 
     Returns
     -------
-    z : {(..., M), (..., M, K), (..., N), (..., N, K)} np.ndarray
+    z : {(N,), (..., N, K)} np.ndarray
         Quotient. It has the same type as `x` or `y`.
 
     Raises
     ------
     LinAlgError
-        If `x` is not full rank (square) or if computation doesn't converge
-        (rectangular).
+        If `x` is not full rank or not square, and computation doesn't converge.
 
     See also
     --------
@@ -178,10 +201,10 @@ def matldiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
     """
     if x.shape[-1] == x.shape[-2]:
         try:
-            return gf.solve(x, y, *args, **kwargs)
+            return solve(x, y, *args, **kwargs)
         except (np.linalg.LinAlgError, ValueError):
             pass
-    return gf.lstsq(x, y, *args, **kwargs)
+    return lstsq(x, y, *args, **kwargs)
 
 
 def matrdiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
@@ -194,23 +217,22 @@ def matrdiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
 
     Parameters
     ----------
-    x : {(..., M), (..., K, M)} array_like
+    x : {(M,), (..., K, M)} array_like
         Dividend or Numerator.
-    y : {(..., M, N), (..., M, M)} array_like
+    y : (..., N, M) array_like
         Divisor or Denominator.
-    out : {(..., N), (..., K, N), (..., M), (..., K, M)} np.ndarray
+    out : {(N,), (..., K, N)} np.ndarray
         array to store the output in.
 
     Returns
     -------
-    z : {(..., N), (..., K, N), (..., M), (..., K, M)} np.ndarray
+    z : {(N,), (..., K, N)} np.ndarray
         Quotient. It has the same type as `x` or `y`.
 
     Raises
     ------
     LinAlgError
-        If `y` is not full rank (square) or if computation doesn't converge
-        (rectangular).
+        If `x` is not full rank or not square, and computation doesn't converge.
 
     See also
     --------
@@ -238,8 +260,8 @@ def qr(x: np.ndarray, mode: str = 'reduced') -> (np.ndarray, np.ndarray):
         Matrix to be factored.
     mode: str
         chosen from:
-        **reduced** - default, use minimum inner dimensionality,
-        **complete** - use maximum inner dimensionality,
+        **reduced** - default, use minimum inner dimensionality, ``K=min(M,N)``,
+        **complete** - use inner dimensionality ``K=M``, for square `Q`,
         **r** - return `R` only,
         **raw** - return `H,tau`, which determine `Q` and `R` (see below).
 
@@ -259,4 +281,4 @@ def qr(x: np.ndarray, mode: str = 'reduced') -> (np.ndarray, np.ndarray):
         raise ValueError('Modes known to qr: reduced, complete, r, raw.\n'
                          + 'Unknown mode: ' + mode)
     ufunc = qr_modes[mode][x.shape[-2] > x.shape[-1]]
-    return ufunc[x]
+        return ufunc(x)
