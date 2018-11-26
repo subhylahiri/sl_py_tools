@@ -34,11 +34,13 @@ Examples
 """
 
 from typing import Optional, Tuple
+from collections.abc import Sequence
 import numpy as np
 from numpy import multiply, true_divide
 from numpy.lib.mixins import _numeric_methods, NDArrayOperatorsMixin
 from . import _linalg as la
 from .gufuncs import matmul, rmatmul, solve, rsolve, lstsq, rlstsq, rtrue_divide
+from .gufuncs import vec2mat, mat2vec
 from . import convert_loop as cv
 
 
@@ -116,8 +118,8 @@ class lnarray(np.ndarray):
     `lnmatrix` : `lnarray`, but with matrix/elementwise operators swapped
     `ldarray` : class that provides another interface for matrix division.
     """
-    # Set of ufuncs that need special handling of vectors
-    vec_ufuncs = {matmul, solve, lstsq, rmatmul, rsolve, rlstsq}
+    # Set of ufuncs that need special handling of vectors (index gives case)
+    vec_ufuncs = (matmul, lstsq, solve, rlstsq, rmatmul, None, rsolve)
 
     def __new__(cls, input_array):
         # Input array is an already formed ndarray instance
@@ -133,16 +135,12 @@ class lnarray(np.ndarray):
     __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(matmul, 'matmul')
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        """Customise ufunc behaviour
+        """
         args = list(cv.conv_loop_in(lnarray, inputs)[0])
-
         if ufunc in self.vec_ufuncs:
-            to_squeeze = [False, False]
-            if args[0].ndim == 1:
-                args[0] = args[0][..., None, :]
-                to_squeeze[0] = True
-            if args[1].ndim == 1:
-                args[1] = args[1][..., None]
-                to_squeeze[1] = True
+            args[0], args[1], squeeze = vec2mat(args[0], args[1],
+                                                self.vec_ufuncs.index(ufunc))
         args = tuple(args)
 
         outputs = kwargs.pop('out', None)
@@ -159,20 +157,11 @@ class lnarray(np.ndarray):
 
         if ufunc.nout == 1:
             results = (results,)
+        if ufunc in self.vec_ufuncs and any(squeeze):
+            results = (mat2vec(results[0], squeeze),) + results[1:]
+        results = cv.conv_loop_out(self, None, results, outputs)
 
-        if ufunc in self.vec_ufuncs and any(to_squeeze):
-            axs = (-2,) * to_squeeze[0] + (-1,) * to_squeeze[1]
-            squeezable_result = results[0].squeeze(axis=axs)
-            results = (squeezable_result,) + results[1:]
-
-        results = tuple((np.asarray(result).view(type(self))
-                         if output is None else output)
-                        for result, output in zip(results, outputs))
-        if len(results) == 1:
-            if results[0].ndim == 1:
-                return results[0][()]
-            return results[0]
-        return results
+        return results[0] if len(results) == 1 else results
 
     def flattish(self, start, stop) -> 'lnarray':
         """Partial flattening.
@@ -183,25 +172,29 @@ class lnarray(np.ndarray):
         return self.reshape(newshape)
 
     def expand_dims(self, axis) -> 'lnarray':
-        """Expand the shape of the array
+        """Expand the shape of the array with length one axes
 
-        Alias of numpy.expand_dims.
-        If `axis` is a sequence, axes are added one at a time, left to right.
+        Alias of `numpy.expand_dims` when `axis` is a single `int`. If `axis` is
+        a sequence of `int`, axis numbers are relative to the *final* shape.
         """
         if isinstance(axis, int):
             return np.expand_dims(self, axis).view(type(self))
-        elif not isinstance(axis, tuple):
-            raise TypeError("axis must be an int or a tuple of ints")
+        elif not isinstance(axis, Sequence):
+            raise TypeError("axis must be an int or a sequence of ints")
         elif len(axis) == 0:
             return self
-        return self.expand_dims(axis[0]).expand_dims(axis[1:])
+        axes = np.sort(np.mod(axis, self.ndim + len(axis)))
+        if not np.diff(axes).all():
+            raise ValueError('repeated axes: '
+                             + str(axes[np.nonzero(np.diff(axes) == 0)]))
+        return self.expand_dims(axes[0]).expand_dims(axes[1:])
 
     @property
     def t(self) -> 'lnarray':
         """Transpose last two indices.
 
         Transposing last two axes fits better with `np.linalg`'s
-        broadcasting, which treats multi-dim arrays as stacks of matrices.
+        broadcasting, which treats multi-dim arrays as arrays of matrices.
 
         Parameters/Results
         ------------------
@@ -219,7 +212,7 @@ class lnarray(np.ndarray):
         ------------------
         a : lnarray, (..., N) --> expanded : lnarray, (..., 1, N)
         """
-        return self[..., None, :]
+        return self.expand_dims(-2)
 
     @property
     def c(self) -> 'lnarray':
@@ -231,7 +224,7 @@ class lnarray(np.ndarray):
         ------------------
         a : lnarray, (..., N) --> expanded : lnarray, (..., N, 1)
         """
-        return self[..., None]
+        return self.expand_dims(-1)
 
     @property
     def s(self) -> 'lnarray':
@@ -243,7 +236,7 @@ class lnarray(np.ndarray):
         ------------------
         a : lnarray, (...,) --> expanded : lnarray, (..., 1, 1)
         """
-        return self[..., None, None]
+        return self.expand_dims((-1, -2))
 
     @property
     def ur(self) -> 'lnarray':
@@ -597,10 +590,13 @@ class pinvarray(NDArrayOperatorsMixin):
         """A copy of object, but view of data"""
         return pinvarray(self._to_invert.t)
 
-    def copy(self, *args, **kwds) -> 'pinvarray':
+    def copy(self, order='C', **kwds) -> 'pinvarray':
         """Copy data"""
         my_t = type(self)
-        return my_t(self._to_invert.copy(*args, **kwds))
+        _to_invert = kwds.pop('_to_invert', None)
+        if _to_invert is None:
+            _to_invert = self._to_invert.copy(order=order)
+        return my_t(_to_invert, **kwds)
 
     def _invert(self):
         """Actually perform (pseudo)inverse

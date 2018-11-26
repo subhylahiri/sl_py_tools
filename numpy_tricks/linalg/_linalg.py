@@ -99,71 +99,14 @@ def scal(a: np.ndarray) -> np.ndarray:
 
 
 # =============================================================================
-# Shape for linear algebra
-# =============================================================================
-
-
-def return_shape_mat(x: np.ndarray, y: np.ndarray) -> typing.Tuple[int, ...]:
-    """Shape of result of broadcasted matrix multiplication
-    """
-    if x.ndim == 0 or y.ndim == 0:
-        raise ValueError('Scalar operations not supported. Use mul.')
-    if x.shape[-1] != y.shape[-2:][0]:
-        msg = 'Inner matrix dimensions mismatch: {0} and {1}.'
-        raise ValueError(msg.format(x.shape, y.shape))
-    if y.ndim == 1:
-        return x.shape[:-1]
-    return np.broadcast(x[..., :1], y[..., :1, :]).shape
-
-
-_vec_doc = """Does matrix-matrix, matrix-vector, vector-matrix and vector-vector
-versions, with vector versions used *only* when one-dimensional.
-"""
-def _vec_wrap(gufunc, *args):
-    """Wrap a gufunc with special handling for vectors
-    """
-    @functools.wraps(gufunc)
-    def wrapper(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
-        squeeze = [False, False]
-        if x.ndim == 1:
-            x = x[None, :]
-            squeeze[0] = True
-        if y.ndim == 1:
-            y = y[:, None]
-            squeeze[1] = True
-        with np.errstate(invalid='raise'):
-            try:
-                z = gufunc(x, y, *args, **kwargs)
-            except FloatingPointError:
-                raise np.linalg.LinAlgError("Failure in linalg routine "
-                                            + gufunc.__name__)
-
-        axs = (-2,) * squeeze[0] + (-1,) * squeeze[1]
-        z = z.squeeze(axis=axs)
-        return z[()] if z.ndim == 0 else z
-    wrapper.__doc__ = wrapper.__doc__.replace("\nParameters",
-                                              "\n" + _vec_doc + "\nParameters")
-    wrapper.__doc__ = wrapper.__doc__.replace("(...,M,NRHS)",
-                                              "(...,M,NRHS) or (M,)")
-    wrapper.__doc__ = wrapper.__doc__.replace("(...,NRHS,M)",
-                                              "(...,NRHS,M) or (M,)")
-    wrapper.__doc__ = wrapper.__doc__.replace("(...,N,NRHS)",
-                                              "(...,N,NRHS) or (N,)")
-    wrapper.__doc__ = wrapper.__doc__.replace("(...,NRHS,N)",
-                                              "(...,NRHS,N) or (N,)")
-    if len(args) > 0:
-        wrapper.__doc__ = wrapper.__doc__.replace(*args)
-    return wrapper
-
-# =============================================================================
 # Division & Multiplication
 # =============================================================================
-_bin_doc = "It is intended for use in binary operators.\n"
-matmul = _vec_wrap(gf.matmul)
-solve = _vec_wrap(gf.solve)
-rsolve = _vec_wrap(gf.rsolve)
-lstsq = _vec_wrap(gf.lstsq, _bin_doc, "")
-rlstsq = _vec_wrap(gf.rlstsq, _bin_doc, "")
+matmul = gf.vec_wrap(gf.matmul, 0)
+rmatmul = gf.vec_wrap(gf.rmatmul, 4)
+solve = gf.vec_wrap(gf.solve, 2)
+rsolve = gf.vec_wrap(gf.rsolve, 6)
+lstsq = gf.vec_wrap(gf.lstsq, 1)
+rlstsq = gf.vec_wrap(gf.rlstsq, 3)
 
 
 def matldiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
@@ -281,4 +224,4 @@ def qr(x: np.ndarray, mode: str = 'reduced') -> (np.ndarray, np.ndarray):
         raise ValueError('Modes known to qr: reduced, complete, r, raw.\n'
                          + 'Unknown mode: ' + mode)
     ufunc = qr_modes[mode][x.shape[-2] > x.shape[-1]]
-        return ufunc(x)
+    return ufunc(x)
