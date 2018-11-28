@@ -33,6 +33,7 @@ They raise ValueError instead of LinAlgError
 `numpy.linalg` broadcasting rules apply. 1D arrays are not dealt with here (but
 see `lnarray` class).
 """
+import functools
 import numpy as _np
 from ._gufuncs_cloop import norm, rtrue_divide  # matmul, rmatmul
 from ._gufuncs_blas import matmul, rmatmul  # norm
@@ -82,7 +83,7 @@ def vec2mat(x, y, case=0):
     return x, y, needs_squeeze
 
 
-def mat2vec(z, needs_squeeze):
+def mat2vec(z, squeeze):
     """Convert vectors to column/rowvectors for linear algebra gufuncs
     """
     axs = (-2,) * squeeze[0] + (-1,) * squeeze[1]
@@ -120,5 +121,5 @@ def vec_wrap(gufunc, case):
                                               "(...,N,NRHS) or (N,)")
     wrapper.__doc__ = wrapper.__doc__.replace("(...,NRHS,N)",
                                               "(...,NRHS,N) or (N,)")
-    wrapper.__doc__ = wrapper.__doc__.replace( _bin_doc, "")
+    wrapper.__doc__ = wrapper.__doc__.replace(_bin_doc, "")
     return wrapper

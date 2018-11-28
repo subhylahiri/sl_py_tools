@@ -39,8 +39,8 @@ import numpy as np
 from numpy import multiply, true_divide
 from numpy.lib.mixins import _numeric_methods, NDArrayOperatorsMixin
 from . import _linalg as la
-from .gufuncs import matmul, rmatmul, solve, rsolve, lstsq, rlstsq, rtrue_divide
-from .gufuncs import vec2mat, mat2vec
+from .gufuncs import matmul, rmatmul, solve, rsolve, lstsq, rlstsq
+from .gufuncs import vec2mat, mat2vec, rtrue_divide
 from . import convert_loop as cv
 
 
@@ -174,8 +174,8 @@ class lnarray(np.ndarray):
     def expand_dims(self, axis) -> 'lnarray':
         """Expand the shape of the array with length one axes
 
-        Alias of `numpy.expand_dims` when `axis` is a single `int`. If `axis` is
-        a sequence of `int`, axis numbers are relative to the *final* shape.
+        Alias of `numpy.expand_dims` when `axis` is a single `int`. If `axis`
+        is a sequence of `int`, axis numbers are relative to the *final* shape.
         """
         if isinstance(axis, int):
             return np.expand_dims(self, axis).view(type(self))
@@ -201,6 +201,19 @@ class lnarray(np.ndarray):
         a : lnarray, (..., M, N) --> transposed : lnarray, (..., N, M)
         """
         return self.swapaxes(-1, -2)
+
+    @property
+    def h(self) -> 'lnarray':
+        """Hermitian-conjugate over last two indices.
+
+        Transposing last two axes fits better with `np.linalg`'s
+        broadcasting, which treats multi-dim arrays as arrays of matrices.
+
+        Parameters/Results
+        ------------------
+        a : lnarray, (..., M, N) --> transposed : lnarray, (..., N, M)
+        """
+        return self.conj().swapaxes(-1, -2)
 
     @property
     def r(self) -> 'lnarray':
@@ -603,8 +616,8 @@ class pinvarray(NDArrayOperatorsMixin):
         """
         if self.ndim < 2:
             # scalar or vector
-            self._inverted = (self._to_invert /
-                              np.linalg.norm(self._to_invert)**2)
+            self._inverted = (self._to_invert
+                              / np.linalg.norm(self._to_invert)**2)
         elif self.ndim >= 2:
             # pinv broadcasts
             self._inverted = np.linalg.pinv(self._to_invert)

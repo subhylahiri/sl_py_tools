@@ -132,6 +132,7 @@ fortran_int_max(fortran_int x, fortran_int y) {
  * row_strides: the number bytes between consecutive rows.
  * column_strides: the number of bytes between consecutive columns.
  * output_lead_dim: BLAS/LAPACK-side leading dimension, in elements
+ * conj: should the matrix be complex conjugated?
  */
 typedef struct linearize_data_struct
 {
@@ -140,6 +141,7 @@ typedef struct linearize_data_struct
     npy_intp row_strides;
     npy_intp column_strides;
     npy_intp output_lead_dim;
+    npy_intp conj;
 } LINEARIZE_DATA_t;
 
 static NPY_INLINE void
@@ -155,6 +157,7 @@ init_linearize_data_ex(LINEARIZE_DATA_t *lin_data,
     lin_data->row_strides = row_strides;
     lin_data->column_strides = column_strides;
     lin_data->output_lead_dim = output_lead_dim;
+    lin_data->conj = 0;
 }
 
 static NPY_INLINE void
@@ -168,6 +171,35 @@ init_linearize_data(LINEARIZE_DATA_t *lin_data,
         lin_data, rows, columns, row_strides, column_strides, columns);
 }
 
+static NPY_INLINE void
+init_linearize_data_exc(LINEARIZE_DATA_t *lin_data,
+                        npy_intp rows,
+                        npy_intp columns,
+                        npy_intp row_strides,
+                        npy_intp column_strides,
+                        npy_intp output_lead_dim,
+                        npy_intp conj)
+{
+    lin_data->rows = rows;
+    lin_data->columns = columns;
+    lin_data->row_strides = row_strides;
+    lin_data->column_strides = column_strides;
+    lin_data->output_lead_dim = output_lead_dim;
+    lin_data->conj = conj;
+}
+
+static NPY_INLINE void
+init_linearize_datac(LINEARIZE_DATA_t *lin_data,
+                    npy_intp rows,
+                    npy_intp columns,
+                    npy_intp row_strides,
+                    npy_intp column_strides,
+                    npy_intp conj)
+{
+    init_linearize_data_exc(
+        lin_data, rows, columns, row_strides, column_strides, columns, conj);
+}
+
 /*
  * this struct contains information about how to linearize a vector in a local
  * buffer so that it can be used by blas functions.  All strides are specified
@@ -175,13 +207,14 @@ init_linearize_data(LINEARIZE_DATA_t *lin_data,
  *
  * len: number of elements in the vector
  * strides: the number bytes between consecutive elements.
- */
+ * conj: should the vector be complex conjugated?
+*/
 typedef struct linearize_vdata_struct
 {
   npy_intp len;
   npy_intp strides;
+  npy_intp conj;
 } LINEARIZE_VDATA_t;
-
 
 static NPY_INLINE void
 init_linearize_vdata(LINEARIZE_VDATA_t *lin_data,
@@ -190,6 +223,18 @@ init_linearize_vdata(LINEARIZE_VDATA_t *lin_data,
 {
     lin_data->len = len;
     lin_data->strides = strides;
+    lin_data->conj = 0;
+}
+
+static NPY_INLINE void
+init_linearize_vdatac(LINEARIZE_VDATA_t *lin_data,
+                    npy_intp len,
+                    npy_intp strides,
+                    npy_intp conj)
+{
+    lin_data->len = len;
+    lin_data->strides = strides;
+    lin_data->conj = conj;
 }
 
 #endif

@@ -2,7 +2,7 @@
 """
 """
 import unittest
-import numpy as np
+# import numpy as np
 import unittest_numpy as utn
 import sl_py_tools.numpy_tricks.linalg as la
 
@@ -15,7 +15,8 @@ errstate = utn.errstate(invalid='raise')
 
 
 class TestShape(utn.TestCaseNumpy):
-    """Testing norm, matmul and rmatmul"""
+    """Testing row, col, scal and transpose"""
+
     def setUp(self):
         super().setUp()
         self.sctype.append('i')
@@ -27,6 +28,7 @@ class TestShape(utn.TestCaseNumpy):
         """Check that norm returns arrays with the expected shape
         """
         # shape
+        self.assertEqual(la.transpose(self.x['d']).shape, (2, 5, 3))
 
 
 # =============================================================================

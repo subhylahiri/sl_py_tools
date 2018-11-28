@@ -12,8 +12,11 @@ errstate = utn.errstate(invalid='raise')
 # %% Test solve
 # =============================================================================
 
+
+@unittest.skip('works')
 class TestSolve(utn.TestCaseNumpy):
     """Testing (r)solve, (r)solve_lu and (r)lu_solve"""
+
     def setUp(self):
         super().setUp()
         self.x = {}
@@ -125,6 +128,7 @@ rsh_ufuncs = [gfl.rlstsq_qrm, gfl.rlstsq_qrn]
 
 class TestLstsq(utn.TestCaseNumpy):
     """Testing (r)lstsq, (r)lstsq_qr? and (r)qr_lstsq"""
+
     def setUp(self):
         super().setUp()
         self.u = {}
@@ -144,10 +148,10 @@ class TestLstsq(utn.TestCaseNumpy):
             self.x[sctype] = utn.randn_asa((2, 8, 5), sctype)
             self.y[sctype] = utn.randn_asa((8, 2), sctype)
             self.z[sctype] = utn.randn_asa((3, 1, 8, 4), sctype)
-            self.wt[sctype] = transpose(self.w[sctype])
-            self.xt[sctype] = transpose(self.x[sctype])
-            self.yt[sctype] = transpose(self.y[sctype])
-            self.zt[sctype] = transpose(self.z[sctype])
+            self.wt[sctype] = transpose(self.w[sctype]).conj()
+            self.xt[sctype] = transpose(self.x[sctype]).conj()
+            self.yt[sctype] = transpose(self.y[sctype]).conj()
+            self.zt[sctype] = transpose(self.z[sctype]).conj()
 
     @errstate
     def test_lstsq_shape(self):
@@ -199,7 +203,8 @@ class TestLstsq(utn.TestCaseNumpy):
         b = gfl.rqr_lstsq(self.v['d'], xf, tau)
         self.assertArrayEqual(b.shape, (3, 2, 4, 8))
 
-    @utn.loop_test(attr_inds=1)
+    @unittest.skip('works')
+    @utn.loop_test(attr_inds=3)
     def test_lstsq_val(self, sctype):
         """Check if (r)lstsq return the expected values
         """
@@ -213,9 +218,10 @@ class TestLstsq(utn.TestCaseNumpy):
         with self.subTest(msg='rlstsq(under)'):
             self.assertArrayAllClose(b @ self.x[sctype], self.v[sctype])
 
-    @utn.loop_test(attr_inds=1)
+    @unittest.skip('works')
+    @utn.loop_test(attr_inds=3)
     def test_lstsqqr_val(self, sctype):
-        """Check if lstsq_qr{m,n}, (r)qr_lstsq return the expected values (tall)
+        """Check lstsq_qr{m,n}, (r)qr_lstsq return the expected values (tall)
         """
         # overconstrained
         a0 = gfl.lstsq(self.x[sctype], self.y[sctype])
@@ -233,14 +239,14 @@ class TestLstsq(utn.TestCaseNumpy):
             with self.subTest('(rqr)lstsq(under' + suffix):
                 self.assertArrayAllClose(b @ self.x[sctype], self.v[sctype])
 
-    @utn.loop_test(attr_inds=1)
+    @utn.loop_test(attr_inds=3)
     def test_rlstsqqr_val(self, sctype):
         """Check rlstsq_qr{m,n}, (r)qr_lstsq return the expected values (wide)
         """
         # underconstrained
         a0 = gfl.rlstsq(self.w[sctype], self.x[sctype])
         # underconstrained
-        for ufunc, suffix in zip(rsh_ufuncs, [')', ',cross)']):
+        for ufunc, suffix in zip(rsh_ufuncs[:1], [')', ',cross)']):
             a, xf, tau = ufunc(self.w[sctype], self.x[sctype])
             with self.subTest('rlstsq(qr,under' + suffix):
                 self.assertArrayAllClose(a, a0)
@@ -254,9 +260,10 @@ class TestLstsq(utn.TestCaseNumpy):
                 self.assertArrayAllClose(self.xt[sctype] @ self.x[sctype] @ b,
                                          self.xt[sctype] @ self.z[sctype])
 
-    @utn.loop_test(attr_inds=1)
+    @unittest.skip('works')
+    @utn.loop_test(attr_inds=3)
     def test_lstsqqrt_val(self, sctype):
-        """Check if lstsq_qr{m,n}, (r)qr_lstsq return the expected values (wide)
+        """Check lstsq_qr{m,n}, (r)qr_lstsq return the expected values (wide)
         """
         # underconstrained
         a0 = gfl.lstsq(self.xt[sctype], self.u[sctype])
@@ -275,14 +282,15 @@ class TestLstsq(utn.TestCaseNumpy):
                 self.assertArrayAllClose(b @ self.xt[sctype] @ self.x[sctype],
                                          self.zt[sctype] @ self.x[sctype])
 
-    @utn.loop_test(attr_inds=1)
+    # @unittest.skip('speed')
+    @utn.loop_test(attr_inds=3)
     def test_rlstsqqrt_val(self, sctype):
-        """Check  rlstsq_qr{m,n}, (r)qr_lstsq return the expected values (tall)
+        """Check rlstsq_qr{m,n}, (r)qr_lstsq return the expected values (tall)
         """
         # overconstrained
         a0 = gfl.rlstsq(self.yt[sctype], self.xt[sctype])
         # overconstrained
-        for ufunc, suffix in zip(rsh_ufuncs, [',cross)', ')']):
+        for ufunc, suffix in zip(rsh_ufuncs[:1], [',cross)', ')']):
             a, xf, tau = ufunc(self.yt[sctype], self.xt[sctype])
             with self.subTest('rlstsq(qr,over' + suffix):
                 self.assertArrayAllClose(a, a0)
@@ -295,6 +303,7 @@ class TestLstsq(utn.TestCaseNumpy):
             with self.subTest('(qr)rlstsq(under' + suffix):
                 self.assertArrayAllClose(self.xt[sctype] @ b, self.wt[sctype])
 
+    @unittest.skip('speed')
     @unittest.expectedFailure
     @errstate
     @utn.loop_test(msg='rank')

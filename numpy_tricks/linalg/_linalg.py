@@ -25,8 +25,6 @@ matrdiv
 qr
     QR decomposition with broadcasting and subclass passing.
 """
-import functools
-import typing
 import numpy as np
 from numpy.linalg.linalg import transpose
 from . import gufuncs as gf
@@ -135,7 +133,7 @@ def matldiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
     Raises
     ------
     LinAlgError
-        If `x` is not full rank or not square, and computation doesn't converge.
+        If `x` is not invertible and `lstsq` doesn't converge.
 
     See also
     --------
@@ -175,7 +173,7 @@ def matrdiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
     Raises
     ------
     LinAlgError
-        If `x` is not full rank or not square, and computation doesn't converge.
+        If `x` is not invertible and `lstsq` doesn't converge.
 
     See also
     --------
@@ -203,22 +201,25 @@ def qr(x: np.ndarray, mode: str = 'reduced') -> (np.ndarray, np.ndarray):
         Matrix to be factored.
     mode: str
         chosen from:
-        **reduced** - default, use minimum inner dimensionality, ``K=min(M,N)``,
+        **reduced** - default, use minimum inner dimensionality ``K=min(M,N)``,
         **complete** - use inner dimensionality ``K=M``, for square `Q`,
         **r** - return `R` only,
         **raw** - return `H,tau`, which determine `Q` and `R` (see below).
 
     Returns
     -------
-    Q: ndarray (...,M,K)
-        Matrix with orthonormal columns. Modes: `reduced, complete`.
-    R: ndarray (...,K,N)
-        Matrix with zeros below the diagonal. Modes: `reduced, complete, r`.
-    H: ndarray (...,N,M)
-        Transpose of matrix for use in Fortran. Above and on the diagonal: `R`.
-        Below the diagonal: the Householder reflectors `v`. Modes: `raw`.
-    tau: ndarray (...,K,)
-        Scaling factors for Householder reflectors. Modes: `raw`.
+    Q: ndarray (...,M,K). Modes: `reduced, complete`.
+        Matrix with orthonormal columns.
+    R: ndarray (...,K,N). Modes: `reduced, complete, r`.
+        Matrix with zeros below the diagonal.
+    H: ndarray (...,N,M). Modes: `raw`.
+        Transpose of matrix for use in Fortran. Before transpose, it contained
+        the following information:
+            On & super-diagonal: non-zero part of `R`.
+            Sub-diagonal: lower part of Householder reflectors `v`, in columns.
+    tau: ndarray (...,K,). Modes: `raw`.
+        Scaling factors for Householder reflectors. The unit normal to the
+        reflection plane is ``V = sqrt(tau/2) [0 ... 0 1 v^T]``.
     """
     if mode not in qr_modes.keys():
         raise ValueError('Modes known to qr: reduced, complete, r, raw.\n'

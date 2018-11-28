@@ -275,7 +275,7 @@ PyDoc_STRVAR(lstsq_qr__doc__,
 "    Householder weights for `Q`, `K=min(M,N)`.\n\n"
 "Notes\n-----\n"
 "Nothing will fail if you make the wrong choice of `lstsq_qrm` or `lstsq_qrn`. \n"
-"You will merely waste memory from keeping unused elements of `TAU`."
+"You will merely waste memory from keeping unused elements of `TAU`.\n"
 "See Also\n--------\n"
 "qr in 'raw' mode."
 );
@@ -303,7 +303,7 @@ PyDoc_STRVAR(rlstsq_qr__doc__,
 "    Householder weights for `Q`, `K=min(M,N)`.\n\n"
 "Notes\n-----\n"
 "Nothing will fail if you make the wrong choice of `lstsq_qrm` or `lstsq_qrn`. \n"
-"You will merely waste memory from keeping unused elements of `TAU`."
+"You will merely waste memory from keeping unused elements of `TAU`.\n"
 "See Also\n--------\n"
 "qr in 'raw' mode."
 );
@@ -330,7 +330,7 @@ PyDoc_STRVAR(qr_lstsq__doc__,
 "    Matrix of solution vectors.\n\n"
 "Notes\n-----\n"
 "Nothing will fail if you make the wrong choice of `lstsq_qrm` or `lstsq_qrn`. \n"
-"You will merely waste memory from keeping unused elements of `TAU`."
+"You will merely waste memory from keeping unused elements of `TAU`.\n"
 "See Also\n--------\n"
 "qr in 'raw' mode."
 );
@@ -356,7 +356,7 @@ PyDoc_STRVAR(rqr_lstsq__doc__,
 "    Matrix of solution vectors.\n\n"
 "Notes\n-----\n"
 "Nothing will fail if you make the wrong choice of `lstsq_qrm` or `lstsq_qrn`. \n"
-"You will merely waste memory from keeping unused elements of `TAU`."
+"You will merely waste memory from keeping unused elements of `TAU`.\n"
 "See Also\n--------\n"
 "qr in 'raw' mode."
 );
@@ -366,7 +366,7 @@ PyDoc_STRVAR(rqr_lstsq__doc__,
 **                   BLAS/Lapack calling macros                            **
 *****************************************************************************
 */
-
+static char char_C = 'C';
 static char char_F = 'F';
 static char char_L = 'L';
 static char char_N = 'N';
@@ -457,9 +457,13 @@ FNAME(@trsm@)(char *side, char *uplo, char *trans, char *diag,
 /**begin repeat
     #typ = f2c_complex, f2c_doublecomplex#
     #rtyp = float, double#
+    #lacgv = clacgv, zlacgv#
     #gelsd = sgelsd, dgelsd#
     #gclsd = cgelsd, zgelsd#
 */
+/* complex conjugate */
+extern void
+FNAME(@lacgv@)(int *n, @typ@ *x, int *incx);
 
 /* least square solution of a x = b for x */
 extern void
@@ -487,15 +491,18 @@ FNAME(@gclsd@)(int *m, int *n, int *nrhs,
 /**begin repeat
     #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
     #typ = float, double, COMPLEX_t, DOUBLECOMPLEX_t#
+    #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
     #copy = scopy, dcopy, ccopy, zcopy#
+    #lacgv = clacgv, zlacgv, clacgv, zlacgv#
     #zero = s_zero, d_zero, c_zero, z_zero#
     #nan = s_nan, d_nan, c_nan, z_nan#
+    #cmplx = 0, 0, 1, 1#
 */
 
 static NPY_INLINE void *
 linearize_@TYPE@_matrix(void *dst_in,
-                         const void *src_in,
-                         const LINEARIZE_DATA_t* data)
+                        const void *src_in,
+                        const LINEARIZE_DATA_t* data)
 {
     @typ@ *src = (@typ@ *) src_in;
     @typ@ *dst = (@typ@ *) dst_in;
@@ -527,8 +534,13 @@ linearize_@TYPE@_matrix(void *dst_in,
              */
             for (j = 0; j < columns; ++j) {
                 memcpy((@typ@*)dst + j, (@typ@*)src, sizeof(@typ@));
+                }
             }
+#if @cmplx@
+            if (data->conj) {
+                FNAME(@lacgv@)(&columns, (void*)dst, &one);
             }
+#endif
             src += data->row_strides/sizeof(@typ@);
             dst += data->output_lead_dim;
         }
@@ -554,6 +566,11 @@ delinearize_@TYPE@_matrix(void *dst_in,
           (fortran_int)(data->column_strides/sizeof(@typ@));
         fortran_int one = 1;
         for (i = 0; i < data->rows; i++) {
+#if @cmplx@
+            if (data->conj) {
+                FNAME(@lacgv@)(&columns, (void*)src, &one);
+            }
+#endif
             if (column_strides > 0) {
                 FNAME(@copy@)(&columns,
                               (void*)src, &one,
@@ -703,6 +720,11 @@ linearize_@TYPE@_vec(void *dst_in,
             for (j = 0; j < len; ++j) {
                 memcpy((@typ@*)dst + j, (@typ@*)src, sizeof(@typ@));
             }
+#if @cmplx@
+        if (data->conj) {
+            FNAME(@lacgv@)(&len, (void*)dst, &one);
+        }
+#endif
         }
         return rv;
     } else {
@@ -723,6 +745,11 @@ delinearize_@TYPE@_vec(void *dst_in,
         fortran_int len = (fortran_int)data->len;
         fortran_int strides = (fortran_int)(data->strides/sizeof(@typ@));
         fortran_int one = 1;
+#if @cmplx@
+        if (data->conj) {
+            FNAME(@lacgv@)(&len, (void*)src, &one);
+        }
+#endif
         if (strides > 0) {
             FNAME(@copy@)(&len,
                           (void*)src, &one,
@@ -763,6 +790,15 @@ nan_@TYPE@_vec(void *dst_in, const LINEARIZE_VDATA_t* data)
     }
 }
 
+static NPY_INLINE fortran_int
+@TYPE@_real_int(@ftyp@ val)
+{
+#if @cmplx@
+    return (fortran_int)val.r;
+#else
+    return (fortran_int)val;
+#endif
+}
 /**end repeat**/
 
 static NPY_INLINE void *
@@ -812,22 +848,6 @@ delinearize_INT_vec(void *dst_in,
         return src;
     }
 }
-
-/**begin repeat
-    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
-    #typ = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
-    #cmplx = 0, 0, 1, 1#
-*/
-static NPY_INLINE fortran_int
-@TYPE@_real_int(@typ@ val)
-{
-#if @cmplx@
-    return (fortran_int)val.r;
-#else
-    return (fortran_int)val;
-#endif
-}
-/**end repeat**/
 
 /*
 *****************************************************************************
@@ -1918,6 +1938,7 @@ static void
     #laset = slaset, dlaset, claset, zlaset#
     #zero = s_zero, d_zero, c_zero.f, z_zero.f#
     #one = s_one, d_one, c_one.f, z_one.f#
+    #trans = char_T, char_T, char_C, char_C#
     #cmplx = 0, 0, 1, 1#
 */
 
@@ -1942,7 +1963,7 @@ call_@geqrs@(GEQRF_PARAMS_t *params)
     //                 params->A, &params->LDA, params->T, params->B, &params->LDB,
     //                 params->WQ, &params->LWQ, &params->INFO);
     // B is modified by ?ORMQR to carry Q^T B
-    LAPACK(@ormqr@)(&char_L, &char_T, &params->M, &params->NC, &params->K,
+    LAPACK(@ormqr@)(&char_L, &@trans@, &params->M, &params->NC, &params->K,
                     params->A, &params->LDA, params->T, params->B, &params->LDB,
                     params->WQ, &params->LWQ, &params->INFO);
     // B is modified by ?TRSM to carry R^-1 B
@@ -1969,7 +1990,7 @@ call_@gelqs@(GEQRF_PARAMS_t *params)
                     params->BZ, &params->LDB);
     }
     // B is modified by ?ORMLQ to carry Q^T B
-    LAPACK(@ormlq@)(&char_L, &char_T, &params->N, &params->NC, &params->K,
+    LAPACK(@ormlq@)(&char_L, &@trans@, &params->N, &params->NC, &params->K,
                     params->A, &params->LDA, params->T, params->B, &params->LDB,
                     params->WQ, &params->LWQ, &params->INFO);
 }
@@ -1979,7 +2000,7 @@ static NPY_INLINE void
 call_@ormqr@(GEQRF_PARAMS_t *params)
 {
     // B is modified by ?ORMQR to carry Q^T B
-    LAPACK(@ormqr@)(&char_L, &char_T, &params->M, &params->NC, &params->K,
+    LAPACK(@ormqr@)(&char_L, &@trans@, &params->M, &params->NC, &params->K,
                     params->A, &params->LDA, params->T, params->B, &params->LDB,
                     params->WQ, &params->LWQ, &params->INFO);
 }
@@ -2108,8 +2129,7 @@ release_@geqrs@(GEQRF_PARAMS_t *params)
 // lstsqqr_signature = "(m,n),(m,nrhs)->(n,nrhs),(m,n),(k)";
 
 static void
-@TYPE@_lstsq_qr(char **args, npy_intp *dimensions, npy_intp *steps,
-                void *NPY_UNUSED(func))
+@TYPE@_do_lstsq_qr(char **args, npy_intp *dimensions, npy_intp *steps, int conj)
 {
 INIT_OUTER_LOOP_5
     npy_intp len_m = *dimensions++;  // rows of a, b
@@ -2136,11 +2156,11 @@ INIT_OUTER_LOOP_5
     //We'll just leave the extra elements of tau unset.
 
     if(init_@geqrs@(&params, len_m, len_n, len_nrhs, 1)){
-        init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
-        init_linearize_data_ex(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn);
-        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
-        init_linearize_data(&a_out, len_n, len_m, stride_af_c, stride_af_r);
-        init_linearize_vdata(&tau_out, len_k, stride_tau);
+        init_linearize_datac(&a_in, len_n, len_m, stride_a_c, stride_a_r, conj);
+        init_linearize_data_exc(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn, conj);
+        init_linearize_data_exc(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn, conj);
+        init_linearize_datac(&a_out, len_n, len_m, stride_af_c, stride_af_r, conj);
+        init_linearize_vdatac(&tau_out, len_k, stride_tau, conj);
 
         BEGIN_OUTER_LOOP_5
             int not_ok;
@@ -2158,8 +2178,6 @@ INIT_OUTER_LOOP_5
                 nan_@TYPE@_matrix(args[3], &a_out);
                 nan_@TYPE@_vec(args[4], &tau_out);
             } else {
-                delinearize_@TYPE@_matrix(args[3], params.A, &a_out);
-                delinearize_@TYPE@_vec(args[4], params.T, &tau_out);
                 if (underconstrained) {
                     call_@gelqs@(&params);
                 } else {
@@ -2171,6 +2189,8 @@ INIT_OUTER_LOOP_5
                     nan_@TYPE@_matrix(args[2], &x_out);
                 } else {
                     delinearize_@TYPE@_matrix(args[2], params.B, &x_out);
+                    delinearize_@TYPE@_matrix(args[3], params.A, &a_out);
+                    delinearize_@TYPE@_vec(args[4], params.T, &tau_out);
                 }
             }
         END_OUTER_LOOP_5
@@ -2179,6 +2199,11 @@ INIT_OUTER_LOOP_5
     set_fp_invalid_or_clear(error_occurred);
 }
 
+@TYPE@_lstsq_qr(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+    @TYPE@_do_lstsq_qr(args, dimensions, steps, 0);
+}
 /************
 * RLSTSQQR   *
 *************/
@@ -2211,7 +2236,7 @@ static void
         steps[10], steps[9],
         steps[12], steps[11], steps[13]};
     //now that we've swapped a,b and transposed, proceed as if we're in lstsqf
-    @TYPE@_lstsq_qr(rargs, rdimensions, rsteps, NULL);
+    @TYPE@_do_lstsq_qr(rargs, rdimensions, rsteps, 1);
 }
 
 /************
@@ -2221,8 +2246,7 @@ static void
 // qr_lstsq_signature = "(m,n),(k),(m,nrhs)->(n,nrhs)";
 
 static void
-@TYPE@_qr_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
-                void *NPY_UNUSED(func))
+@TYPE@_do_qr_lstsq(char **args, npy_intp *dimensions, npy_intp *steps, int conj)
 {
 INIT_OUTER_LOOP_4
     npy_intp len_m = *dimensions++;  // rows of a, b
@@ -2248,10 +2272,10 @@ INIT_OUTER_LOOP_4
         len_mn = len_m + len_n - len_k; // max
     }
     if(init_@geqrs@(&params, len_m, len_n, len_nrhs, 0)){
-        init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
-        init_linearize_vdata(&tau_in, len_k, stride_tau);
-        init_linearize_data_ex(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn);
-        init_linearize_data_ex(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn);
+        init_linearize_datac(&a_in, len_n, len_m, stride_a_c, stride_a_r, conj);
+        init_linearize_vdatac(&tau_in, len_k, stride_tau, conj);
+        init_linearize_data_exc(&b_in, len_nrhs, len_m, stride_b_c, stride_b_r, len_mn, conj);
+        init_linearize_data_exc(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r, len_mn, conj);
 
         BEGIN_OUTER_LOOP_4
             int not_ok;
@@ -2276,6 +2300,12 @@ INIT_OUTER_LOOP_4
     set_fp_invalid_or_clear(error_occurred);
 }
 
+static void
+@TYPE@_qr_lstsq(char **args, npy_intp *dimensions, npy_intp *steps,
+                void *NPY_UNUSED(func))
+{
+    @TYPE@_do_qr_lstsq(args, dimensions, steps, 0);
+}
 /************
 * RQRLSTSQ  *
 *************/
@@ -2306,7 +2336,7 @@ static void
         steps[5], steps[4],
         steps[10], steps[9]};
     //now that we've swapped a,b and transposed, proceed as if we're in qr_lstsq
-    @TYPE@_qr_lstsq(rargs, rdimensions, rsteps, NULL);
+    @TYPE@_do_qr_lstsq(rargs, rdimensions, rsteps, 1);
 }
 
 /**end repeat**/

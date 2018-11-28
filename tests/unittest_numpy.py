@@ -71,9 +71,10 @@ class TestCaseNumpy(unittest.TestCase):
     assertArrayNotGreater
         Calls numpy.all(numpy.less_equal(...)).
     """
+
     def setUp(self):
         self.sctype = ['f', 'd', 'F', 'D']
-        self.all_close_opts = {'atol': 1e-5, 'rtol': 1e-5, 'equal_nan': True}
+        self.all_close_opts = {'atol': 1e-5, 'rtol': 1e-5, 'equal_nan': False}
         self.addTypeEqualityFunc(np.ndarray, self.assertArrayAllClose)
         self.addTypeEqualityFunc(la.lnarray, self.assertArrayAllClose)
 
@@ -177,6 +178,7 @@ def loop_test(msg=None, attr_name='sctype', attr_inds=slice(None)):
         return loop_func
     return loop_dec
 
+
 def miss_str(x, y, atol=1e-8, rtol=1e-5, equal_nan=True):
     """Returns a string describing the maximum deviation of x and y
 
@@ -192,7 +194,7 @@ def miss_str(x, y, atol=1e-8, rtol=1e-5, equal_nan=True):
     msg: str
         A string that looks lik the following with <> placeholders
         'Should be zero: <maximum devation>
-         or: <relative-max dev> = <tolerance> * <max dev relative to tolerance>'
+        or: <relative-max dev> = <tolerance> * <max dev relative to tolerance>'
     """
     shape = np.broadcast(x, y).shape
     thresh = atol + rtol * np.abs(np.broadcast_to(y, shape))
