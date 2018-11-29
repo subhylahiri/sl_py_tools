@@ -80,6 +80,8 @@ def vec2mat(x, y, case=0):
         if y_ax < 2:
             y = _np.expand_dims(y, 1 - y_ax)
             needs_squeeze[1] = True
+    if case == 4:
+        needs_squeeze = [x for x in reversed(needs_squeeze)]
     return x, y, needs_squeeze
 
 
@@ -91,8 +93,9 @@ def mat2vec(z, squeeze):
     return z[()] if z.ndim == 0 else z
 
 
-_vec_doc = """Does matrix-matrix, matrix-vector, vector-matrix and vector-vector
-versions, with vector versions used *only* when one-dimensional.
+_vec_doc = """
+Does matrix-matrix, matrix-vector, vector-matrix and vector-vector versions,
+with vector versions used *only* when one-dimensional.
 """
 _bin_doc = "It is intended for use in binary operators.\n"
 

@@ -26,7 +26,7 @@ qr
     QR decomposition with broadcasting and subclass passing.
 """
 import numpy as np
-from numpy.linalg.linalg import transpose
+import numpy.linalg.linalg as nla
 from . import gufuncs as gf
 
 __all__ = [
@@ -42,6 +42,25 @@ __all__ = [
 # =============================================================================
 # Reshaping for linear algebra
 # =============================================================================
+
+
+def transpose(a: np.ndarray) -> np.ndarray:
+    """Transpose last two indices.
+
+    Transposing last two indices fits better with `np.linalg`'s broadcasting,
+    which treats multi-dim arrays as stacks of matrices.
+
+    Parameters
+    ----------
+    a : np.ndarray, (..., M, N)
+
+    Returns
+    -------
+    transposed : np.ndarray, (..., N, M)
+    """
+    if a.ndim < 2:
+        return a
+    return nla.transpose(a)
 
 
 def col(a: np.ndarray) -> np.ndarray:
@@ -140,7 +159,7 @@ def matldiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
     `np.linalg.solve` : performs exact matrix division.
     `np.linalg.lstsq` : performs least-square matrix division.
     """
-    if x.shape[-1] == x.shape[-2]:
+    if x.ndim > 1 and x.shape[-1] == x.shape[-2]:
         try:
             return solve(x, y, *args, **kwargs)
         except (np.linalg.LinAlgError, ValueError):
@@ -152,8 +171,8 @@ def matrdiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
     """Matrix division from right.
 
     Computes :math:`z = x / y = x y^{-1}`, or :math:`x y^+` if y isn't square.
-    Pseudo-inverse version uses `gufunc.lstsq`.
-    Full inverse version uses `gufunc.solve`.
+    Pseudo-inverse version uses `gufunc.rlstsq`.
+    Full inverse version uses `gufunc.rsolve`.
     Both versions broadcast using gufunc machinery.
 
     Parameters
@@ -180,7 +199,12 @@ def matrdiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
     `np.linalg.solve` : performs exact matrix division.
     `np.linalg.lstsq` : performs least-square matrix division.
     """
-    return transpose(matldiv(transpose(y), transpose(x), *args, **kwargs))
+    if y.ndim > 1 and y.shape[-1] == y.shape[-2]:
+        try:
+            return rsolve(x, y, *args, **kwargs)
+        except (np.linalg.LinAlgError, ValueError):
+            pass
+    return rlstsq(x, y, *args, **kwargs)
 
 
 qr_modes = {'reduced': (gf.qr_m, gf.qr_n),
