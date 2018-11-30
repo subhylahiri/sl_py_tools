@@ -112,8 +112,8 @@ class TestQR(utn.TestCaseNumpy):
             self.assertArrayAllClose(r, rr)
 
     @utn.loop_test(attr_inds=1)
-    def test_qr_raw(self, sctype):
-        """Check that qr_rawm, qr_rawn return the expected values
+    def test_qr_rawm(self, sctype):
+        """Check that qr_rawm returns the expected values
         """
         rr = gfl.qr_m(self.wide[sctype])[1]
         n = rr.shape[-2]
@@ -133,6 +133,10 @@ class TestQR(utn.TestCaseNumpy):
         with self.subTest(msg='h_m'):
             self.assertArrayAllClose(r, self.wide[sctype])
 
+    @utn.loop_test(attr_inds=1)
+    def test_qr_rawn(self, sctype):
+        """Check that qr_rawn returns the expected values
+        """
         rr = gfl.qr_n(self.tall[sctype])[1]
         n = rr.shape[-1]
         ht, tau = gfl.qr_rawn(self.tall[sctype])
@@ -158,32 +162,26 @@ sh_ufuncs = [gfl.lstsq_qrm, gfl.lstsq_qrn]
 rsh_ufuncs = [gfl.rlstsq_qrm, gfl.rlstsq_qrn]
 
 
-class TestLstsq(utn.TestCaseNumpy):
+class TestLstsqShape(utn.TestCaseNumpy):
     """Testing (r)lstsq, (r)lstsq_qr? and (r)qr_lstsq"""
 
     def setUp(self):
         super().setUp()
-        self.u = {}
         self.v = {}
         self.w = {}
         self.x = {}
         self.y = {}
         self.z = {}
-        self.wt = {}
         self.xt = {}
         self.yt = {}
-        self.zt = {}
         for sctype in self.sctype:
-            self.u[sctype] = utn.randn_asa((5, 4), sctype)
             self.v[sctype] = utn.randn_asa((4, 5), sctype)
             self.w[sctype] = utn.randn_asa((3, 1, 1, 5), sctype)
             self.x[sctype] = utn.randn_asa((2, 8, 5), sctype)
             self.y[sctype] = utn.randn_asa((8, 2), sctype)
             self.z[sctype] = utn.randn_asa((3, 1, 8, 4), sctype)
-            self.wt[sctype] = transpose(self.w[sctype]).conj()
             self.xt[sctype] = transpose(self.x[sctype]).conj()
             self.yt[sctype] = transpose(self.y[sctype]).conj()
-            self.zt[sctype] = transpose(self.z[sctype]).conj()
 
     @errstate
     def test_lstsq_shape(self):
@@ -234,6 +232,34 @@ class TestLstsq(utn.TestCaseNumpy):
         # underconstrained
         b = gfl.rqr_lstsq(self.v['d'], xf, tau)
         self.assertArrayEqual(b.shape, (3, 2, 4, 8))
+
+
+class TestLstsq(utn.TestCaseNumpy):
+    """Testing (r)lstsq, (r)lstsq_qr? and (r)qr_lstsq"""
+
+    def setUp(self):
+        super().setUp()
+        self.u = {}
+        self.v = {}
+        self.w = {}
+        self.x = {}
+        self.y = {}
+        self.z = {}
+        self.wt = {}
+        self.xt = {}
+        self.yt = {}
+        self.zt = {}
+        for sctype in self.sctype:
+            self.u[sctype] = utn.randn_asa((5, 4), sctype)
+            self.v[sctype] = utn.randn_asa((4, 5), sctype)
+            self.w[sctype] = utn.randn_asa((3, 1, 1, 5), sctype)
+            self.x[sctype] = utn.randn_asa((2, 8, 5), sctype)
+            self.y[sctype] = utn.randn_asa((8, 2), sctype)
+            self.z[sctype] = utn.randn_asa((3, 1, 8, 4), sctype)
+            self.wt[sctype] = transpose(self.w[sctype]).conj()
+            self.xt[sctype] = transpose(self.x[sctype]).conj()
+            self.yt[sctype] = transpose(self.y[sctype]).conj()
+            self.zt[sctype] = transpose(self.z[sctype]).conj()
 
     @utn.loop_test(attr_inds=3)
     def test_lstsq_val(self, sctype):

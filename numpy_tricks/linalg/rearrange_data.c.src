@@ -1,0 +1,438 @@
+/* -*- Mode: C -*- */
+/*
+Adapted from https://github.com/numpy/numpy/numpy/linalg/umath_linalg.c.src
+Copyright/licence info for that file:
+* Copyright (c) 2005-2017, NumPy Developers.
+* All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions
+* are met:
+*   - Redistributions of source code must retain the above
+*     copyright notice, this list of conditions and the
+*     following disclaimer.
+*   - Redistributions in binary form must reproduce the above copyright
+*     notice, this list of conditions and the following disclaimer
+*     in the documentation and/or other materials provided with the
+*     distribution.
+*   - Neither the name of the author nor the names of its
+*     contributors may be used to endorse or promote products derived
+*     from this software without specific prior written permission.
+*
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+* "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+* LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+* A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+* OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+* SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+* LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+* DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+* THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+/*
+*****************************************************************************
+**                            Includes                                     **
+*****************************************************************************
+*/
+#define NPY_NO_DEPRECATED_API NPY_API_VERSION
+#include "gufunc_common_f.h"
+
+/*
+*****************************************************************************
+**                   BLAS/Lapack calling macros                            **
+*****************************************************************************
+*/
+/**begin repeat
+    #typ = float, double, f2c_complex, f2c_doublecomplex#
+    #copy = scopy, dcopy, ccopy, zcopy#
+    #lacgv = clacgv, zlacgv, clacgv, zlacgv#
+    #cmplx = 0, 0, 1, 1#
+*/
+
+/* copy vector x into y */
+extern void
+FNAME(@copy@)(int *n,
+            @typ@ *sx, int *incx,
+            @typ@ *sy, int *incy);
+
+#if @cmplx@
+/* complex conjugate */
+extern void
+FNAME(@lacgv@)(int *n, @typ@ *x, int *incx);
+#endif
+
+/**end repeat**/
+
+/*
+*****************************************************************************
+**                    Data rearrangement functions                         **
+*****************************************************************************
+*/
+
+              /* rearranging of 2D matrices using blas */
+
+/**begin repeat
+    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
+    #typ = float, double, COMPLEX_t, DOUBLECOMPLEX_t#
+    #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
+    #copy = scopy, dcopy, ccopy, zcopy#
+    #lacgv = clacgv, zlacgv, clacgv, zlacgv#
+    #zero = s_zero, d_zero, c_zero, z_zero#
+    #nan = s_nan, d_nan, c_nan, z_nan#
+    #cmplx = 0, 0, 1, 1#
+*/
+
+static NPY_INLINE void *
+linearize_@TYPE@_matrix(void *dst_in,
+                        const void *src_in,
+                        const LINEARIZE_DATA_t* data)
+{
+    @typ@ *src = (@typ@ *) src_in;
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    if (dst) {
+        int i, j;
+        @typ@* rv = dst;
+        fortran_int columns = (fortran_int)data->columns;
+        fortran_int column_strides =
+                (fortran_int)(data->column_strides/sizeof(@typ@));
+        fortran_int one = 1;
+        for (i = 0; i < data->rows; i++) {
+            if (column_strides > 0) {
+                FNAME(@copy@)(&columns,
+                              (void*)src, &column_strides,
+                              (void*)dst, &one);
+            }
+            else if (column_strides < 0) {
+                FNAME(@copy@)(&columns,
+                              (void*)((@typ@*)src + (columns-1)*column_strides),
+                              &column_strides,
+                              (void*)dst, &one);
+            }
+            else {
+            /*
+             * Zero stride has undefined behavior in some BLAS
+             * implementations (e.g. OSX Accelerate), so do it
+             * manually
+             */
+            for (j = 0; j < columns; ++j) {
+                memcpy((@typ@*)dst + j, (@typ@*)src, sizeof(@typ@));
+                }
+            }
+#if @cmplx@
+            if (data->conj) {
+                FNAME(@lacgv@)(&columns, (void*)dst, &one);
+            }
+#endif
+            src += data->row_strides/sizeof(@typ@);
+            dst += data->output_lead_dim;
+        }
+        return rv;
+    } else {
+        return src;
+    }
+}
+
+static NPY_INLINE void *
+delinearize_@TYPE@_matrix(void *dst_in,
+                        const void *src_in,
+                        const LINEARIZE_DATA_t* data)
+{
+    @typ@ *src = (@typ@ *) src_in;
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    if (src) {
+        int i;
+        @typ@ *rv = src;
+        fortran_int columns = (fortran_int)data->columns;
+        fortran_int column_strides =
+          (fortran_int)(data->column_strides/sizeof(@typ@));
+        fortran_int one = 1;
+        for (i = 0; i < data->rows; i++) {
+#if @cmplx@
+            if (data->conj) {
+                FNAME(@lacgv@)(&columns, (void*)src, &one);
+            }
+#endif
+            if (column_strides > 0) {
+                FNAME(@copy@)(&columns,
+                              (void*)src, &one,
+                              (void*)dst, &column_strides);
+            }
+            else if (column_strides < 0) {
+                FNAME(@copy@)(&columns,
+                              (void*)src, &one,
+                              (void*)((@typ@*)dst + (columns-1)*column_strides),
+                              &column_strides);
+            }
+            else {
+              /*
+               * Zero stride has undefined behavior in some BLAS
+               * implementations (e.g. OSX Accelerate), so do it
+               * manually
+               */
+                if (columns > 0) {
+                    memcpy((@typ@*)dst,
+                           (@typ@*)src + (columns-1),
+                           sizeof(@typ@));
+              }
+            }
+            src += data->output_lead_dim;
+            dst += data->row_strides/sizeof(@typ@);
+        }
+        return rv;
+    } else {
+        return src;
+    }
+}
+
+static NPY_INLINE void *
+delinearize_@TYPE@_triu(void *dst_in,
+                        const void *src_in,
+                        const LINEARIZE_DATA_t* data)
+{
+   @typ@ *src = (@typ@ *) src_in;
+   @typ@ *dst = (@typ@ *) dst_in;
+
+   if (src) {
+       int i;
+        @typ@ *rv = src;
+        fortran_int columns = (fortran_int)data->columns;
+        fortran_int column_strides =
+            (fortran_int)(data->column_strides/sizeof(@typ@));
+        fortran_int one = 1;
+        for (i = 0; i < data->rows; i++) {
+            fortran_int n = fortran_int_min(i + one, columns);
+            if (column_strides > 0) {
+                FNAME(@copy@)(&n,
+                              (void*)src, &one,
+                              (void*)dst, &column_strides);
+            }
+            else if (column_strides < 0) {
+                FNAME(@copy@)(&n,
+                              (void*)src, &one,
+                              (void*)((@typ@*)dst + (n-1)*column_strides),
+                              &column_strides);
+            }
+            else {
+               /*
+                * Zero stride has undefined behavior in some BLAS
+                * implementations (e.g. OSX Accelerate), so do it
+                * manually
+                */
+                if (columns > 0) {
+                    memcpy((@typ@*)dst,
+                           (@typ@*)src + (columns-1),
+                           sizeof(@typ@));
+                }
+            }
+            src += data->output_lead_dim;
+            dst += data->row_strides/sizeof(@typ@);
+        }
+
+        return rv;
+    } else {
+        return src;
+    }
+}
+
+static NPY_INLINE void
+nan_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
+{
+    init_constants();
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    int i, j;
+    ptrdiff_t cs = data->column_strides/sizeof(@typ@);
+    for (i = 0; i < data->rows; i++) {
+        @typ@ *cp = dst;
+        for (j = 0; j < data->columns; ++j) {
+            *cp = @nan@;
+            cp += cs;
+        }
+        dst += data->row_strides/sizeof(@typ@);
+    }
+}
+
+static NPY_INLINE void
+zero_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
+{
+    init_constants();
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    int i, j;
+    ptrdiff_t cs = data->column_strides/sizeof(@typ@);
+    for (i = 0; i < data->rows; i++) {
+        @typ@ *cp = dst;
+        for (j = 0; j < data->columns; ++j) {
+            *cp = @zero@;
+            cp += cs;
+        }
+        dst += data->row_strides/sizeof(@typ@);
+    }
+}
+
+static NPY_INLINE void *
+linearize_@TYPE@_vec(void *dst_in,
+                     void *src_in,
+                     const LINEARIZE_VDATA_t *data)
+{
+    @typ@ *src = (@typ@ *) src_in;
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    if (dst) {
+        @typ@* rv = dst;
+        fortran_int len = (fortran_int)data->len;
+        fortran_int strides = (fortran_int)(data->strides/sizeof(@typ@));
+        fortran_int one = 1;
+        if (strides > 0) {
+            FNAME(@copy@)(&len,
+                          (void*)src, &strides,
+                          (void*)dst, &one);
+        }
+        else if (strides < 0) {
+            FNAME(@copy@)(&len,
+                          (void*)((@typ@*)src + (len-1)*strides), &strides,
+                          (void*)dst, &one);
+        }
+        else {
+            /*
+             * Zero stride has undefined behavior in some BLAS
+             * implementations (e.g. OSX Accelerate), so do it
+             * manually
+             */
+            int j;
+            for (j = 0; j < len; ++j) {
+                memcpy((@typ@*)dst + j, (@typ@*)src, sizeof(@typ@));
+            }
+#if @cmplx@
+        if (data->conj) {
+            FNAME(@lacgv@)(&len, (void*)dst, &one);
+        }
+#endif
+        }
+        return rv;
+    } else {
+        return src;
+    }
+}
+
+static NPY_INLINE void *
+delinearize_@TYPE@_vec(void *dst_in,
+                     void *src_in,
+                     const LINEARIZE_VDATA_t *data)
+{
+    @typ@ *src = (@typ@ *) src_in;
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    if (dst) {
+        @typ@* rv = dst;
+        fortran_int len = (fortran_int)data->len;
+        fortran_int strides = (fortran_int)(data->strides/sizeof(@typ@));
+        fortran_int one = 1;
+#if @cmplx@
+        if (data->conj) {
+            FNAME(@lacgv@)(&len, (void*)src, &one);
+        }
+#endif
+        if (strides > 0) {
+            FNAME(@copy@)(&len,
+                          (void*)src, &one,
+                          (void*)dst, &strides);
+        }
+        else if (strides < 0) {
+            FNAME(@copy@)(&len,
+                          (void*)((@typ@*)src + (len-1)*strides), &one,
+                          (void*)dst, &strides);
+        }
+        else {
+            /*
+             * Zero stride has undefined behavior in some BLAS
+             * implementations (e.g. OSX Accelerate), so do it
+             * manually
+             */
+            int j;
+            for (j = 0; j < len; ++j) {
+                memcpy((@typ@*)dst, (@typ@*)src + j, sizeof(@typ@));
+            }
+        }
+        return rv;
+    } else {
+        return src;
+    }
+}
+
+static NPY_INLINE void
+nan_@TYPE@_vec(void *dst_in, const LINEARIZE_VDATA_t* data)
+{
+    init_constants();
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    int j;
+    ptrdiff_t cs = data->strides/sizeof(@typ@);
+    for (j = 0; j < data->len; ++j) {
+        *dst = @nan@;
+        dst += cs;
+    }
+}
+
+static NPY_INLINE fortran_int
+@TYPE@_real_int(@ftyp@ val)
+{
+#if @cmplx@
+    return (fortran_int)val.r;
+#else
+    return (fortran_int)val;
+#endif
+}
+/**end repeat**/
+
+static NPY_INLINE void *
+linearize_INT_vec(void *dst_in,
+                void *src_in,
+                const LINEARIZE_VDATA_t *data)
+{
+    fortran_int *dst = (fortran_int *) dst_in;
+    npy_int *src = (npy_int *) src_in;
+
+    if (dst) {
+        npy_int* rv = dst;
+        fortran_int len = (fortran_int)data->len;
+        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_int));
+        int j;
+        for (j = 0; j < len; ++j) {
+            *dst = (fortran_int)*src;
+            src += strides;
+            dst += 1;
+        }
+        return rv;
+    } else {
+        return src;
+    }
+}
+
+static NPY_INLINE void *
+delinearize_INT_vec(void *dst_in,
+                    void *src_in,
+                    const LINEARIZE_VDATA_t *data)
+{
+    fortran_int *src = (fortran_int *) src_in;
+    npy_int *dst = (npy_int *) dst_in;
+
+    if (dst) {
+        npy_int* rv = dst;
+        fortran_int len = (fortran_int)data->len;
+        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_int));
+        int j;
+        for (j = 0; j < len; ++j) {
+            *dst = (npy_int)*src;
+            src += 1;
+            dst += strides;
+        }
+        return rv;
+    } else {
+        return src;
+    }
+}

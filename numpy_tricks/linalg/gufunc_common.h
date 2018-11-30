@@ -195,6 +195,13 @@ static DOUBLECOMPLEX_t z_minus_one;
 static DOUBLECOMPLEX_t z_inf;
 static DOUBLECOMPLEX_t z_ninf;
 static DOUBLECOMPLEX_t z_nan;
+static char char_C;
+static char char_F;
+static char char_L;
+static char char_N;
+static char char_T;
+static char char_U;
+
 
 static void init_constants(void)
 {
@@ -244,6 +251,13 @@ static void init_constants(void)
     z_ninf.array[1] = 0.0;
     z_nan.array[0] = NPY_NAN;
     z_nan.array[1] = NPY_NAN;
+
+    char_C = 'C';
+    char_F = 'F';
+    char_L = 'L';
+    char_N = 'N';
+    char_T = 'T';
+    char_U = 'U';
 }
 
 /*

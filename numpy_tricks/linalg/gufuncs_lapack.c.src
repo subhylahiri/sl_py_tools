@@ -366,12 +366,6 @@ PyDoc_STRVAR(rqr_lstsq__doc__,
 **                   BLAS/Lapack calling macros                            **
 *****************************************************************************
 */
-static char char_C = 'C';
-static char char_F = 'F';
-static char char_L = 'L';
-static char char_N = 'N';
-static char char_T = 'T';
-static char char_U = 'U';
 
 /**begin repeat
     #typ = float, double, f2c_complex, f2c_doublecomplex#
@@ -2199,6 +2193,7 @@ INIT_OUTER_LOOP_5
     set_fp_invalid_or_clear(error_occurred);
 }
 
+static void
 @TYPE@_lstsq_qr(char **args, npy_intp *dimensions, npy_intp *steps,
                 void *NPY_UNUSED(func))
 {

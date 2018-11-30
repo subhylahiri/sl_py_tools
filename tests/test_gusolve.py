@@ -13,7 +13,7 @@ errstate = utn.errstate(invalid='raise')
 # =============================================================================
 
 
-class TestSolve(utn.TestCaseNumpy):
+class TestSolveShape(utn.TestCaseNumpy):
     """Testing (r)solve, (r)solve_lu and (r)lu_solve"""
 
     def setUp(self):
@@ -65,6 +65,26 @@ class TestSolve(utn.TestCaseNumpy):
         self.assertArrayEqual(p.shape, (3, 2, 5))
         b = gfl.rlu_solve(self.v['d'], xf, p)
         self.assertArrayEqual(b.shape, (3, 2, 4, 5))
+
+
+class TestSolve(utn.TestCaseNumpy):
+    """Testing (r)solve, (r)solve_lu and (r)lu_solve"""
+
+    def setUp(self):
+        super().setUp()
+        self.x = {}
+        self.y = {}
+        self.z = {}
+        self.w = {}
+        self.v = {}
+        self.yt = {}
+        for sctype in self.sctype:
+            self.x[sctype] = utn.randn_asa((2, 5, 5), sctype)
+            self.y[sctype] = utn.randn_asa((5, 2), sctype)
+            self.z[sctype] = utn.randn_asa((3, 1, 5, 4), sctype)
+            self.w[sctype] = utn.randn_asa((3, 1, 1, 5), sctype)
+            self.v[sctype] = utn.randn_asa((4, 5), sctype)
+            self.yt[sctype] = transpose(self.y[sctype])
 
     @utn.loop_test()
     def test_solve_val(self, sctype):

@@ -39,5 +39,6 @@ config.add_extension('_gufuncs_lapack',
                      include_dirs=inc_dirs,
                      extra_info=all_info)
 # =============================================================================
-setup(**config.todict())
+if __name__ == '__main__':
+    setup(**config.todict())
 # =============================================================================

@@ -63,6 +63,23 @@ def transpose(a: np.ndarray) -> np.ndarray:
     return nla.transpose(a)
 
 
+def dagger(a: np.ndarray) -> np.ndarray:
+    """Hermitian conjugate over last two indices.
+
+    Transposing last two indices fits better with `np.linalg`'s broadcasting,
+    which treats multi-dim arrays as stacks of matrices.
+
+    Parameters
+    ----------
+    a : np.ndarray, (..., M, N)
+
+    Returns
+    -------
+    conjugated : np.ndarray, (..., N, M)
+    """
+    return transpose(a.conj())
+
+
 def col(a: np.ndarray) -> np.ndarray:
     """Treat multi-dim array as a stack of column vectors.
 
