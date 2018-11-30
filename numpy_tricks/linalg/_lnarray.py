@@ -159,7 +159,7 @@ class lnarray(np.ndarray):
             results = (results,)
         if ufunc in self.vec_ufuncs and any(squeeze):
             results = (mat2vec(results[0], squeeze),) + results[1:]
-        results = cv.conv_loop_out(self, None, results, outputs)
+        results = cv.conv_loop_out_view(self, results, outputs)
 
         return results[0] if len(results) == 1 else results
 
@@ -484,7 +484,7 @@ class pinvarray(NDArrayOperatorsMixin):
         if ufunc.nout == 1:
             results = (results,)
 
-        results = cv.conv_loop_out(self, '', results, outputs, pinv_out)
+        results = cv.conv_loop_out_init(self, results, outputs, pinv_out)
 
         return results[0] if len(results) == 1 else results
 
@@ -622,7 +622,7 @@ class pinvarray(NDArrayOperatorsMixin):
             # pinv broadcasts
             self._inverted = np.linalg.pinv(self._to_invert)
         else:
-            raise ValueError('Nothing to invert?' + str(self._to_invert))
+            raise ValueError('Nothing to invert? ' + str(self._to_invert))
 
 
 # =============================================================================
@@ -729,13 +729,13 @@ class invarray(pinvarray):
         return self._to_invert
 
     def _invert(self):
-        """Actually perform pseudoinverse
+        """Actually perform inverse
         """
         if self.ndim >= 2 and self.shape[-2] == self.shape[-1]:
             # square
             self._inverted = np.linalg.inv(self._to_invert)
         else:
-            raise ValueError('Nothing to invert?' + str(self._to_invert))
+            raise ValueError('Nothing to invert? ' + str(self._to_invert))
 
 
 # =============================================================================

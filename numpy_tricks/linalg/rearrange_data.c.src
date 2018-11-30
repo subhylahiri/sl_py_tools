@@ -47,7 +47,7 @@ Copyright/licence info for that file:
 /**begin repeat
     #typ = float, double, f2c_complex, f2c_doublecomplex#
     #copy = scopy, dcopy, ccopy, zcopy#
-    #lacgv = clacgv, zlacgv, clacgv, zlacgv#
+    #lacgv = , , clacgv, zlacgv#
     #cmplx = 0, 0, 1, 1#
 */
 
