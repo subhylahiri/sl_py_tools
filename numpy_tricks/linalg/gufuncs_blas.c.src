@@ -112,7 +112,7 @@ PyDoc_STRVAR(norm__doc__,
 */
 
 /* copy vector x into y */
-extern int
+extern void
 FNAME(@copy@)(int *n,
             @typ@ *sx, int *incx,
             @typ@ *sy, int *incy);
@@ -122,7 +122,7 @@ extern @rtyp@
 FNAME(@nrm2@)(int *n, @typ@ sx[], int *inc_x);
 
 /* z -> a x*y + b z */
-extern int
+extern void
 FNAME(@gemm@)(char tra[], char trb[], int *m, int *n, int *k,
     @typ@ *alpha, @typ@ a[], int *lda, @typ@ b[], int *ldb,
     @typ@ *beta, float c[], int *ldc);

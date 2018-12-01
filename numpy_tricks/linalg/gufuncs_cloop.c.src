@@ -122,7 +122,7 @@ PyDoc_STRVAR(rtruedivide__doc__,
     #TYPE=CFLOAT,CDOUBLE#
     #typ=COMPLEX_t,DOUBLECOMPLEX_t#
 */
-static @typ@
+static void
 @TYPE@_add_product_scalar(const @typ@ *x_in, const @typ@ *y_in, @typ@ *z_out)
 {
     z_out->array[0] += x_in->array[0] * y_in->array[0];
