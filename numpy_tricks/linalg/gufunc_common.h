@@ -1,4 +1,4 @@
-/* Mode: C */
+/* -*- Mode: C -*- */
 /* Common code for creating GUFuncs
 */
 /*
@@ -317,7 +317,7 @@ static char ufn_types_5_3[] = { NPY_INT, NPY_INT, NPY_INT,
 #define GUFUNC_FUNC_ARRAY_REAL_INT(NAME)                \
     static PyUFuncGenericFunction                       \
     FUNC_ARRAY_NAME(NAME)[] = {                         \
-        INT_ ## NAME,                                  \
+        INT_ ## NAME,                                   \
         FLOAT_ ## NAME,                                 \
         DOUBLE_ ## NAME                                 \
     }
@@ -334,7 +334,7 @@ static char ufn_types_5_3[] = { NPY_INT, NPY_INT, NPY_INT,
 #define GUFUNC_FUNC_ARRAY_REAL_COMPLEX_INT(NAME)        \
     static PyUFuncGenericFunction                       \
     FUNC_ARRAY_NAME(NAME)[] = {                         \
-        INT_ ## NAME,                                  \
+        INT_ ## NAME,                                   \
         FLOAT_ ## NAME,                                 \
         DOUBLE_ ## NAME,                                \
         CFLOAT_ ## NAME,                                \

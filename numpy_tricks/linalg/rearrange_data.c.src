@@ -1,4 +1,6 @@
 /* -*- Mode: C -*- */
+/* Common code for creating GUFuncs with BLAS/Lapack
+*/
 /*
 Adapted from https://github.com/numpy/numpy/numpy/linalg/umath_linalg.c.src
 Copyright/licence info for that file:
@@ -37,7 +39,7 @@ Copyright/licence info for that file:
 *****************************************************************************
 */
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
-#include "gufunc_common_f.h"
+#include "rearrange_data.h"
 
 /*
 *****************************************************************************
@@ -84,7 +86,7 @@ FNAME(@lacgv@)(int *n, @typ@ *x, int *incx);
     #cmplx = 0, 0, 1, 1#
 */
 
-static NPY_INLINE void *
+NPY_INLINE void *
 linearize_@TYPE@_matrix(void *dst_in,
                         const void *src_in,
                         const LINEARIZE_DATA_t* data)
@@ -135,7 +137,7 @@ linearize_@TYPE@_matrix(void *dst_in,
     }
 }
 
-static NPY_INLINE void *
+NPY_INLINE void *
 delinearize_@TYPE@_matrix(void *dst_in,
                         const void *src_in,
                         const LINEARIZE_DATA_t* data)
@@ -188,7 +190,7 @@ delinearize_@TYPE@_matrix(void *dst_in,
     }
 }
 
-static NPY_INLINE void *
+NPY_INLINE void *
 delinearize_@TYPE@_triu(void *dst_in,
                         const void *src_in,
                         const LINEARIZE_DATA_t* data)
@@ -238,7 +240,7 @@ delinearize_@TYPE@_triu(void *dst_in,
     }
 }
 
-static NPY_INLINE void
+NPY_INLINE void
 nan_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
 {
     init_constants();
@@ -256,7 +258,7 @@ nan_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
     }
 }
 
-static NPY_INLINE void
+NPY_INLINE void
 zero_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
 {
     init_constants();
@@ -274,9 +276,9 @@ zero_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
     }
 }
 
-static NPY_INLINE void *
+NPY_INLINE void *
 linearize_@TYPE@_vec(void *dst_in,
-                     void *src_in,
+                     const void *src_in,
                      const LINEARIZE_VDATA_t *data)
 {
     @typ@ *src = (@typ@ *) src_in;
@@ -319,9 +321,9 @@ linearize_@TYPE@_vec(void *dst_in,
     }
 }
 
-static NPY_INLINE void *
+NPY_INLINE void *
 delinearize_@TYPE@_vec(void *dst_in,
-                     void *src_in,
+                     const void *src_in,
                      const LINEARIZE_VDATA_t *data)
 {
     @typ@ *src = (@typ@ *) src_in;
@@ -364,7 +366,7 @@ delinearize_@TYPE@_vec(void *dst_in,
     }
 }
 
-static NPY_INLINE void
+NPY_INLINE void
 nan_@TYPE@_vec(void *dst_in, const LINEARIZE_VDATA_t* data)
 {
     init_constants();
@@ -378,7 +380,7 @@ nan_@TYPE@_vec(void *dst_in, const LINEARIZE_VDATA_t* data)
     }
 }
 
-static NPY_INLINE fortran_int
+NPY_INLINE fortran_int
 @TYPE@_real_int(@ftyp@ val)
 {
 #if @cmplx@
@@ -389,9 +391,9 @@ static NPY_INLINE fortran_int
 }
 /**end repeat**/
 
-static NPY_INLINE void *
+NPY_INLINE void *
 linearize_INT_vec(void *dst_in,
-                void *src_in,
+                const void *src_in,
                 const LINEARIZE_VDATA_t *data)
 {
     fortran_int *dst = (fortran_int *) dst_in;
@@ -413,9 +415,9 @@ linearize_INT_vec(void *dst_in,
     }
 }
 
-static NPY_INLINE void *
+NPY_INLINE void *
 delinearize_INT_vec(void *dst_in,
-                    void *src_in,
+                    const void *src_in,
                     const LINEARIZE_VDATA_t *data)
 {
     fortran_int *src = (fortran_int *) src_in;

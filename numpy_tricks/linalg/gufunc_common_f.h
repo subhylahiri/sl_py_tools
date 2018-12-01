@@ -1,4 +1,4 @@
-/* Mode: C */
+/* -*- Mode: C -*- */
 /* Common code for creating GUFuncs and calling BLAS/Lapack
 */
 /*
@@ -45,7 +45,7 @@ Copyright/licence info for that file:
 #undef NO_FORTRAN
 /*
 *****************************************************************************
-**                         To use BLAS/LAPACK                              **
+**                              Includes                                   **
 *****************************************************************************
 */
 
