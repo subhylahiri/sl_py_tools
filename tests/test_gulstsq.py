@@ -162,26 +162,36 @@ sh_ufuncs = [gfl.lstsq_qrm, gfl.lstsq_qrn]
 rsh_ufuncs = [gfl.rlstsq_qrm, gfl.rlstsq_qrn]
 
 
-class TestLstsqShape(utn.TestCaseNumpy):
+class TestLstsq(utn.TestCaseNumpy):
     """Testing (r)lstsq, (r)lstsq_qr? and (r)qr_lstsq"""
 
     def setUp(self):
         super().setUp()
+        self.u = {}
         self.v = {}
         self.w = {}
         self.x = {}
         self.y = {}
         self.z = {}
+        self.wt = {}
         self.xt = {}
         self.yt = {}
+        self.zt = {}
         for sctype in self.sctype:
+            self.u[sctype] = utn.randn_asa((5, 4), sctype)
             self.v[sctype] = utn.randn_asa((4, 5), sctype)
             self.w[sctype] = utn.randn_asa((3, 1, 1, 5), sctype)
             self.x[sctype] = utn.randn_asa((2, 8, 5), sctype)
             self.y[sctype] = utn.randn_asa((8, 2), sctype)
             self.z[sctype] = utn.randn_asa((3, 1, 8, 4), sctype)
+            self.wt[sctype] = transpose(self.w[sctype]).conj()
             self.xt[sctype] = transpose(self.x[sctype]).conj()
             self.yt[sctype] = transpose(self.y[sctype]).conj()
+            self.zt[sctype] = transpose(self.z[sctype]).conj()
+
+
+class TestLstsqShape(TestLstsq):
+    """Testing (r)lstsq, (r)lstsq_qr? and (r)qr_lstsq"""
 
     @errstate
     def test_lstsq_shape(self):
@@ -234,32 +244,8 @@ class TestLstsqShape(utn.TestCaseNumpy):
         self.assertArrayEqual(b.shape, (3, 2, 4, 8))
 
 
-class TestLstsq(utn.TestCaseNumpy):
+class TestLstsqVal(TestLstsq):
     """Testing (r)lstsq, (r)lstsq_qr? and (r)qr_lstsq"""
-
-    def setUp(self):
-        super().setUp()
-        self.u = {}
-        self.v = {}
-        self.w = {}
-        self.x = {}
-        self.y = {}
-        self.z = {}
-        self.wt = {}
-        self.xt = {}
-        self.yt = {}
-        self.zt = {}
-        for sctype in self.sctype:
-            self.u[sctype] = utn.randn_asa((5, 4), sctype)
-            self.v[sctype] = utn.randn_asa((4, 5), sctype)
-            self.w[sctype] = utn.randn_asa((3, 1, 1, 5), sctype)
-            self.x[sctype] = utn.randn_asa((2, 8, 5), sctype)
-            self.y[sctype] = utn.randn_asa((8, 2), sctype)
-            self.z[sctype] = utn.randn_asa((3, 1, 8, 4), sctype)
-            self.wt[sctype] = transpose(self.w[sctype]).conj()
-            self.xt[sctype] = transpose(self.x[sctype]).conj()
-            self.yt[sctype] = transpose(self.y[sctype]).conj()
-            self.zt[sctype] = transpose(self.z[sctype]).conj()
 
     @utn.loop_test(attr_inds=3)
     def test_lstsq_val(self, sctype):

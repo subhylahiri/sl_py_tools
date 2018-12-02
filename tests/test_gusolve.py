@@ -13,7 +13,7 @@ errstate = utn.errstate(invalid='raise')
 # =============================================================================
 
 
-class TestSolveShape(utn.TestCaseNumpy):
+class TestSolve(utn.TestCaseNumpy):
     """Testing (r)solve, (r)solve_lu and (r)lu_solve"""
 
     def setUp(self):
@@ -31,6 +31,10 @@ class TestSolveShape(utn.TestCaseNumpy):
             self.w[sctype] = utn.randn_asa((3, 1, 1, 5), sctype)
             self.v[sctype] = utn.randn_asa((4, 5), sctype)
             self.yt[sctype] = transpose(self.y[sctype])
+
+
+class TestSolveShape(TestSolve):
+    """Testing (r)solve, (r)solve_lu and (r)lu_solve"""
 
     def test_solve_shape(self):
         """Check if solve, rsolve return arrays with the expected shape
@@ -67,24 +71,8 @@ class TestSolveShape(utn.TestCaseNumpy):
         self.assertArrayEqual(b.shape, (3, 2, 4, 5))
 
 
-class TestSolve(utn.TestCaseNumpy):
+class TestSolveVal(TestSolve):
     """Testing (r)solve, (r)solve_lu and (r)lu_solve"""
-
-    def setUp(self):
-        super().setUp()
-        self.x = {}
-        self.y = {}
-        self.z = {}
-        self.w = {}
-        self.v = {}
-        self.yt = {}
-        for sctype in self.sctype:
-            self.x[sctype] = utn.randn_asa((2, 5, 5), sctype)
-            self.y[sctype] = utn.randn_asa((5, 2), sctype)
-            self.z[sctype] = utn.randn_asa((3, 1, 5, 4), sctype)
-            self.w[sctype] = utn.randn_asa((3, 1, 1, 5), sctype)
-            self.v[sctype] = utn.randn_asa((4, 5), sctype)
-            self.yt[sctype] = transpose(self.y[sctype])
 
     @utn.loop_test()
     def test_solve_val(self, sctype):
