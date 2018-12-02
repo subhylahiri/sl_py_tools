@@ -267,3 +267,43 @@ def qr(x: np.ndarray, mode: str = 'reduced') -> (np.ndarray, np.ndarray):
                          + 'Unknown mode: ' + mode)
     ufunc = qr_modes[mode][x.shape[-2] > x.shape[-1]]
     return ufunc(x)
+
+
+lu_modes = {'separate': (gf.lu_m, gf.lu_n),
+            'raw': (gf.lu_rawm, gf.lu_rawn)}
+
+
+def lu(x: np.ndarray, mode: str = 'separate') -> (np.ndarray, np.ndarray):
+    """LU decomposition.
+
+    Factor a matrix as `A = PLU` with `P` a permutation matrix,
+    `L` lower- and `U` upper-triangular.
+    `K = min(M,N)`. The diagonal elements of `L` are 1.
+
+    Parameters
+    -----------
+    A: ndarray (...,M,N)
+        Matrix to be factored.
+    mode: str
+        chosen from:
+        **separate** - default, return `L` and `U` separately,
+        **raw** - return `AF`, which contains `L` and `U` (see below).
+
+    Returns
+    -------
+    L: ndarray (...,M,K). Modes: `separate`.
+        Matrix with zeros above the diagonal and ones on the diagonal.
+    U: ndarray (...,K,N). Modes: `separate`.
+        Matrix with zeros below the diagonal.
+    AF: ndarray (...,N,M). Modes: `raw`.
+        Raw matrix output from Lapack in Fortran.
+            On & super-diagonal: non-zero part of `U`.
+            Sub-diagonal: non-zero part of `L`, except for diagonal.
+    ipiv: ndarray (...,K,). Modes: `separate, raw`.
+        Pivot indices
+    """
+    if mode not in qr_modes.keys():
+        raise ValueError('Modes known to qr: reduced, complete, r, raw.\n'
+                         + 'Unknown mode: ' + mode)
+    ufunc = qr_modes[mode][x.shape[-2] > x.shape[-1]]
+    return ufunc(x)

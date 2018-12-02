@@ -37,7 +37,9 @@ import functools
 import numpy as _np
 from ._gufuncs_cloop import norm, rtrue_divide  # matmul, rmatmul
 from ._gufuncs_blas import matmul, rmatmul  # norm
-from ._gufuncs_lapack import *
+# from ._gufuncs_lapack import *
+from ._gufuncs_lu_solve import *
+from ._gufuncs_qr_lstsq import *
 
 
 # =============================================================================

@@ -22,6 +22,7 @@ inc_dirs.append(get_numpy_include_dirs())
 lapack_info = get_sys_info('lapack_opt', 0)  # and {}
 npymath_info = get_misc_info("npymath")
 all_info = {k: lapack_info[k] + npymath_info[k] for k in lapack_info.keys()}
+rearrange = 'rearrange_data.c.src'
 
 # =============================================================================
 config.add_extension('_gufuncs_cloop',
@@ -30,22 +31,22 @@ config.add_extension('_gufuncs_cloop',
                      extra_info=npymath_info)
 # =============================================================================
 config.add_extension('_gufuncs_blas',
-                     sources=['gufuncs_blas.c.src', 'rearrange_data.c.src'],
+                     sources=['gufuncs_blas.c.src', rearrange],
                      include_dirs=inc_dirs,
                      extra_info=all_info)
 # =============================================================================
 config.add_extension('_gufuncs_lapack',
-                     sources=['gufuncs_lapack.c.src', 'rearrange_data.c.src'],
+                     sources=['gufuncs_lapack.c.src', rearrange],
                      include_dirs=inc_dirs,
                      extra_info=all_info)
 # =============================================================================
 config.add_extension('_gufuncs_lu_solve',
-                     sources=['gufuncs_lu_solve.c.src', 'rearrange_data.c.src'],
+                     sources=['gufuncs_lu_solve.c.src', rearrange],
                      include_dirs=inc_dirs,
                      extra_info=all_info)
 # =============================================================================
 config.add_extension('_gufuncs_qr_lstsq',
-                     sources=['gufuncs_qr_lstsq.c.src', 'rearrange_data.c.src'],
+                     sources=['gufuncs_qr_lstsq.c.src', rearrange],
                      include_dirs=inc_dirs,
                      extra_info=all_info)
 # =============================================================================
