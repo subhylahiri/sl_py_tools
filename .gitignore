@@ -103,6 +103,7 @@ ENV/
 numpy_tricks/linalg/gufuncs_blas.c
 numpy_tricks/linalg/gufuncs_cloop.c
 numpy_tricks/linalg/gufuncs_lapack.c
+numpy_tricks/linalg/rearrange_data.c
 numpy_tricks/linalg/.cquery
 numpy_tricks/linalg/compile_commands.json
 numpy_tricks/linalg/compile_commands.fail.json

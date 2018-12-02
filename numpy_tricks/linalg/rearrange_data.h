@@ -16,33 +16,33 @@
 *****************************************************************************
 */
 #define DECLARE_FUNC_LINEARIZE(NAME, ...)                                                                     \
-    NPY_INLINE void *                                                                                         \
+    void *                                                                                         \
     linearize_FLOAT_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data);  \
-    NPY_INLINE void *                                                                                         \
+    void *                                                                                         \
     linearize_DOUBLE_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data); \
-    NPY_INLINE void *                                                                                         \
+    void *                                                                                         \
     linearize_CFLOAT_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data); \
-    NPY_INLINE void *                                                                                         \
+    void *                                                                                         \
     linearize_CDOUBLE_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data);
 
 #define DECLARE_FUNC_DELINEARIZE(NAME, ...)                                                                     \
-    NPY_INLINE void *                                                                                           \
+    void *                                                                                           \
     delinearize_FLOAT_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data);  \
-    NPY_INLINE void *                                                                                           \
+    void *                                                                                           \
     delinearize_DOUBLE_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data); \
-    NPY_INLINE void *                                                                                           \
+    void *                                                                                           \
     delinearize_CFLOAT_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data); \
-    NPY_INLINE void *                                                                                           \
+    void *                                                                                           \
     delinearize_CDOUBLE_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data);
 
 #define DECLARE_FUNC_FILL(NAME, TYPE, ...)                                              \
-    NPY_INLINE void                                                                     \
+    void                                                                     \
     NAME ##_FLOAT_## TYPE(void *dst_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data);  \
-    NPY_INLINE void                                                                     \
+    void                                                                     \
     NAME ##_DOUBLE_## TYPE(void *dst_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data); \
-    NPY_INLINE void                                                                     \
+    void                                                                     \
     NAME ##_CFLOAT_## TYPE(void *dst_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data); \
-    NPY_INLINE void                                                                     \
+    void                                                                     \
     NAME ##_CDOUBLE_## TYPE(void *dst_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data);
 /*
 *****************************************************************************
@@ -58,18 +58,18 @@ DECLARE_FUNC_LINEARIZE(vec, V)
 DECLARE_FUNC_DELINEARIZE(vec, V)
 DECLARE_FUNC_FILL(nan, vec, V)
 
-NPY_INLINE void *
+void *
 linearize_INT_vec(void *dst_in, const void *src_in, const LINEARIZE_VDATA_t* data);
-NPY_INLINE void *
+void *
 delinearize_INT_vec(void *dst_in, const void *src_in, const LINEARIZE_VDATA_t* data);
 
-NPY_INLINE fortran_int
+fortran_int
 FLOAT_real_int(fortran_real val);
-NPY_INLINE fortran_int
+fortran_int
 DOUBLE_real_int(fortran_doublereal val);
-NPY_INLINE fortran_int
+fortran_int
 CFLOAT_real_int(fortran_complex val);
-NPY_INLINE fortran_int
+fortran_int
 CDOUBLE_real_int(fortran_doublecomplex val);
 /*
 *****************************************************************************

@@ -86,7 +86,7 @@ FNAME(@lacgv@)(int *n, @typ@ *x, int *incx);
     #cmplx = 0, 0, 1, 1#
 */
 
-NPY_INLINE void *
+void *
 linearize_@TYPE@_matrix(void *dst_in,
                         const void *src_in,
                         const LINEARIZE_DATA_t* data)
@@ -137,7 +137,7 @@ linearize_@TYPE@_matrix(void *dst_in,
     }
 }
 
-NPY_INLINE void *
+void *
 delinearize_@TYPE@_matrix(void *dst_in,
                         const void *src_in,
                         const LINEARIZE_DATA_t* data)
@@ -190,7 +190,7 @@ delinearize_@TYPE@_matrix(void *dst_in,
     }
 }
 
-NPY_INLINE void *
+void *
 delinearize_@TYPE@_triu(void *dst_in,
                         const void *src_in,
                         const LINEARIZE_DATA_t* data)
@@ -240,7 +240,7 @@ delinearize_@TYPE@_triu(void *dst_in,
     }
 }
 
-NPY_INLINE void
+void
 nan_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
 {
     init_constants();
@@ -258,7 +258,7 @@ nan_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
     }
 }
 
-NPY_INLINE void
+void
 zero_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
 {
     init_constants();
@@ -276,7 +276,7 @@ zero_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
     }
 }
 
-NPY_INLINE void *
+void *
 linearize_@TYPE@_vec(void *dst_in,
                      const void *src_in,
                      const LINEARIZE_VDATA_t *data)
@@ -321,7 +321,7 @@ linearize_@TYPE@_vec(void *dst_in,
     }
 }
 
-NPY_INLINE void *
+void *
 delinearize_@TYPE@_vec(void *dst_in,
                      const void *src_in,
                      const LINEARIZE_VDATA_t *data)
@@ -366,7 +366,7 @@ delinearize_@TYPE@_vec(void *dst_in,
     }
 }
 
-NPY_INLINE void
+void
 nan_@TYPE@_vec(void *dst_in, const LINEARIZE_VDATA_t* data)
 {
     init_constants();
@@ -380,7 +380,7 @@ nan_@TYPE@_vec(void *dst_in, const LINEARIZE_VDATA_t* data)
     }
 }
 
-NPY_INLINE fortran_int
+fortran_int
 @TYPE@_real_int(@ftyp@ val)
 {
 #if @cmplx@
@@ -391,7 +391,7 @@ NPY_INLINE fortran_int
 }
 /**end repeat**/
 
-NPY_INLINE void *
+void *
 linearize_INT_vec(void *dst_in,
                 const void *src_in,
                 const LINEARIZE_VDATA_t *data)
@@ -415,7 +415,7 @@ linearize_INT_vec(void *dst_in,
     }
 }
 
-NPY_INLINE void *
+void *
 delinearize_INT_vec(void *dst_in,
                     const void *src_in,
                     const LINEARIZE_VDATA_t *data)

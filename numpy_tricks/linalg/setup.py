@@ -35,7 +35,7 @@ config.add_extension('_gufuncs_blas',
                      extra_info=all_info)
 # =============================================================================
 config.add_extension('_gufuncs_lapack',
-                     sources=['gufuncs_lapack.c.src'],
+                     sources=['gufuncs_lapack.c.src', 'rearrange_data.c.src'],
                      include_dirs=inc_dirs,
                      extra_info=all_info)
 # =============================================================================

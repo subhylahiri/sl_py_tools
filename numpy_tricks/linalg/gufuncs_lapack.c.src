@@ -54,6 +54,7 @@ Copyright/licence info for that file:
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
 
 #include "gufunc_common_f.h"
+#include "rearrange_data.h"
 
 static const char* gufuncs_lapack_version_string = "0.2.0";
 
@@ -369,6 +370,7 @@ PyDoc_STRVAR(rqr_lstsq__doc__,
 
 /**begin repeat
     #typ = float, double, f2c_complex, f2c_doublecomplex#
+    #rtyp = float, double, float, double#
     #copy = scopy, dcopy, ccopy, zcopy#
     #laset = slaset, dlaset, claset, zlaset#
     #geqrf = sgeqrf, dgeqrf, cgeqrf, zgeqrf#
@@ -381,14 +383,11 @@ PyDoc_STRVAR(rqr_lstsq__doc__,
     #gesv = sgesv, dgesv, cgesv, zgesv#
     #getrf = sgetrf, dgetrf, cgetrf, zgetrf#
     #getrs = sgetrs, dgetrs, cgetrs, zgetrs#
+    #gelsd = sgelsd, dgelsd, cgelsd, zgelsd#
     #trsm = strsm, dtrsm, ctrsm, ztrsm#
+    #cmplx = 0, 0, 1, 1#
 */
 
-/* copy vector x into y */
-extern void
-FNAME(@copy@)(int *n,
-            @typ@ *sx, int *incx,
-            @typ@ *sy, int *incy);
 /* fill matrix a*/
 extern void
 FNAME(@laset@)(char *uplo, int *m, int *n,
@@ -422,15 +421,17 @@ FNAME(@getrs@)(char *trans, int *n, int *nrhs,
             @typ@ *a, int *lda, int * ipiv,
             @typ@ *b, int *ldb, int *info);
 
-// /* least square solution of a x = b for x from qr/lq */
-// extern void
-// FNAME(@geqrs@)(int *m, int *n, int *nrhs,
-//             @typ@ *a, int *lda, @typ@ *tau, @typ@ *b, int *ldb,
-//             @typ@ *work, int *lwork, int *info);
-// extern void
-// FNAME(@gelqs@)(int *m, int *n, int *nrhs,
-//             @typ@ *a, int *lda, @typ@ *tau, @typ@ *b, int *ldb,
-//             @typ@ *work, int *lwork, int *info);
+/* least square solution of a x = b for x from svd*/
+extern void
+FNAME(@gelsd@)(int *m, int *n, int *nrhs,
+    @typ@ *a, int *lda, @typ@ *b, int *ldb,
+    @rtyp@ *s, @rtyp@ *rcond, int *rank,
+    @typ@ *work, int *lwork,
+#if @cmplx@
+    @rtyp@ *rwork,
+#endif
+    int *iwork, int *info);
+/* least square solution of a x = b for x from qr/lq */
 /* multiply b by q from qr/lq */
 extern void
 FNAME(@ormqr@)(char *side, char *trans, int *m, int *n, int *k,
@@ -446,402 +447,16 @@ FNAME(@trsm@)(char *side, char *uplo, char *trans, char *diag,
             int *m, int *n, @typ@ *alpha,
             @typ@ *a, int *lda, @typ@ *b, int *ldb);
 
+// /* least square solution of a x = b for x from qr/lq */
+// extern void
+// FNAME(@geqrs@)(int *m, int *n, int *nrhs,
+//             @typ@ *a, int *lda, @typ@ *tau, @typ@ *b, int *ldb,
+//             @typ@ *work, int *lwork, int *info);
+// extern void
+// FNAME(@gelqs@)(int *m, int *n, int *nrhs,
+//             @typ@ *a, int *lda, @typ@ *tau, @typ@ *b, int *ldb,
+//             @typ@ *work, int *lwork, int *info);
 /**end repeat**/
-
-/**begin repeat
-    #typ = f2c_complex, f2c_doublecomplex#
-    #rtyp = float, double#
-    #lacgv = clacgv, zlacgv#
-    #gelsd = sgelsd, dgelsd#
-    #gclsd = cgelsd, zgelsd#
-*/
-/* complex conjugate */
-extern void
-FNAME(@lacgv@)(int *n, @typ@ *x, int *incx);
-
-/* least square solution of a x = b for x */
-extern void
-FNAME(@gelsd@)(int *m, int *n, int *nrhs,
-            @rtyp@ *a, int *lda, @rtyp@ *b, int *ldb,
-            @rtyp@ *s, @rtyp@ *rcond, int *rank,
-            @rtyp@ *work, int *lwork, int *iwork, int *info);
-
-extern void
-FNAME(@gclsd@)(int *m, int *n, int *nrhs,
-            @typ@ *a, int *lda, @typ@ *b, int *ldb,
-            @rtyp@ *s, @rtyp@ *rcond, int *rank, @typ@ *work,
-            int *lwork, @rtyp@ *rwork, int *iwork, int *info);
-
-/**end repeat**/
-
-/*
-*****************************************************************************
-**                    Data rearrangement functions                         **
-*****************************************************************************
-*/
-
-              /* rearranging of 2D matrices using blas */
-
-/**begin repeat
-    #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
-    #typ = float, double, COMPLEX_t, DOUBLECOMPLEX_t#
-    #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
-    #copy = scopy, dcopy, ccopy, zcopy#
-    #lacgv = , , clacgv, zlacgv#
-    #zero = s_zero, d_zero, c_zero, z_zero#
-    #nan = s_nan, d_nan, c_nan, z_nan#
-    #cmplx = 0, 0, 1, 1#
-*/
-
-static NPY_INLINE void *
-linearize_@TYPE@_matrix(void *dst_in,
-                        const void *src_in,
-                        const LINEARIZE_DATA_t* data)
-{
-    @typ@ *src = (@typ@ *) src_in;
-    @typ@ *dst = (@typ@ *) dst_in;
-
-    if (dst) {
-        int i, j;
-        @typ@* rv = dst;
-        fortran_int columns = (fortran_int)data->columns;
-        fortran_int column_strides =
-                (fortran_int)(data->column_strides/sizeof(@typ@));
-        fortran_int one = 1;
-        for (i = 0; i < data->rows; i++) {
-            if (column_strides > 0) {
-                FNAME(@copy@)(&columns,
-                              (void*)src, &column_strides,
-                              (void*)dst, &one);
-            }
-            else if (column_strides < 0) {
-                FNAME(@copy@)(&columns,
-                              (void*)((@typ@*)src + (columns-1)*column_strides),
-                              &column_strides,
-                              (void*)dst, &one);
-            }
-            else {
-            /*
-             * Zero stride has undefined behavior in some BLAS
-             * implementations (e.g. OSX Accelerate), so do it
-             * manually
-             */
-            for (j = 0; j < columns; ++j) {
-                memcpy((@typ@*)dst + j, (@typ@*)src, sizeof(@typ@));
-                }
-            }
-#if @cmplx@
-            if (data->conj) {
-                FNAME(@lacgv@)(&columns, (void*)dst, &one);
-            }
-#endif
-            src += data->row_strides/sizeof(@typ@);
-            dst += data->output_lead_dim;
-        }
-        return rv;
-    } else {
-        return src;
-    }
-}
-
-static NPY_INLINE void *
-delinearize_@TYPE@_matrix(void *dst_in,
-                        const void *src_in,
-                        const LINEARIZE_DATA_t* data)
-{
-    @typ@ *src = (@typ@ *) src_in;
-    @typ@ *dst = (@typ@ *) dst_in;
-
-    if (src) {
-        int i;
-        @typ@ *rv = src;
-        fortran_int columns = (fortran_int)data->columns;
-        fortran_int column_strides =
-          (fortran_int)(data->column_strides/sizeof(@typ@));
-        fortran_int one = 1;
-        for (i = 0; i < data->rows; i++) {
-#if @cmplx@
-            if (data->conj) {
-                FNAME(@lacgv@)(&columns, (void*)src, &one);
-            }
-#endif
-            if (column_strides > 0) {
-                FNAME(@copy@)(&columns,
-                              (void*)src, &one,
-                              (void*)dst, &column_strides);
-            }
-            else if (column_strides < 0) {
-                FNAME(@copy@)(&columns,
-                              (void*)src, &one,
-                              (void*)((@typ@*)dst + (columns-1)*column_strides),
-                              &column_strides);
-            }
-            else {
-              /*
-               * Zero stride has undefined behavior in some BLAS
-               * implementations (e.g. OSX Accelerate), so do it
-               * manually
-               */
-                if (columns > 0) {
-                    memcpy((@typ@*)dst,
-                           (@typ@*)src + (columns-1),
-                           sizeof(@typ@));
-              }
-            }
-            src += data->output_lead_dim;
-            dst += data->row_strides/sizeof(@typ@);
-        }
-        return rv;
-    } else {
-        return src;
-    }
-}
-
-static NPY_INLINE void *
-delinearize_@TYPE@_triu(void *dst_in,
-                        const void *src_in,
-                        const LINEARIZE_DATA_t* data)
-{
-   @typ@ *src = (@typ@ *) src_in;
-   @typ@ *dst = (@typ@ *) dst_in;
-
-   if (src) {
-       int i;
-        @typ@ *rv = src;
-        fortran_int columns = (fortran_int)data->columns;
-        fortran_int column_strides =
-            (fortran_int)(data->column_strides/sizeof(@typ@));
-        fortran_int one = 1;
-        for (i = 0; i < data->rows; i++) {
-            fortran_int n = fortran_int_min(i + one, columns);
-            if (column_strides > 0) {
-                FNAME(@copy@)(&n,
-                              (void*)src, &one,
-                              (void*)dst, &column_strides);
-            }
-            else if (column_strides < 0) {
-                FNAME(@copy@)(&n,
-                              (void*)src, &one,
-                              (void*)((@typ@*)dst + (n-1)*column_strides),
-                              &column_strides);
-            }
-            else {
-               /*
-                * Zero stride has undefined behavior in some BLAS
-                * implementations (e.g. OSX Accelerate), so do it
-                * manually
-                */
-                if (columns > 0) {
-                    memcpy((@typ@*)dst,
-                           (@typ@*)src + (columns-1),
-                           sizeof(@typ@));
-                }
-            }
-            src += data->output_lead_dim;
-            dst += data->row_strides/sizeof(@typ@);
-        }
-
-        return rv;
-    } else {
-        return src;
-    }
-}
-
-static NPY_INLINE void
-nan_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
-{
-    @typ@ *dst = (@typ@ *) dst_in;
-
-    int i, j;
-    ptrdiff_t cs = data->column_strides/sizeof(@typ@);
-    for (i = 0; i < data->rows; i++) {
-        @typ@ *cp = dst;
-        for (j = 0; j < data->columns; ++j) {
-            *cp = @nan@;
-            cp += cs;
-        }
-        dst += data->row_strides/sizeof(@typ@);
-    }
-}
-
-static NPY_INLINE void
-zero_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
-{
-    @typ@ *dst = (@typ@ *) dst_in;
-
-    int i, j;
-    ptrdiff_t cs = data->column_strides/sizeof(@typ@);
-    for (i = 0; i < data->rows; i++) {
-        @typ@ *cp = dst;
-        for (j = 0; j < data->columns; ++j) {
-            *cp = @zero@;
-            cp += cs;
-        }
-        dst += data->row_strides/sizeof(@typ@);
-    }
-}
-
-static NPY_INLINE void *
-linearize_@TYPE@_vec(void *dst_in,
-                     void *src_in,
-                     const LINEARIZE_VDATA_t *data)
-{
-    @typ@ *src = (@typ@ *) src_in;
-    @typ@ *dst = (@typ@ *) dst_in;
-
-    if (dst) {
-        @typ@* rv = dst;
-        fortran_int len = (fortran_int)data->len;
-        fortran_int strides = (fortran_int)(data->strides/sizeof(@typ@));
-        fortran_int one = 1;
-        if (strides > 0) {
-            FNAME(@copy@)(&len,
-                          (void*)src, &strides,
-                          (void*)dst, &one);
-        }
-        else if (strides < 0) {
-            FNAME(@copy@)(&len,
-                          (void*)((@typ@*)src + (len-1)*strides), &strides,
-                          (void*)dst, &one);
-        }
-        else {
-            /*
-             * Zero stride has undefined behavior in some BLAS
-             * implementations (e.g. OSX Accelerate), so do it
-             * manually
-             */
-            int j;
-            for (j = 0; j < len; ++j) {
-                memcpy((@typ@*)dst + j, (@typ@*)src, sizeof(@typ@));
-            }
-#if @cmplx@
-        if (data->conj) {
-            FNAME(@lacgv@)(&len, (void*)dst, &one);
-        }
-#endif
-        }
-        return rv;
-    } else {
-        return src;
-    }
-}
-
-static NPY_INLINE void *
-delinearize_@TYPE@_vec(void *dst_in,
-                     void *src_in,
-                     const LINEARIZE_VDATA_t *data)
-{
-    @typ@ *src = (@typ@ *) src_in;
-    @typ@ *dst = (@typ@ *) dst_in;
-
-    if (dst) {
-        @typ@* rv = dst;
-        fortran_int len = (fortran_int)data->len;
-        fortran_int strides = (fortran_int)(data->strides/sizeof(@typ@));
-        fortran_int one = 1;
-#if @cmplx@
-        if (data->conj) {
-            FNAME(@lacgv@)(&len, (void*)src, &one);
-        }
-#endif
-        if (strides > 0) {
-            FNAME(@copy@)(&len,
-                          (void*)src, &one,
-                          (void*)dst, &strides);
-        }
-        else if (strides < 0) {
-            FNAME(@copy@)(&len,
-                          (void*)((@typ@*)src + (len-1)*strides), &one,
-                          (void*)dst, &strides);
-        }
-        else {
-            /*
-             * Zero stride has undefined behavior in some BLAS
-             * implementations (e.g. OSX Accelerate), so do it
-             * manually
-             */
-            int j;
-            for (j = 0; j < len; ++j) {
-                memcpy((@typ@*)dst, (@typ@*)src + j, sizeof(@typ@));
-            }
-        }
-        return rv;
-    } else {
-        return src;
-    }
-}
-
-static NPY_INLINE void
-nan_@TYPE@_vec(void *dst_in, const LINEARIZE_VDATA_t* data)
-{
-    @typ@ *dst = (@typ@ *) dst_in;
-
-    int j;
-    ptrdiff_t cs = data->strides/sizeof(@typ@);
-    for (j = 0; j < data->len; ++j) {
-        *dst = @nan@;
-        dst += cs;
-    }
-}
-
-static NPY_INLINE fortran_int
-@TYPE@_real_int(@ftyp@ val)
-{
-#if @cmplx@
-    return (fortran_int)val.r;
-#else
-    return (fortran_int)val;
-#endif
-}
-/**end repeat**/
-
-static NPY_INLINE void *
-linearize_INT_vec(void *dst_in,
-                void *src_in,
-                const LINEARIZE_VDATA_t *data)
-{
-    fortran_int *dst = (fortran_int *) dst_in;
-    npy_int *src = (npy_int *) src_in;
-
-    if (dst) {
-        npy_int* rv = dst;
-        fortran_int len = (fortran_int)data->len;
-        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_int));
-        int j;
-        for (j = 0; j < len; ++j) {
-            *dst = (fortran_int)*src;
-            src += strides;
-            dst += 1;
-        }
-        return rv;
-    } else {
-        return src;
-    }
-}
-
-static NPY_INLINE void *
-delinearize_INT_vec(void *dst_in,
-                    void *src_in,
-                    const LINEARIZE_VDATA_t *data)
-{
-    fortran_int *src = (fortran_int *) src_in;
-    npy_int *dst = (npy_int *) dst_in;
-
-    if (dst) {
-        npy_int* rv = dst;
-        fortran_int len = (fortran_int)data->len;
-        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_int));
-        int j;
-        for (j = 0; j < len; ++j) {
-            *dst = (npy_int)*src;
-            src += 1;
-            dst += strides;
-        }
-        return rv;
-    } else {
-        return src;
-    }
-}
 
 /*
 *****************************************************************************
