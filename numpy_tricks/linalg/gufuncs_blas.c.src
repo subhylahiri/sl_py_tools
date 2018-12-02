@@ -53,6 +53,7 @@ Copyright/licence info for that file:
 #define NPY_NO_DEPRECATED_API NPY_API_VERSION
 
 #include "gufunc_common_f.h"
+#include "rearrange_data.h"
 
 static const char* gufuncs_blas_version_string = "0.1.1";
 

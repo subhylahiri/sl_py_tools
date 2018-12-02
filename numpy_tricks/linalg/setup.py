@@ -30,7 +30,7 @@ config.add_extension('_gufuncs_cloop',
                      extra_info=npymath_info)
 # =============================================================================
 config.add_extension('_gufuncs_blas',
-                     sources=['gufuncs_blas.c.src'],
+                     sources=['gufuncs_blas.c.src', 'rearrange_data.c.src'],
                      include_dirs=inc_dirs,
                      extra_info=all_info)
 # =============================================================================
