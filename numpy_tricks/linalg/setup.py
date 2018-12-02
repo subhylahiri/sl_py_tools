@@ -39,6 +39,16 @@ config.add_extension('_gufuncs_lapack',
                      include_dirs=inc_dirs,
                      extra_info=all_info)
 # =============================================================================
+config.add_extension('_gufuncs_lu_solve',
+                     sources=['gufuncs_lu_solve.c.src', 'rearrange_data.c.src'],
+                     include_dirs=inc_dirs,
+                     extra_info=all_info)
+# =============================================================================
+config.add_extension('_gufuncs_qr_lstsq',
+                     sources=['gufuncs_qr_lstsq.c.src', 'rearrange_data.c.src'],
+                     include_dirs=inc_dirs,
+                     extra_info=all_info)
+# =============================================================================
 if __name__ == '__main__':
     setup(**config.todict())
 # =============================================================================

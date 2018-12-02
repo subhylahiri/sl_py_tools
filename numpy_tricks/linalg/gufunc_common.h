@@ -354,7 +354,7 @@ typedef struct gufunc_descriptor_struct {
 
 static int
 addUfuncs(PyObject *module, const GUFUNC_DESCRIPTOR_t guf_descriptors[],
-            const int gufunc_count, const char *version_string)
+            int gufunc_count, const char *version_string)
 {
     PyObject *dictionary;
     PyObject *version;

@@ -82,6 +82,7 @@ FNAME(@lacgv@)(int *n, @typ@ *x, int *incx);
     #copy = scopy, dcopy, ccopy, zcopy#
     #lacgv = clacgv, zlacgv, clacgv, zlacgv#
     #zero = s_zero, d_zero, c_zero, z_zero#
+    #one = s_one, d_one, c_one, z_one#
     #nan = s_nan, d_nan, c_nan, z_nan#
     #cmplx = 0, 0, 1, 1#
 */
@@ -206,7 +207,7 @@ delinearize_@TYPE@_triu(void *dst_in,
             (fortran_int)(data->column_strides/sizeof(@typ@));
         fortran_int one = 1;
         for (i = 0; i < data->rows; i++) {
-            fortran_int n = fortran_int_min(i + one, columns);
+            fortran_int n = fortran_int_min(i + 1, columns);
             if (column_strides > 0) {
                 FNAME(@copy@)(&n,
                               (void*)src, &one,
@@ -216,6 +217,57 @@ delinearize_@TYPE@_triu(void *dst_in,
                 FNAME(@copy@)(&n,
                               (void*)src, &one,
                               (void*)((@typ@*)dst + (n-1)*column_strides),
+                              &column_strides);
+            }
+            else {
+               /*
+                * Zero stride has undefined behavior in some BLAS
+                * implementations (e.g. OSX Accelerate), so do it
+                * manually
+                */
+                if (columns > 0) {
+                    memcpy((@typ@*)dst,
+                           (@typ@*)src + (columns-1),
+                           sizeof(@typ@));
+                }
+            }
+            src += data->output_lead_dim;
+            dst += data->row_strides/sizeof(@typ@);
+        }
+
+        return rv;
+    } else {
+        return src;
+    }
+}
+
+void *
+delinearize_@TYPE@_tril(void *dst_in,
+                        const void *src_in,
+                        const LINEARIZE_DATA_t* data)
+{
+   @typ@ *src = (@typ@ *) src_in;
+   @typ@ *dst = (@typ@ *) dst_in;
+
+   if (src) {
+       int i;
+        @typ@ *rv = src;
+        fortran_int columns = (fortran_int)data->columns;
+        fortran_int column_strides =
+            (fortran_int)(data->column_strides/sizeof(@typ@));
+        fortran_int one = 1;
+        for (i = 0; i < data->rows; i++) {
+            fortran_int n = fortran_int_max(0, columns - i - 1);
+            if (column_strides > 0) {
+                FNAME(@copy@)(&n,
+                              (void*)((@typ@*)src + i + 1), &one,
+                              (void*)((@typ@*)dst + (i+1)*column_strides),
+                              &column_strides);
+            }
+            else if (column_strides < 0) {
+                FNAME(@copy@)(&n,
+                              (void*)((@typ@*)src + i + 1), &one,
+                              (void*)((@typ@*)dst + (columns-1)*column_strides),
                               &column_strides);
             }
             else {
@@ -273,6 +325,20 @@ zero_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
             cp += cs;
         }
         dst += data->row_strides/sizeof(@typ@);
+    }
+}
+
+void
+eye_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
+{
+    init_constants();
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    int i;
+    ptrdiff_t cs = data->column_strides/sizeof(@typ@);
+    for (i = 0; (i < data->rows) && (i < data->columns); i++) {
+        *dst = @one@;
+        dst += (data->row_strides/sizeof(@typ@)) * (data->output_lead_dim + 1);
     }
 }
 
