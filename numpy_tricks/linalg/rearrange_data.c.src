@@ -154,11 +154,6 @@ delinearize_@TYPE@_matrix(void *dst_in,
           (fortran_int)(data->column_strides/sizeof(@typ@));
         fortran_int one = 1;
         for (i = 0; i < data->rows; i++) {
-#if @cmplx@
-            if (data->conj) {
-                FNAME(@lacgv@)(&columns, (void*)src, &one);
-            }
-#endif
             if (column_strides > 0) {
                 FNAME(@copy@)(&columns,
                               (void*)src, &one,
@@ -182,6 +177,11 @@ delinearize_@TYPE@_matrix(void *dst_in,
                            sizeof(@typ@));
               }
             }
+#if @cmplx@
+            if (data->conj) {
+                FNAME(@lacgv@)(&columns, (void*)dst, &column_strides);
+            }
+#endif
             src += data->output_lead_dim;
             dst += data->row_strides/sizeof(@typ@);
         }

@@ -235,17 +235,9 @@ FNAME(@getrs@)(char *trans, int *n, int *nrhs,
 
 /*
 ******************************************************************************
-**                                SOLVE                                     **
+**                                 LU                                       **
 ******************************************************************************
 */
-
-// solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
-// rsolve_signature = (nrhs,n),(n,n)->(nrhs,n)"
-// solvelu_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
-// rsolvelu_signature = "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)";
-// lusolve_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
-// rlusolve_signature = "(nrhs,n),(n,n),(n)->(nrhs,n)";
-
 typedef struct gesv_params_struct
 {
     void *A; /* A is (N,N) of base type */
@@ -269,6 +261,196 @@ typedef struct gesv_params_struct
     #getrs = sgetrs, dgetrs, cgetrs, zgetrs#
 */
 
+// lu_signature = "(m,n)->(m,k),(k,n),(k)"
+// lu_raw_signature = "(m,n)->(m,n),(k)"
+/**************************************************
+* Calling BLAS/Lapack functions _gesv, _getr{f,s} *
+***************************************************/
+
+static NPY_INLINE void
+call_@getrf@(GESV_PARAMS_t *params)
+{
+    // A is modified by ?GETRF to carry LU info
+    LAPACK(@getrf@)(&params->M, &params->N, params->A, &params->LDA,
+                    params->IPIV, &params->INFO);
+}
+
+/***************************************************************************
+* Initialize the parameters to use in the lapack functions _gesv           *
+* Handles buffer allocation
+****************************************************************************/
+static NPY_INLINE int
+init_@getrf@(GESV_PARAMS_t *params, npy_intp M_in, npy_intp N_in)
+{
+    npy_uint8 *mem_buff = NULL;
+    npy_uint8 *a, *b;
+    fortran_int M, N, K, lda;
+    size_t safe_M, safe_N, safe_K;
+
+    M = (fortran_int)M_in;
+    N = (fortran_int)N_in;
+    K = fortran_int_min(M, N);
+    lda = fortran_int_max(M, 1);
+    safe_N = M_in;
+    safe_N = N_in;
+    safe_K = K;
+
+    mem_buff = malloc(safe_M * safe_N * sizeof(@ftyp@)
+                    + safe_K * sizeof(fortran_int));
+    if (!mem_buff) {
+        goto error;
+    }
+    a = mem_buff;
+    b = a + safe_M * safe_N * sizeof(@ftyp@);
+
+    params->A = a;
+    params->B = NULL;
+    params->IPIV = (fortran_int*)b;
+    params->M = M;
+    params->N = N;
+    params->NRHS = 0;
+    params->LDA = lda;
+    params->LDB = 1;
+    params->INFO = 0;
+    params->TRANS = 'N';
+
+    return 1;
+
+  error:
+    free(mem_buff);
+    memset(params, 0, sizeof(*params));
+    // PyErr_NoMemory();
+
+    return 0;
+}
+
+/************************
+* Deallocate buffer     *
+*************************/
+
+static NPY_INLINE void
+release_@getrf@(GESV_PARAMS_t *params)
+{
+    /* 1st memory block base is in A */
+    free(params->A);
+    memset(params, 0, sizeof(*params));
+}
+
+/************************
+* Inner GUfunc loop     *
+*************************/
+
+// lu_signature = "(m,n)->(m,k),(k,n),(k)"
+
+static void
+@TYPE@_lu(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
+{
+    INIT_OUTER_LOOP_4
+    npy_intp len_m = *dimensions++;  // rows
+    npy_intp len_n = *dimensions++;  // columns
+    npy_intp stride_a_r = *steps++;  // rows
+    npy_intp stride_a_c = *steps++;
+    npy_intp stride_l_r = *steps++;  // rows
+    npy_intp stride_l_c = *steps++;
+    npy_intp stride_u_r = *steps++;  // rows
+    npy_intp stride_u_c = *steps++;
+    npy_intp stride_ip = *steps++;  // elements
+    int error_occurred = get_fp_invalid_and_clear();
+    GESV_PARAMS_t params;
+    LINEARIZE_DATA_t a_in, l_out, u_out;
+    LINEARIZE_VDATA_t ipiv_out;
+    npy_intp len_k = (len_m < len_n) ? len_m : len_n;
+
+    if(init_@getrf@(&params, len_m, len_n)){
+        init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
+        init_linearize_data(&l_out, len_k, len_m, stride_l_c, stride_l_r);
+        init_linearize_data_ex(&u_out, len_n, len_k, stride_u_c, stride_u_r, len_m);
+        init_linearize_vdata(&ipiv_out, len_k, stride_ip);
+
+        BEGIN_OUTER_LOOP_4
+            int not_ok;
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            call_@getrf@(&params);
+            not_ok = params.INFO;
+            if (not_ok) {
+                error_occurred = 1;
+                nan_@TYPE@_matrix(args[1], &l_out);
+                nan_@TYPE@_matrix(args[2], &u_out);
+            } else {
+                zero_@TYPE@_matrix(args[1], &l_out);
+                delinearize_@TYPE@_tril(args[1], params.A, &l_out);
+                eye_@TYPE@_matrix(args[1], &l_out);
+                zero_@TYPE@_matrix(args[2], &u_out);
+                delinearize_@TYPE@_triu(args[2], params.A, &u_out);
+                delinearize_INT_vec(args[3], params.IPIV, &ipiv_out);
+            }
+        END_OUTER_LOOP_4
+        release_@getrf@(&params);
+    }
+    set_fp_invalid_or_clear(error_occurred);
+}
+
+/************************
+*         LU RAW        *
+*************************/
+
+// lu_raw_signature = "(m,n)->(m,n),(k)"
+
+static void
+@TYPE@_lu_raw(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
+{
+    INIT_OUTER_LOOP_3
+    npy_intp len_m = *dimensions++;  // rows
+    npy_intp len_n = *dimensions++;  // columns
+    npy_intp stride_a_r = *steps++;  // rows
+    npy_intp stride_a_c = *steps++;
+    npy_intp stride_f_r = *steps++;  // rows
+    npy_intp stride_f_c = *steps++;
+    npy_intp stride_ip = *steps++;  // elements
+    int error_occurred = get_fp_invalid_and_clear();
+    GESV_PARAMS_t params;
+    LINEARIZE_DATA_t a_in, f_out;
+    LINEARIZE_VDATA_t ipiv_out;
+    npy_intp len_k = (len_m < len_n) ? len_m : len_n;
+
+    if(init_@getrf@(&params, len_m, len_n)){
+        init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
+        init_linearize_data(&f_out, len_n, len_m, stride_f_c, stride_f_r);
+        init_linearize_vdata(&ipiv_out, len_k, stride_ip);
+
+        BEGIN_OUTER_LOOP_3
+            int not_ok;
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            call_@getrf@(&params);
+            not_ok = params.INFO;
+            if (not_ok) {
+                error_occurred = 1;
+                nan_@TYPE@_matrix(args[1], &f_out);
+            } else {
+                delinearize_@TYPE@_matrix(args[1], params.A, &f_out);
+                delinearize_INT_vec(args[2], params.IPIV, &ipiv_out);
+            }
+        END_OUTER_LOOP_3
+        release_@gesv@(&params);
+    }
+    set_fp_invalid_or_clear(error_occurred);
+}
+
+/*
+******************************************************************************
+**                                SOLVE                                     **
+******************************************************************************
+*/
+
+// solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
+// rsolve_signature = (nrhs,n),(n,n)->(nrhs,n)"
+// solvelu_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
+// rsolvelu_signature = "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)";
+// lusolve_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
+// rlusolve_signature = "(nrhs,n),(n,n),(n)->(nrhs,n)";
+
 /**************************************************
 * Calling BLAS/Lapack functions _gesv, _getr{f,s} *
 ***************************************************/
@@ -288,14 +470,6 @@ call_@getrs@(GESV_PARAMS_t *params)
     LAPACK(@getrs@)(&params->TRANS, &params->N, &params->NRHS,
                     params->A, &params->LDA, params->IPIV,
                     params->B, &params->LDB, &params->INFO);
-}
-
-static NPY_INLINE void
-call_@getrf@(GESV_PARAMS_t *params)
-{
-    // A is modified by ?GETRF to carry LU info
-    LAPACK(@getrf@)(&params->M, &params->N, params->A, &params->LDA,
-                    params->IPIV, &params->INFO);
 }
 
 /***************************************************************************
@@ -628,167 +802,6 @@ static void
     @TYPE@_lusolve_loop(rargs, rdimensions, rsteps, 'T');
 }
 
-
-/*
-******************************************************************************
-**                                 LU                                       **
-******************************************************************************
-*/
-
-// lu_signature = "(m,n)->(m,k),(k,n),(k)"
-// lu_raw_signature = "(m,n)->(m,n),(k)"
-
-/***************************************************************************
-* Initialize the parameters to use in the lapack functions _gesv           *
-* Handles buffer allocation
-****************************************************************************/
-static NPY_INLINE int
-init_@getrf@(GESV_PARAMS_t *params, npy_intp M_in, npy_intp N_in)
-{
-    npy_uint8 *mem_buff = NULL;
-    npy_uint8 *a, *b;
-    fortran_int M, N, K, lda;
-    size_t safe_M, safe_N, safe_K;
-
-    M = (fortran_int)M_in;
-    N = (fortran_int)N_in;
-    K = fortran_int_min(M, N);
-    lda = fortran_int_max(M, 1);
-    safe_N = M_in;
-    safe_N = N_in;
-    safe_K = K;
-
-    mem_buff = malloc(safe_M * safe_N * sizeof(@ftyp@)
-                    + safe_K * sizeof(fortran_int));
-    if (!mem_buff) {
-        goto error;
-    }
-    a = mem_buff;
-    b = a + safe_M * safe_N * sizeof(@ftyp@);
-
-    params->A = a;
-    params->B = NULL;
-    params->IPIV = (fortran_int*)b;
-    params->M = M;
-    params->N = N;
-    params->NRHS = 0;
-    params->LDA = lda;
-    params->LDB = 1;
-    params->INFO = 0;
-    params->TRANS = 'N';
-
-    return 1;
-
-  error:
-    free(mem_buff);
-    memset(params, 0, sizeof(*params));
-    // PyErr_NoMemory();
-
-    return 0;
-}
-
-/************************
-* Inner GUfunc loop     *
-*************************/
-
-// lu_signature = "(m,n)->(m,k),(k,n),(k)"
-
-static void
-@TYPE@_lu(char **args, npy_intp *dimensions, npy_intp *steps,
-            void *NPY_UNUSED(func))
-{
-    INIT_OUTER_LOOP_4
-    npy_intp len_m = *dimensions++;  // rows
-    npy_intp len_n = *dimensions++;  // columns
-    npy_intp stride_a_r = *steps++;  // rows
-    npy_intp stride_a_c = *steps++;
-    npy_intp stride_l_r = *steps++;  // rows
-    npy_intp stride_l_c = *steps++;
-    npy_intp stride_u_r = *steps++;  // rows
-    npy_intp stride_u_c = *steps++;
-    npy_intp stride_ip = *steps++;  // elements
-    int error_occurred = get_fp_invalid_and_clear();
-    GESV_PARAMS_t params;
-    LINEARIZE_DATA_t a_in, l_out, u_out;
-    LINEARIZE_VDATA_t ipiv_out;
-    npy_intp len_k = (len_m < len_n) ? len_m : len_n;
-
-    if(init_@getrf@(&params, len_m, len_n)){
-        init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
-        init_linearize_data(&l_out, len_k, len_m, stride_l_c, stride_l_r);
-        init_linearize_data_ex(&u_out, len_n, len_k, stride_u_c, stride_u_r, len_m);
-        init_linearize_vdata(&ipiv_out, len_k, stride_ip);
-
-        BEGIN_OUTER_LOOP_4
-            int not_ok;
-            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
-            call_@getrf@(&params);
-            not_ok = params.INFO;
-            if (not_ok) {
-                error_occurred = 1;
-                nan_@TYPE@_matrix(args[1], &l_out);
-                nan_@TYPE@_matrix(args[2], &u_out);
-            } else {
-                zero_@TYPE@_matrix(args[1], &l_out);
-                delinearize_@TYPE@_tril(args[1], params.A, &l_out);
-                eye_@TYPE@_matrix(args[1], &l_out);
-                zero_@TYPE@_matrix(args[2], &u_out);
-                delinearize_@TYPE@_triu(args[2], params.A, &u_out);
-                delinearize_INT_vec(args[3], params.IPIV, &ipiv_out);
-            }
-        END_OUTER_LOOP_4
-        release_@gesv@(&params);
-    }
-    set_fp_invalid_or_clear(error_occurred);
-}
-
-/************************
-*         LU RAW        *
-*************************/
-
-// lu_raw_signature = "(m,n)->(m,n),(k)"
-
-static void
-@TYPE@_lu_raw(char **args, npy_intp *dimensions, npy_intp *steps,
-            void *NPY_UNUSED(func))
-{
-    INIT_OUTER_LOOP_3
-    npy_intp len_m = *dimensions++;  // rows
-    npy_intp len_n = *dimensions++;  // columns
-    npy_intp stride_a_r = *steps++;  // rows
-    npy_intp stride_a_c = *steps++;
-    npy_intp stride_f_r = *steps++;  // rows
-    npy_intp stride_f_c = *steps++;
-    npy_intp stride_ip = *steps++;  // elements
-    int error_occurred = get_fp_invalid_and_clear();
-    GESV_PARAMS_t params;
-    LINEARIZE_DATA_t a_in, f_out;
-    LINEARIZE_VDATA_t ipiv_out;
-    npy_intp len_k = (len_m < len_n) ? len_m : len_n;
-
-    if(init_@getrf@(&params, len_m, len_n)){
-        init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
-        init_linearize_data(&f_out, len_n, len_m, stride_f_c, stride_f_r);
-        init_linearize_vdata(&ipiv_out, len_k, stride_ip);
-
-        BEGIN_OUTER_LOOP_3
-            int not_ok;
-            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
-            call_@getrf@(&params);
-            not_ok = params.INFO;
-            if (not_ok) {
-                error_occurred = 1;
-                nan_@TYPE@_matrix(args[1], &f_out);
-            } else {
-                delinearize_@TYPE@_matrix(args[1], params.A, &f_out);
-                delinearize_INT_vec(args[2], params.IPIV, &ipiv_out);
-            }
-        END_OUTER_LOOP_3
-        release_@gesv@(&params);
-    }
-    set_fp_invalid_or_clear(error_occurred);
-}
-
 /**end repeat**/
 
 /*
@@ -843,7 +856,7 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
         FUNC_ARRAY_NAME(rlu_solve), ufn_types_rsolve_4 },
     { "lu_m", "(m,n)->(m,m),(m,n),(m)", lu__doc__, 4, 1, 3,
         FUNC_ARRAY_NAME(lu), ufn_types_lu_4 },
-    { "lu_n", "(m,n)->(m,n),(m,n),(n)", lu__doc__, 4, 1, 3,
+    { "lu_n", "(m,n)->(m,n),(n,n),(n)", lu__doc__, 4, 1, 3,
         FUNC_ARRAY_NAME(lu), ufn_types_lu_4 },
     { "lu_rawm", "(m,n)->(m,n),(m)", lu_raw__doc__, 4, 1, 2,
         FUNC_ARRAY_NAME(lu_raw), ufn_types_lu_3 },
@@ -857,7 +870,7 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
 *****************************************************************************
 */
 
-static PyMethodDef GUfuncs_LAPACK_Methods[] = {
+static PyMethodDef GUfuncs_LUSOLVE_Methods[] = {
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -866,7 +879,7 @@ static struct PyModuleDef moduledef = {
     "_gufuncs_lapack",
     NULL,
     -1,
-    GUfuncs_LAPACK_Methods,
+    GUfuncs_LUSOLVE_Methods,
     NULL,
     NULL,
     NULL,

@@ -2,12 +2,114 @@
 """Test solve & lstsq families of gufuncs
 """
 import unittest
-# import numpy as np
+import numpy as np
 import unittest_numpy as utn
 import sl_py_tools.numpy_tricks.linalg._gufuncs_lu_solve as gfl
 from sl_py_tools.numpy_tricks.linalg import transpose
 
 errstate = utn.errstate(invalid='raise')
+# =============================================================================
+# %% Test LU
+# =============================================================================
+
+
+class TestLU(utn.TestCaseNumpy):
+    """Testing LU decomposition"""
+
+    def setUp(self):
+        super().setUp()
+        self.square = {}
+        self.tall = {}
+        self.wide = {}
+        for sctype in self.sctype:
+            self.square[sctype] = utn.randn_asa((2, 5, 5), sctype)
+            self.wide[sctype] = utn.randn_asa((3, 1, 3, 6), sctype)
+            self.tall[sctype] = utn.randn_asa((5, 2), sctype)
+
+    def test_lu_basic_shape(self):
+        """Test shape of basic LU"""
+        sq_l, sq_u, sq_ip = gfl.lu_m(self.square['d'])
+        with self.subTest(msg="square"):
+            self.assertEqual(sq_l.shape, (2, 5, 5))
+            self.assertEqual(sq_u.shape, (2, 5, 5))
+            self.assertEqual(sq_ip.shape, (2, 5))
+        wd_l, wd_u, wd_ip = gfl.lu_m(self.wide['d'])
+        with self.subTest(msg="wide"):
+            self.assertEqual(wd_l.shape, (3, 1, 3, 3))
+            self.assertEqual(wd_u.shape, (3, 1, 3, 6))
+            self.assertEqual(wd_ip.shape, (3, 1, 3))
+        tl_l, tl_u, tl_ip = gfl.lu_n(self.tall['d'])
+        with self.subTest(msg="tall"):
+            self.assertEqual(tl_l.shape, (5, 2))
+            self.assertEqual(tl_u.shape, (2, 2))
+            self.assertEqual(tl_ip.shape, (2,))
+
+    @unittest.skip("failing")
+    def test_lu_raw_shape(self):
+        """Test shape of raw LU"""
+        sq_f, sq_ip = gfl.lu_rawm(self.square['d'])
+        with self.subTest(msg="square"):
+            self.assertEqual(sq_f.shape, (2, 5, 5))
+            self.assertEqual(sq_ip.shape, (2, 5))
+        wd_f, wd_ip = gfl.lu_rawm(self.wide['d'])
+        with self.subTest(msg="wide"):
+            self.assertEqual(wd_f.shape, (3, 1, 3, 6))
+            self.assertEqual(wd_ip.shape, (3, 1, 3))
+        tl_f, tl_ip = gfl.lu_rawn(self.tall['d'])
+        with self.subTest(msg="tall"):
+            self.assertEqual(tl_f.shape, (5, 2))
+            self.assertEqual(tl_ip.shape, (2,))
+
+    @unittest.expectedFailure
+    @utn.loop_test()
+    def test_lu_basic_val(self, sctype):
+        """Test values of basic LU"""
+        sq_l, sq_u, sq_ip = gfl.lu_m(self.square[sctype])
+        inds = (...,) + np.diag_indices(5, 2)
+        with self.subTest(msg="square"):
+            self.assertArrayAllClose(sq_l @ sq_u, self.square[sctype])
+            self.assertArrayAllClose(sq_l[inds], 1.)
+        wd_l, wd_u, wd_ip = gfl.lu_m(self.wide[sctype])
+        inds = (...,) + np.diag_indices(3, 2)
+        with self.subTest(msg="wide"):
+            self.assertArrayAllClose(wd_l @ wd_u, self.wide[sctype])
+            self.assertArrayAllClose(wd_l[inds], 1.)
+        tl_l, tl_u, tl_ip = gfl.lu_n(self.tall[sctype])
+        inds = (...,) + np.diag_indices(2, 2)
+        with self.subTest(msg="tall"):
+            self.assertArrayAllClose(tl_l @ tl_u, self.tall[sctype])
+            self.assertArrayAllClose(tl_l[inds], 1.)
+
+    @unittest.skip("failing")
+    @utn.loop_test()
+    def test_lu_raw_val(self, sctype):
+        """Test values of raw LU"""
+        sq_l, sq_u, sq_ip0 = gfl.lu_m(self.square[sctype])
+        sq_f, sq_ip = gfl.lu_rawm(self.square[sctype])
+        linds = (...,) + np.tril_indices(5, -1)
+        uinds = (...,) + np.triu_indices(5, 0)
+        with self.subTest(msg="square"):
+            self.assertArrayAllClose(sq_f[linds], sq_l[linds])
+            self.assertArrayAllClose(sq_f[uinds], sq_u[uinds])
+            self.assertEqual(sq_ip, sq_ip0)
+        wd_l, wd_u, wd_ip0 = gfl.lu_m(self.wide[sctype])
+        wd_f, wd_ip = gfl.lu_rawm(self.wide[sctype])
+        linds = (...,) + np.tril_indices(3, -1, 6)
+        uinds = (...,) + np.triu_indices(3, 0, 6)
+        with self.subTest(msg="wide"):
+            self.assertArrayAllClose(wd_f[linds], wd_l[linds])
+            self.assertArrayAllClose(wd_f[uinds], wd_u[uinds])
+            self.assertEqual(wd_ip, wd_ip0)
+        tl_l, tl_u, tl_ip0 = gfl.lu_n(self.tall[sctype])
+        tl_f, tl_ip = gfl.lu_rawn(self.tall[sctype])
+        linds = (...,) + np.tril_indices(5, -1, 2)
+        uinds = (...,) + np.triu_indices(5, 0, 2)
+        with self.subTest(msg="tall"):
+            self.assertArrayAllClose(tl_f[linds], tl_l[linds])
+            self.assertArrayAllClose(tl_f[uinds], tl_u[uinds])
+            self.assertEqual(tl_ip, tl_ip0)
+
+
 # =============================================================================
 # %% Test solve
 # =============================================================================
