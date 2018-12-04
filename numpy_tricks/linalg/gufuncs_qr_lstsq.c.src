@@ -956,7 +956,7 @@ INIT_OUTER_LOOP_3
     int error_occurred = get_fp_invalid_and_clear();
     GELSD_PARAMS_t params;
     LINEARIZE_DATA_t a_in, b_in, x_out;
-    npy_intp len_mn = len_m > len_n ? len_m : len_n; // max
+    npy_intp len_mn = npy_int_max(len_m, len_n); // max
 
     if(init_@gelsd@(&params, len_m, len_n, len_nrhs)){
         init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);

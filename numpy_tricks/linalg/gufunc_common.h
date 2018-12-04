@@ -157,6 +157,17 @@ set_fp_invalid_or_clear(int error_occurred)
 **                      Some handy constants                               **
 *****************************************************************************
 */
+
+static NPY_INLINE npy_intp
+npy_int_min(npy_intp x, npy_intp y) {
+ return x < y ? x : y;
+}
+
+static NPY_INLINE npy_intp
+npy_int_max(npy_intp x, npy_intp y) {
+ return x > y ? x : y;
+}
+
 #ifndef FORTRAN_TYPES
 typedef union {
     npy_cfloat npy;
