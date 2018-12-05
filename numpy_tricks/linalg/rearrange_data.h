@@ -48,13 +48,54 @@ DECLARE_FUNC_LINEARIZE(vec)
 DECLARE_FUNC_DELINEARIZE(vec)
 DECLARE_FUNC_FILL(nan, vec)
 
-void linearize_INT_vec(void *dst_in, const void *src_in, const LINEARIZE_DATA_t* data);
-void delinearize_INT_vec(void *dst_in, const void *src_in, const LINEARIZE_DATA_t* data);
-
 fortran_int FLOAT_real_int(fortran_real val);
 fortran_int DOUBLE_real_int(fortran_doublereal val);
 fortran_int CFLOAT_real_int(fortran_complex val);
 fortran_int CDOUBLE_real_int(fortran_doublecomplex val);
+/*
+*****************************************************************************
+**                          Integer versions                               **
+*****************************************************************************
+*/
+static NPY_INLINE void
+linearize_INT_vec(void *dst_in,
+                const void *src_in,
+                const LINEARIZE_DATA_t *data)
+{
+    fortran_int *dst = (fortran_int *) dst_in;
+    npy_int *src = (npy_int *) src_in;
+
+    if (dst) {
+        fortran_int len = (fortran_int)data->columns;
+        fortran_int strides = (fortran_int)(data->column_strides/sizeof(npy_int));
+        int j;
+        for (j = 0; j < len; ++j) {
+            *dst = (fortran_int)*src;
+            src += strides;
+            dst += 1;
+        }
+    }
+}
+
+static NPY_INLINE void
+delinearize_INT_vec(void *dst_in,
+                    const void *src_in,
+                    const LINEARIZE_DATA_t *data)
+{
+    fortran_int *src = (fortran_int *) src_in;
+    npy_int *dst = (npy_int *) dst_in;
+
+    if (dst) {
+        fortran_int len = (fortran_int)data->columns;
+        fortran_int strides = (fortran_int)(data->column_strides/sizeof(npy_int));
+        int j;
+        for (j = 0; j < len; ++j) {
+            *dst = (npy_int)*src;
+            src += 1;
+            dst += strides;
+        }
+    }
+}
 /*
 *****************************************************************************
 *****************************************************************************

@@ -88,6 +88,30 @@ FNAME(@lacgv@)(int *n, @typ@ *x, int *incx);
 */
 
 /*********************
+*  Complex numbers   *
+**********************/
+
+fortran_int
+@TYPE@_real_int(@ftyp@ val)
+{
+#if @cmplx@
+    return (fortran_int)val.r;
+#else
+    return (fortran_int)val;
+#endif
+}
+
+void @TYPE@_conj_vec(fortran_int len, @typ@ *dst, fortran_int stride,
+                     LINEARIZE_DATA_t *data)
+{
+#if @cmplx@
+    if (data->conj) {
+        FNAME(@lacgv@)(&len, (void *)dst, &stride);
+    }
+#endif
+}
+
+/*********************
 *  Copying matrices  *
 **********************/
 
@@ -132,11 +156,7 @@ linearize_@TYPE@_matrix(void *dst_in,
                     memcpy((void *)(dst + j), (void *)src, sizeof(@typ@));
                     }
             }
-#if @cmplx@
-            if (data->conj) {
-                FNAME(@lacgv@)(&columns, (void *)dst, &one);
-            }
-#endif
+            @TYPE@_conj_vec(columns, dst, one, data);
             src += data->row_strides/sizeof(@typ@);
             dst += data->output_lead_dim;
         }
@@ -162,11 +182,7 @@ delinearize_@TYPE@_matrix(void *dst_in,
                 FNAME(@copy@)(&columns,
                               (void *)src, &one,
                               (void *)dst, &column_strides);
-#if @cmplx@
-                if (data->conj) {
-                    FNAME(@lacgv@)(&columns, (void *)dst, &column_strides);
-                }
-#endif
+                @TYPE@_conj_vec(columns, dst, column_strides, data);
             }
             else if (column_strides < 0) {
                /*
@@ -178,13 +194,8 @@ delinearize_@TYPE@_matrix(void *dst_in,
                               (void *)src, &one,
                               (void *)(dst + (columns-1)*column_strides),
                               &column_strides);
-#if @cmplx@
-                if (data->conj) {
-                    FNAME(@lacgv@)(&columns,
-                                   (void *)(dst + (columns-1)*column_strides),
-                                   &column_strides);
-                }
-#endif
+                @TYPE@_conj_vec(columns, dst + (columns-1)*column_strides,
+                                column_strides, data);
             }
             else {
                /*
@@ -196,11 +207,7 @@ delinearize_@TYPE@_matrix(void *dst_in,
                     memcpy((void *)dst,
                            (void *)(src + (columns-1)),
                            sizeof(@typ@));
-#if @cmplx@
-                    if (data->conj) {
-                        FNAME(@lacgv@)(&one, (void *)dst, &column_strides);
-                    }
-#endif
+                    @TYPE@_conj_vec(one, dst, column_strides, data);
                 }
             }
             src += data->output_lead_dim;
@@ -418,11 +425,7 @@ linearize_@TYPE@_vec(void *dst_in,
             for (j = 0; j < len; ++j) {
                 memcpy((void *)(dst + j), (void *)src, sizeof(@typ@));
             }
-#if @cmplx@
-        if (data->conj) {
-            FNAME(@lacgv@)(&len, (void *)dst, &one);
-        }
-#endif
+            @TYPE@_conj_vec(len, dst, one, data);
         }
     }
 }
@@ -443,11 +446,7 @@ delinearize_@TYPE@_vec(void *dst_in,
             FNAME(@copy@)(&len,
                           (void *)src, &one,
                           (void *)dst, &strides);
-#if @cmplx@
-            if (data->conj) {
-                FNAME(@lacgv@)(&len, (void *)dst, &strides);
-            }
-#endif
+            @TYPE@_conj_vec(len, dst, strides, data);
         }
         else if (strides < 0) {
             /*
@@ -456,13 +455,9 @@ delinearize_@TYPE@_vec(void *dst_in,
              * We have to undo that
              */
             FNAME(@copy@)(&len,
-                          (void *)(src + (len-1)*strides), &one,
-                          (void *)dst, &strides);
-#if @cmplx@
-            if (data->conj) {
-                FNAME(@lacgv@)(&len, (void *)dst, &strides);
-            }
-#endif
+                          (void *)src, &one,
+                          (void *)(dst + (len-1)*strides), &strides);
+            @TYPE@_conj_vec(len, dst + (len-1)*strides, strides, data);
         }
         else {
             /*
@@ -475,11 +470,7 @@ delinearize_@TYPE@_vec(void *dst_in,
                 for (j = 0; j < len; ++j) {
                     memcpy((void *)dst, (void *)(src + j), sizeof(@typ@));
                 }
-#if @cmplx@
-                if (data->conj) {
-                    FNAME(@lacgv@)(&len, (void *)dst, &strides);
-                }
-#endif
+                @TYPE@_conj_vec(one, dst, strides, data);
             }
         }
     }
@@ -499,64 +490,4 @@ nan_@TYPE@_vec(void *dst_in, const LINEARIZE_DATA_t* data)
     }
 }
 
-/*********************
-*  Complex numbers   *
-**********************/
-
-fortran_int
-@TYPE@_real_int(@ftyp@ val)
-{
-#if @cmplx@
-    return (fortran_int)val.r;
-#else
-    return (fortran_int)val;
-#endif
-}
-
 /**end repeat**/
-
-
-/*********************
-*     Integers       *
-**********************/
-
-
-void
-linearize_INT_vec(void *dst_in,
-                const void *src_in,
-                const LINEARIZE_DATA_t *data)
-{
-    fortran_int *dst = (fortran_int *) dst_in;
-    npy_int *src = (npy_int *) src_in;
-
-    if (dst) {
-        fortran_int len = (fortran_int)data->columns;
-        fortran_int strides = (fortran_int)(data->column_strides/sizeof(npy_int));
-        int j;
-        for (j = 0; j < len; ++j) {
-            *dst = (fortran_int)*src;
-            src += strides;
-            dst += 1;
-        }
-    }
-}
-
-void
-delinearize_INT_vec(void *dst_in,
-                    const void *src_in,
-                    const LINEARIZE_DATA_t *data)
-{
-    fortran_int *src = (fortran_int *) src_in;
-    npy_int *dst = (npy_int *) dst_in;
-
-    if (dst) {
-        fortran_int len = (fortran_int)data->columns;
-        fortran_int strides = (fortran_int)(data->column_strides/sizeof(npy_int));
-        int j;
-        for (j = 0; j < len; ++j) {
-            *dst = (npy_int)*src;
-            src += 1;
-            dst += strides;
-        }
-    }
-}
