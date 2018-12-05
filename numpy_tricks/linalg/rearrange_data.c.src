@@ -101,8 +101,9 @@ fortran_int
 #endif
 }
 
-void @TYPE@_conj_vec(fortran_int len, @typ@ *dst, fortran_int stride,
-                     LINEARIZE_DATA_t *data)
+static NPY_INLINE void
+@TYPE@_conj_vec(fortran_int len, @typ@ *dst, fortran_int stride,
+                const LINEARIZE_DATA_t *data)
 {
 #if @cmplx@
     if (data->conj) {
@@ -137,24 +138,24 @@ linearize_@TYPE@_matrix(void *dst_in,
             }
             else if (column_strides < 0) {
                 /*
-                 * BLAS _copy assumes dst points to first element in memory
-                 * instead of first element of array & tries to compensate.
-                 * We have to undo that
-                 */
-                FNAME(@copy@)(&columns,
-                              (void *)((@typ@*)src + (columns-1)*column_strides),
-                              &column_strides,
-                              (void *)dst, &one);
+                * BLAS _copy assumes dst points to the first element in memory.
+                * numpy points it at the first element of the array.
+                * We have to compensate.
+                */
+                FNAME(@copy@)(  &columns,
+                                (void *)((@typ@*)src + (columns-1)*column_strides),
+                                &column_strides,
+                                (void *)dst, &one);
             }
             else {
                 /*
-                 * Zero stride has undefined behavior in some BLAS
-                 * implementations (e.g. OSX Accelerate), so do it
-                 * manually
-                 */
+                * Zero stride has undefined behavior in some BLAS
+                * implementations (e.g. OSX Accelerate), so do it
+                * manually
+                */
                 for (j = 0; j < columns; ++j) {
                     memcpy((void *)(dst + j), (void *)src, sizeof(@typ@));
-                    }
+                }
             }
             @TYPE@_conj_vec(columns, dst, one, data);
             src += data->row_strides/sizeof(@typ@);
@@ -164,9 +165,9 @@ linearize_@TYPE@_matrix(void *dst_in,
 }
 
 void
-delinearize_@TYPE@_matrix(void *dst_in,
-                        const void *src_in,
-                        const LINEARIZE_DATA_t* data)
+delinearize_@TYPE@_matrix(  void *dst_in,
+                            const void *src_in,
+                            const LINEARIZE_DATA_t* data)
 {
     @typ@ *src = (@typ@ *) src_in;
     @typ@ *dst = (@typ@ *) dst_in;
@@ -175,38 +176,35 @@ delinearize_@TYPE@_matrix(void *dst_in,
         int i;
         fortran_int columns = (fortran_int)data->columns;
         fortran_int column_strides =
-          (fortran_int)(data->column_strides/sizeof(@typ@));
+            (fortran_int)(data->column_strides/sizeof(@typ@));
         fortran_int one = 1;
         for (i = 0; i < data->rows; i++) {
             if (column_strides > 0) {
-                FNAME(@copy@)(&columns,
-                              (void *)src, &one,
-                              (void *)dst, &column_strides);
+                FNAME(@copy@)(  &columns,
+                                (void *)src, &one,
+                                (void *)dst, &column_strides);
                 @TYPE@_conj_vec(columns, dst, column_strides, data);
             }
             else if (column_strides < 0) {
-               /*
+                /*
                 * BLAS _copy/lacgv assume dst points to first element in memory
-                * instead of first element of array & tries to compensate.
-                * We have to undo that
+                * numpy points it at the first element of the array.
+                * We have to compensate.
                 */
-                FNAME(@copy@)(&columns,
-                              (void *)src, &one,
-                              (void *)(dst + (columns-1)*column_strides),
-                              &column_strides);
-                @TYPE@_conj_vec(columns, dst + (columns-1)*column_strides,
-                                column_strides, data);
+                @typ@ *dst_end = dst + (columns-1)*column_strides;
+                FNAME(@copy@)(  &columns,
+                                (void *)src, &one,
+                                (void *)dst_end, &column_strides);
+                @TYPE@_conj_vec(columns, dst_end, column_strides, data);
             }
             else {
-               /*
+                /*
                 * Zero stride has undefined behavior in some BLAS
                 * implementations (e.g. OSX Accelerate), so do it
                 * manually
                 */
                 if (columns > 0) {
-                    memcpy((void *)dst,
-                           (void *)(src + (columns-1)),
-                           sizeof(@typ@));
+                    memcpy((void *)dst, (void *)(src + (columns-1)), sizeof(@typ@));
                     @TYPE@_conj_vec(one, dst, column_strides, data);
                 }
             }
@@ -235,33 +233,31 @@ delinearize_@TYPE@_triu(void *dst_in,
             (fortran_int)(data->column_strides/sizeof(@typ@));
         fortran_int one = 1;
         for (i = 0; i < data->rows; i++) {
-            fortran_int n = fortran_int_min(i + 1, columns);
+            fortran_int len = fortran_int_min(i + 1, columns);
             if (column_strides > 0) {
-                FNAME(@copy@)(&n,
-                              (void *)src, &one,
-                              (void *)dst, &column_strides);
+                FNAME(@copy@)(  &len,
+                                (void *)src, &one,
+                                (void *)dst, &column_strides);
             }
             else if (column_strides < 0) {
-               /*
-                * BLAS _copy assumes dst points to first element in memory
-                * instead of first element of array & tries to compensate.
-                * We have to undo that
+                /*
+                * BLAS _copy assumes dst points to the first element in memory.
+                * numpy points it at the first element of the array.
+                * We have to compensate.
                 */
-                FNAME(@copy@)(&n,
-                              (void *)src, &one,
-                              (void *)(dst + (n-1)*column_strides),
-                              &column_strides);
+                FNAME(@copy@)(  &len,
+                                (void *)src, &one,
+                                (void *)(dst + (len-1)*column_strides),
+                                &column_strides);
             }
             else {
-               /*
+                /*
                 * Zero stride has undefined behavior in some BLAS
                 * implementations (e.g. OSX Accelerate), so do it
                 * manually
                 */
                 if (columns > 0) {
-                    memcpy((void *)dst,
-                           (void *)(src + (n-1)),
-                           sizeof(@typ@));
+                    memcpy((void *)dst, (void *)(src + (len-1)), sizeof(@typ@));
                 }
             }
             src += data->output_lead_dim;
@@ -289,36 +285,32 @@ delinearize_@TYPE@_tril(void *dst_in,
         fortran_int column_strides =
             (fortran_int)(data->column_strides/sizeof(@typ@));
         fortran_int one = 1;
-        for (i = 0; i < data->rows; i++) {
-            fortran_int n = fortran_int_max(0, columns - i - 1);
-            if (n > 0) {
-                if (column_strides > 0) {
-                    FNAME(@copy@)(&n,
-                                  (void *)(src + i + 1), &one,
-                                  (void *)(dst + (i+1)*column_strides),
-                                  &column_strides);
-                }
-                else if (column_strides < 0) {
-                   /*
-                    * BLAS _copy assumes dst points to first element in memory
-                    * instead of first element of array & tries to compensate.
-                    * We have to undo that
-                    */
-                    FNAME(@copy@)(&n,
-                                  (void *)(src + i + 1), &one,
-                                  (void *)(dst + (columns-1)*column_strides),
-                                  &column_strides);
-                }
-                else {
-                   /*
-                    * Zero stride has undefined behavior in some BLAS
-                    * implementations (e.g. OSX Accelerate), so do it
-                    * manually
-                    */
-                    memcpy((void *)dst,
-                           (void *)(src + (columns-1)),
-                           sizeof(@typ@));
-                }
+        for (i = 0; i < data->rows && i < columns - 1; i++) {
+            fortran_int len = columns - i - 1;
+            if (column_strides > 0) {
+                FNAME(@copy@)(  &len,
+                                (void *)(src + i + 1), &one,
+                                (void *)(dst + (i+1)*column_strides),
+                                &column_strides);
+            }
+            else if (column_strides < 0) {
+                /*
+                * BLAS _copy assumes dst points to the first element in memory.
+                * numpy points it at the first element of the array.
+                * We have to compensate.
+                */
+                FNAME(@copy@)(  &len,
+                                (void *)(src + i + 1), &one,
+                                (void *)(dst + (columns-1)*column_strides),
+                                &column_strides);
+            }
+            else {
+                /*
+                * Zero stride has undefined behavior in some BLAS
+                * implementations (e.g. OSX Accelerate), so do it
+                * manually
+                */
+                memcpy((void *)dst, (void *)(src + (columns-1)), sizeof(@typ@));
             }
             src += data->output_lead_dim;
             dst += data->row_strides/sizeof(@typ@);
@@ -390,8 +382,8 @@ eye_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
 
 void
 linearize_@TYPE@_vec(void *dst_in,
-                     const void *src_in,
-                     const LINEARIZE_DATA_t *data)
+                    const void *src_in,
+                    const LINEARIZE_DATA_t *data)
 {
     @typ@ *src = (@typ@ *) src_in;
     @typ@ *dst = (@typ@ *) dst_in;
@@ -401,26 +393,26 @@ linearize_@TYPE@_vec(void *dst_in,
         fortran_int strides = (fortran_int)(data->column_strides/sizeof(@typ@));
         fortran_int one = 1;
         if (strides > 0) {
-            FNAME(@copy@)(&len,
-                          (void *)src, &strides,
-                          (void *)dst, &one);
+            FNAME(@copy@)(  &len,
+                            (void *)src, &strides,
+                            (void *)dst, &one);
         }
         else if (strides < 0) {
             /*
-             * Lapack _copy assumes dst points to first element in memory
-             * instead of first element of array & tries to compensate.
-             * We have to undo that
-             */
-            FNAME(@copy@)(&len,
-                          (void *)(src + (len-1)*strides), &strides,
-                          (void *)dst, &one);
+            * Lapack _copy assumes dst points to first element in memory
+            * instead of first element of array & tries to compensate.
+            * We have to undo that
+            */
+            FNAME(@copy@)(  &len,
+                            (void *)(src + (len-1)*strides), &strides,
+                            (void *)dst, &one);
         }
         else {
             /*
-             * Zero stride has undefined behavior in some BLAS
-             * implementations (e.g. OSX Accelerate), so do it
-             * manually
-             */
+            * Zero stride has undefined behavior in some BLAS
+            * implementations (e.g. OSX Accelerate), so do it
+            * manually
+            */
             int j;
             for (j = 0; j < len; ++j) {
                 memcpy((void *)(dst + j), (void *)src, sizeof(@typ@));
@@ -443,28 +435,28 @@ delinearize_@TYPE@_vec(void *dst_in,
         fortran_int strides = (fortran_int)(data->column_strides/sizeof(@typ@));
         fortran_int one = 1;
         if (strides > 0) {
-            FNAME(@copy@)(&len,
-                          (void *)src, &one,
-                          (void *)dst, &strides);
+            FNAME(@copy@)(  &len,
+                            (void *)src, &one,
+                            (void *)dst, &strides);
             @TYPE@_conj_vec(len, dst, strides, data);
         }
         else if (strides < 0) {
             /*
-             * Lapack _copy assumes dst points to first element in memory
-             * instead of first element of array & tries to compensate.
-             * We have to undo that
-             */
-            FNAME(@copy@)(&len,
-                          (void *)src, &one,
-                          (void *)(dst + (len-1)*strides), &strides);
+            * BLAS _copy assumes dst points to the first element in memory.
+            * numpy points it at the first element of the array.
+            * We have to compensate.
+            */
+            FNAME(@copy@)(  &len,
+                            (void *)src, &one,
+                            (void *)(dst + (len-1)*strides), &strides);
             @TYPE@_conj_vec(len, dst + (len-1)*strides, strides, data);
         }
         else {
             /*
-             * Zero stride has undefined behavior in some BLAS
-             * implementations (e.g. OSX Accelerate), so do it
-             * manually
-             */
+            * Zero stride has undefined behavior in some BLAS
+            * implementations (e.g. OSX Accelerate), so do it
+            * manually
+            */
             if (len > 0) {
                 int j;
                 for (j = 0; j < len; ++j) {

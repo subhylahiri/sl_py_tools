@@ -867,7 +867,7 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
     { "lu_rawm", "(m,n)->(m,n),(m)", lu_raw__doc__, 4, 1, 2,
         FUNC_ARRAY_NAME(lu_raw), ufn_types_lu_3 },
     { "lu_rawn", "(m,n)->(m,n),(n)", lu_raw__doc__, 4, 1, 2,
-        FUNC_ARRAY_NAME(lu_raw), ufn_types_lu_3 },
+        FUNC_ARRAY_NAME(lu_raw), ufn_types_lu_3 }
 };
 
 /*
