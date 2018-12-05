@@ -87,7 +87,11 @@ FNAME(@lacgv@)(int *n, @typ@ *x, int *incx);
     #cmplx = 0, 0, 1, 1#
 */
 
-void *
+/*********************
+*  Copying matrices  *
+**********************/
+
+void
 linearize_@TYPE@_matrix(void *dst_in,
                         const void *src_in,
                         const LINEARIZE_DATA_t* data)
@@ -97,7 +101,6 @@ linearize_@TYPE@_matrix(void *dst_in,
 
     if (dst) {
         int i, j;
-        @typ@* rv = dst;
         fortran_int columns = (fortran_int)data->columns;
         fortran_int column_strides =
                 (fortran_int)(data->column_strides/sizeof(@typ@));
@@ -105,40 +108,42 @@ linearize_@TYPE@_matrix(void *dst_in,
         for (i = 0; i < data->rows; i++) {
             if (column_strides > 0) {
                 FNAME(@copy@)(&columns,
-                              (void*)src, &column_strides,
-                              (void*)dst, &one);
+                              (void *)src, &column_strides,
+                              (void *)dst, &one);
             }
             else if (column_strides < 0) {
+                /*
+                 * BLAS _copy assumes dst points to first element in memory
+                 * instead of first element of array & tries to compensate.
+                 * We have to undo that
+                 */
                 FNAME(@copy@)(&columns,
-                              (void*)((@typ@*)src + (columns-1)*column_strides),
+                              (void *)((@typ@*)src + (columns-1)*column_strides),
                               &column_strides,
-                              (void*)dst, &one);
+                              (void *)dst, &one);
             }
             else {
-            /*
-             * Zero stride has undefined behavior in some BLAS
-             * implementations (e.g. OSX Accelerate), so do it
-             * manually
-             */
-            for (j = 0; j < columns; ++j) {
-                memcpy((void*)(dst + j), (void*)src, sizeof(@typ@));
-                }
+                /*
+                 * Zero stride has undefined behavior in some BLAS
+                 * implementations (e.g. OSX Accelerate), so do it
+                 * manually
+                 */
+                for (j = 0; j < columns; ++j) {
+                    memcpy((void *)(dst + j), (void *)src, sizeof(@typ@));
+                    }
             }
 #if @cmplx@
             if (data->conj) {
-                FNAME(@lacgv@)(&columns, (void*)dst, &one);
+                FNAME(@lacgv@)(&columns, (void *)dst, &one);
             }
 #endif
             src += data->row_strides/sizeof(@typ@);
             dst += data->output_lead_dim;
         }
-        return rv;
-    } else {
-        return src;
     }
 }
 
-void *
+void
 delinearize_@TYPE@_matrix(void *dst_in,
                         const void *src_in,
                         const LINEARIZE_DATA_t* data)
@@ -148,7 +153,6 @@ delinearize_@TYPE@_matrix(void *dst_in,
 
     if (src) {
         int i;
-        @typ@ *rv = src;
         fortran_int columns = (fortran_int)data->columns;
         fortran_int column_strides =
           (fortran_int)(data->column_strides/sizeof(@typ@));
@@ -156,38 +160,52 @@ delinearize_@TYPE@_matrix(void *dst_in,
         for (i = 0; i < data->rows; i++) {
             if (column_strides > 0) {
                 FNAME(@copy@)(&columns,
-                              (void*)src, &one,
-                              (void*)dst, &column_strides);
+                              (void *)src, &one,
+                              (void *)dst, &column_strides);
+#if @cmplx@
+                if (data->conj) {
+                    FNAME(@lacgv@)(&columns, (void *)dst, &column_strides);
+                }
+#endif
             }
             else if (column_strides < 0) {
+               /*
+                * BLAS _copy/lacgv assume dst points to first element in memory
+                * instead of first element of array & tries to compensate.
+                * We have to undo that
+                */
                 FNAME(@copy@)(&columns,
-                              (void*)src, &one,
-                              (void*)(dst + (columns-1)*column_strides),
+                              (void *)src, &one,
+                              (void *)(dst + (columns-1)*column_strides),
                               &column_strides);
+#if @cmplx@
+                if (data->conj) {
+                    FNAME(@lacgv@)(&columns,
+                                   (void *)(dst + (columns-1)*column_strides),
+                                   &column_strides);
+                }
+#endif
             }
             else {
-              /*
-               * Zero stride has undefined behavior in some BLAS
-               * implementations (e.g. OSX Accelerate), so do it
-               * manually
-               */
+               /*
+                * Zero stride has undefined behavior in some BLAS
+                * implementations (e.g. OSX Accelerate), so do it
+                * manually
+                */
                 if (columns > 0) {
-                    memcpy((void*)dst,
-                           (void*)(src + (columns-1)),
+                    memcpy((void *)dst,
+                           (void *)(src + (columns-1)),
                            sizeof(@typ@));
+#if @cmplx@
+                    if (data->conj) {
+                        FNAME(@lacgv@)(&one, (void *)dst, &column_strides);
+                    }
+#endif
                 }
             }
-#if @cmplx@
-            if (data->conj) {
-                FNAME(@lacgv@)(&columns, (void*)dst, &column_strides);
-            }
-#endif
             src += data->output_lead_dim;
             dst += data->row_strides/sizeof(@typ@);
         }
-        return rv;
-    } else {
-        return src;
     }
 }
 
@@ -195,7 +213,7 @@ delinearize_@TYPE@_matrix(void *dst_in,
 This function does not fill the lower triangle with zeros.
 To do that, call zero_@TYPE@_matrix first.
 */
-void *
+void
 delinearize_@TYPE@_triu(void *dst_in,
                         const void *src_in,
                         const LINEARIZE_DATA_t* data)
@@ -205,7 +223,6 @@ delinearize_@TYPE@_triu(void *dst_in,
 
    if (src) {
        int i;
-        @typ@ *rv = src;
         fortran_int columns = (fortran_int)data->columns;
         fortran_int column_strides =
             (fortran_int)(data->column_strides/sizeof(@typ@));
@@ -214,13 +231,18 @@ delinearize_@TYPE@_triu(void *dst_in,
             fortran_int n = fortran_int_min(i + 1, columns);
             if (column_strides > 0) {
                 FNAME(@copy@)(&n,
-                              (void*)src, &one,
-                              (void*)dst, &column_strides);
+                              (void *)src, &one,
+                              (void *)dst, &column_strides);
             }
             else if (column_strides < 0) {
+               /*
+                * BLAS _copy assumes dst points to first element in memory
+                * instead of first element of array & tries to compensate.
+                * We have to undo that
+                */
                 FNAME(@copy@)(&n,
-                              (void*)src, &one,
-                              (void*)(dst + (n-1)*column_strides),
+                              (void *)src, &one,
+                              (void *)(dst + (n-1)*column_strides),
                               &column_strides);
             }
             else {
@@ -230,18 +252,14 @@ delinearize_@TYPE@_triu(void *dst_in,
                 * manually
                 */
                 if (columns > 0) {
-                    memcpy((void*)dst,
-                           (void*)(src + (n-1)),
+                    memcpy((void *)dst,
+                           (void *)(src + (n-1)),
                            sizeof(@typ@));
                 }
             }
             src += data->output_lead_dim;
             dst += data->row_strides/sizeof(@typ@);
         }
-
-        return rv;
-    } else {
-        return src;
     }
 }
 
@@ -250,7 +268,7 @@ This function does not fill the upper triangle with zeros, or set the diagonal.
 To do that, call zero_@TYPE@_matrix first. Unit diagonals can be set with
 eye_@TYPE@_matrix.
 */
-void *
+void
 delinearize_@TYPE@_tril(void *dst_in,
                         const void *src_in,
                         const LINEARIZE_DATA_t* data)
@@ -260,24 +278,28 @@ delinearize_@TYPE@_tril(void *dst_in,
 
    if (src) {
        int i;
-        @typ@ *rv = src;
         fortran_int columns = (fortran_int)data->columns;
         fortran_int column_strides =
             (fortran_int)(data->column_strides/sizeof(@typ@));
         fortran_int one = 1;
         for (i = 0; i < data->rows; i++) {
             fortran_int n = fortran_int_max(0, columns - i - 1);
-            if (n) {
+            if (n > 0) {
                 if (column_strides > 0) {
                     FNAME(@copy@)(&n,
-                                  (void*)(src + i + 1), &one,
-                                  (void*)(dst + (i+1)*column_strides),
+                                  (void *)(src + i + 1), &one,
+                                  (void *)(dst + (i+1)*column_strides),
                                   &column_strides);
                 }
                 else if (column_strides < 0) {
+                   /*
+                    * BLAS _copy assumes dst points to first element in memory
+                    * instead of first element of array & tries to compensate.
+                    * We have to undo that
+                    */
                     FNAME(@copy@)(&n,
-                                  (void*)(src + i + 1), &one,
-                                  (void*)(dst + (columns-1)*column_strides),
+                                  (void *)(src + i + 1), &one,
+                                  (void *)(dst + (columns-1)*column_strides),
                                   &column_strides);
                 }
                 else {
@@ -286,22 +308,20 @@ delinearize_@TYPE@_tril(void *dst_in,
                     * implementations (e.g. OSX Accelerate), so do it
                     * manually
                     */
-                    if (columns > 0) {
-                        memcpy((void*)dst,
-                               (void*)(src + (columns-1)),
-                               sizeof(@typ@));
-                    }
+                    memcpy((void *)dst,
+                           (void *)(src + (columns-1)),
+                           sizeof(@typ@));
                 }
             }
             src += data->output_lead_dim;
             dst += data->row_strides/sizeof(@typ@);
         }
-
-        return rv;
-    } else {
-        return src;
     }
 }
+
+/*********************
+*  Filling matrices  *
+**********************/
 
 void
 nan_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
@@ -357,7 +377,11 @@ eye_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
     }
 }
 
-void *
+/*********************
+*      Vectors       *
+**********************/
+
+void
 linearize_@TYPE@_vec(void *dst_in,
                      const void *src_in,
                      const LINEARIZE_VDATA_t *data)
@@ -366,19 +390,23 @@ linearize_@TYPE@_vec(void *dst_in,
     @typ@ *dst = (@typ@ *) dst_in;
 
     if (dst) {
-        @typ@* rv = dst;
         fortran_int len = (fortran_int)data->len;
         fortran_int strides = (fortran_int)(data->strides/sizeof(@typ@));
         fortran_int one = 1;
         if (strides > 0) {
             FNAME(@copy@)(&len,
-                          (void*)src, &strides,
-                          (void*)dst, &one);
+                          (void *)src, &strides,
+                          (void *)dst, &one);
         }
         else if (strides < 0) {
+            /*
+             * Lapack _copy assumes dst points to first element in memory
+             * instead of first element of array & tries to compensate.
+             * We have to undo that
+             */
             FNAME(@copy@)(&len,
-                          (void*)(src + (len-1)*strides), &strides,
-                          (void*)dst, &one);
+                          (void *)(src + (len-1)*strides), &strides,
+                          (void *)dst, &one);
         }
         else {
             /*
@@ -388,21 +416,18 @@ linearize_@TYPE@_vec(void *dst_in,
              */
             int j;
             for (j = 0; j < len; ++j) {
-                memcpy((void*)(dst + j), (void*)src, sizeof(@typ@));
+                memcpy((void *)(dst + j), (void *)src, sizeof(@typ@));
             }
 #if @cmplx@
         if (data->conj) {
-            FNAME(@lacgv@)(&len, (void*)dst, &one);
+            FNAME(@lacgv@)(&len, (void *)dst, &one);
         }
 #endif
         }
-        return rv;
-    } else {
-        return src;
     }
 }
 
-void *
+void
 delinearize_@TYPE@_vec(void *dst_in,
                      const void *src_in,
                      const LINEARIZE_VDATA_t *data)
@@ -411,24 +436,33 @@ delinearize_@TYPE@_vec(void *dst_in,
     @typ@ *dst = (@typ@ *) dst_in;
 
     if (dst) {
-        @typ@* rv = dst;
         fortran_int len = (fortran_int)data->len;
         fortran_int strides = (fortran_int)(data->strides/sizeof(@typ@));
         fortran_int one = 1;
-#if @cmplx@
-        if (data->conj) {
-            FNAME(@lacgv@)(&len, (void*)src, &one);
-        }
-#endif
         if (strides > 0) {
             FNAME(@copy@)(&len,
-                          (void*)src, &one,
-                          (void*)dst, &strides);
+                          (void *)src, &one,
+                          (void *)dst, &strides);
+#if @cmplx@
+            if (data->conj) {
+                FNAME(@lacgv@)(&len, (void *)dst, &strides);
+            }
+#endif
         }
         else if (strides < 0) {
+            /*
+             * Lapack _copy assumes dst points to first element in memory
+             * instead of first element of array & tries to compensate.
+             * We have to undo that
+             */
             FNAME(@copy@)(&len,
-                          (void*)(src + (len-1)*strides), &one,
-                          (void*)dst, &strides);
+                          (void *)(src + (len-1)*strides), &one,
+                          (void *)dst, &strides);
+#if @cmplx@
+            if (data->conj) {
+                FNAME(@lacgv@)(&len, (void *)dst, &strides);
+            }
+#endif
         }
         else {
             /*
@@ -436,14 +470,18 @@ delinearize_@TYPE@_vec(void *dst_in,
              * implementations (e.g. OSX Accelerate), so do it
              * manually
              */
-            int j;
-            for (j = 0; j < len; ++j) {
-                memcpy((void*)dst, (void*)(src + j), sizeof(@typ@));
+            if (len > 0) {
+                int j;
+                for (j = 0; j < len; ++j) {
+                    memcpy((void *)dst, (void *)(src + j), sizeof(@typ@));
+                }
+#if @cmplx@
+                if (data->conj) {
+                    FNAME(@lacgv@)(&len, (void *)dst, &strides);
+                }
+#endif
             }
         }
-        return rv;
-    } else {
-        return src;
     }
 }
 
@@ -461,6 +499,10 @@ nan_@TYPE@_vec(void *dst_in, const LINEARIZE_VDATA_t* data)
     }
 }
 
+/*********************
+*  Complex numbers   *
+**********************/
+
 fortran_int
 @TYPE@_real_int(@ftyp@ val)
 {
@@ -473,7 +515,13 @@ fortran_int
 
 /**end repeat**/
 
-void *
+
+/*********************
+*     Integers       *
+**********************/
+
+
+void
 linearize_INT_vec(void *dst_in,
                 const void *src_in,
                 const LINEARIZE_VDATA_t *data)
@@ -482,7 +530,6 @@ linearize_INT_vec(void *dst_in,
     npy_int *src = (npy_int *) src_in;
 
     if (dst) {
-        npy_int* rv = dst;
         fortran_int len = (fortran_int)data->len;
         fortran_int strides = (fortran_int)(data->strides/sizeof(npy_int));
         int j;
@@ -491,13 +538,10 @@ linearize_INT_vec(void *dst_in,
             src += strides;
             dst += 1;
         }
-        return rv;
-    } else {
-        return src;
     }
 }
 
-void *
+void
 delinearize_INT_vec(void *dst_in,
                     const void *src_in,
                     const LINEARIZE_VDATA_t *data)
@@ -506,7 +550,6 @@ delinearize_INT_vec(void *dst_in,
     npy_int *dst = (npy_int *) dst_in;
 
     if (dst) {
-        npy_int* rv = dst;
         fortran_int len = (fortran_int)data->len;
         fortran_int strides = (fortran_int)(data->strides/sizeof(npy_int));
         int j;
@@ -515,8 +558,5 @@ delinearize_INT_vec(void *dst_in,
             src += 1;
             dst += strides;
         }
-        return rv;
-    } else {
-        return src;
     }
 }

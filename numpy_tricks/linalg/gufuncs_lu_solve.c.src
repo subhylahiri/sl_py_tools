@@ -446,14 +446,10 @@ static void
 
 // solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
 // rsolve_signature = (nrhs,n),(n,n)->(nrhs,n)"
-// solvelu_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
-// rsolvelu_signature = "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)";
-// lusolve_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
-// rlusolve_signature = "(nrhs,n),(n,n),(n)->(nrhs,n)";
 
-/**************************************************
-*   Calling BLAS/Lapack functions _gesv, _getrs   *
-***************************************************/
+/******************************************
+*   Calling BLAS/Lapack functions _gesv   *
+*******************************************/
 
 static NPY_INLINE void
 call_@gesv@(GESV_PARAMS_t *params)
@@ -461,15 +457,6 @@ call_@gesv@(GESV_PARAMS_t *params)
     // A,B are modified by ?GESV to carry LU info & X
     LAPACK(@gesv@)(&params->N, &params->NRHS, params->A, &params->LDA,
                    params->IPIV, params->B, &params->LDB, &params->INFO);
-}
-
-static NPY_INLINE void
-call_@getrs@(GESV_PARAMS_t *params)
-{
-    // B is modified by ?GETRS to carry X
-    LAPACK(@getrs@)(&params->TRANS, &params->N, &params->NRHS,
-                    params->A, &params->LDA, params->IPIV,
-                    params->B, &params->LDB, &params->INFO);
 }
 
 /***************************************************************************
@@ -613,9 +600,40 @@ static void
     @TYPE@_solve(rargs, rdimensions, rsteps, NULL);
 }
 
-/*************
-* SOLVELU    *
-**************/
+/***********************************************************
+**                       SOLVE with LU                    **
+************************************************************/
+
+// solvelu_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
+// rsolvelu_signature = "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)";
+// lusolve_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
+// rlusolve_signature = "(nrhs,n),(n,n),(n)->(nrhs,n)";
+
+/*******************************************
+*   Calling BLAS/Lapack functions _getrs   *
+********************************************/
+
+static NPY_INLINE void
+call_@gesv@(GESV_PARAMS_t *params)
+{
+    // A,B are modified by ?GESV to carry LU info & X
+    LAPACK(@gesv@)(&params->N, &params->NRHS, params->A, &params->LDA,
+                   params->IPIV, params->B, &params->LDB, &params->INFO);
+}
+
+static NPY_INLINE void
+call_@getrs@(GESV_PARAMS_t *params)
+{
+    // B is modified by ?GETRS to carry X
+    LAPACK(@getrs@)(&params->TRANS, &params->N, &params->NRHS,
+                    params->A, &params->LDA, params->IPIV,
+                    params->B, &params->LDB, &params->INFO);
+}
+
+
+/************************
+* Inner GUfunc loop     *
+*************************/
 
 // solvelu_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
 
@@ -636,14 +654,14 @@ static void
     npy_intp stride_ip = *steps++;  // vec, permutations, a = PLU
     int error_occurred = get_fp_invalid_and_clear();
     GESV_PARAMS_t params;
-    LINEARIZE_DATA_t a_in, b_in, x_out, a_out;
+    LINEARIZE_DATA_t a_in, b_in, x_out, af_out;
     LINEARIZE_VDATA_t ipiv_out;
 
     if(init_@gesv@(&params, len_n, len_nrhs, trans)){
         init_linearize_data(&a_in, len_n, len_n, stride_a_c, stride_a_r);
         init_linearize_data(&b_in, len_nrhs, len_n, stride_b_c, stride_b_r);
         init_linearize_data(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r);
-        init_linearize_data(&a_out, len_n, len_n, stride_af_c, stride_af_r);
+        init_linearize_data(&af_out, len_n, len_n, stride_af_c, stride_af_r);
         init_linearize_vdata(&ipiv_out, len_n, stride_ip);
 
         BEGIN_OUTER_LOOP_5
@@ -656,10 +674,10 @@ static void
             if (not_ok) {
                 error_occurred = 1;
                 nan_@TYPE@_matrix(args[2], &x_out);
-                nan_@TYPE@_matrix(args[3], &a_out);
+                nan_@TYPE@_matrix(args[3], &af_out);
             } else {
                 delinearize_@TYPE@_matrix(args[2], params.B, &x_out);
-                delinearize_@TYPE@_matrix(args[3], params.A, &a_out);
+                delinearize_@TYPE@_matrix(args[3], params.A, &af_out);
                 delinearize_INT_vec(args[4], params.IPIV, &ipiv_out);
             }
         END_OUTER_LOOP_5
@@ -876,7 +894,7 @@ static PyMethodDef GUfuncs_LUSOLVE_Methods[] = {
 
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
-    "_gufuncs_lapack",
+    "_gufuncs_lu_solve",
     NULL,
     -1,
     GUfuncs_LUSOLVE_Methods,

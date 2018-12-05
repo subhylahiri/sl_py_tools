@@ -145,33 +145,6 @@ typedef struct linearize_data_struct
 } LINEARIZE_DATA_t;
 
 static NPY_INLINE void
-init_linearize_data_ex(LINEARIZE_DATA_t *lin_data,
-                        npy_intp rows,
-                        npy_intp columns,
-                        npy_intp row_strides,
-                        npy_intp column_strides,
-                        npy_intp output_lead_dim)
-{
-    lin_data->rows = rows;
-    lin_data->columns = columns;
-    lin_data->row_strides = row_strides;
-    lin_data->column_strides = column_strides;
-    lin_data->output_lead_dim = output_lead_dim;
-    lin_data->conj = 0;
-}
-
-static NPY_INLINE void
-init_linearize_data(LINEARIZE_DATA_t *lin_data,
-                     npy_intp rows,
-                     npy_intp columns,
-                     npy_intp row_strides,
-                     npy_intp column_strides)
-{
-    init_linearize_data_ex(
-        lin_data, rows, columns, row_strides, column_strides, columns);
-}
-
-static NPY_INLINE void
 init_linearize_data_exc(LINEARIZE_DATA_t *lin_data,
                         npy_intp rows,
                         npy_intp columns,
@@ -186,6 +159,29 @@ init_linearize_data_exc(LINEARIZE_DATA_t *lin_data,
     lin_data->column_strides = column_strides;
     lin_data->output_lead_dim = output_lead_dim;
     lin_data->conj = conj;
+}
+
+static NPY_INLINE void
+init_linearize_data_ex(LINEARIZE_DATA_t *lin_data,
+                        npy_intp rows,
+                        npy_intp columns,
+                        npy_intp row_strides,
+                        npy_intp column_strides,
+                        npy_intp output_lead_dim)
+{
+    init_linearize_data_exc(lin_data, rows, columns,
+                            row_strides, column_strides, output_lead_dim, 0);
+}
+
+static NPY_INLINE void
+init_linearize_data(LINEARIZE_DATA_t *lin_data,
+                     npy_intp rows,
+                     npy_intp columns,
+                     npy_intp row_strides,
+                     npy_intp column_strides)
+{
+    init_linearize_data_ex(
+        lin_data, rows, columns, row_strides, column_strides, columns);
 }
 
 static NPY_INLINE void

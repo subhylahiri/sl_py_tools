@@ -1514,16 +1514,16 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
 *****************************************************************************
 */
 
-static PyMethodDef GUfuncs_LAPACK_Methods[] = {
+static PyMethodDef GUfuncs_QRLSTSQ_Methods[] = {
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
-    "_gufuncs_lapack",
+    "_gufuncs_qr_lstsq",
     NULL,
     -1,
-    GUfuncs_LAPACK_Methods,
+    GUfuncs_QRLSTSQ_Methods,
     NULL,
     NULL,
     NULL,
