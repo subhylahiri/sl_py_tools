@@ -384,14 +384,14 @@ eye_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
 void
 linearize_@TYPE@_vec(void *dst_in,
                      const void *src_in,
-                     const LINEARIZE_VDATA_t *data)
+                     const LINEARIZE_DATA_t *data)
 {
     @typ@ *src = (@typ@ *) src_in;
     @typ@ *dst = (@typ@ *) dst_in;
 
     if (dst) {
-        fortran_int len = (fortran_int)data->len;
-        fortran_int strides = (fortran_int)(data->strides/sizeof(@typ@));
+        fortran_int len = (fortran_int)data->columns;
+        fortran_int strides = (fortran_int)(data->column_strides/sizeof(@typ@));
         fortran_int one = 1;
         if (strides > 0) {
             FNAME(@copy@)(&len,
@@ -430,14 +430,14 @@ linearize_@TYPE@_vec(void *dst_in,
 void
 delinearize_@TYPE@_vec(void *dst_in,
                      const void *src_in,
-                     const LINEARIZE_VDATA_t *data)
+                     const LINEARIZE_DATA_t *data)
 {
     @typ@ *src = (@typ@ *) src_in;
     @typ@ *dst = (@typ@ *) dst_in;
 
     if (dst) {
-        fortran_int len = (fortran_int)data->len;
-        fortran_int strides = (fortran_int)(data->strides/sizeof(@typ@));
+        fortran_int len = (fortran_int)data->columns;
+        fortran_int strides = (fortran_int)(data->column_strides/sizeof(@typ@));
         fortran_int one = 1;
         if (strides > 0) {
             FNAME(@copy@)(&len,
@@ -486,14 +486,14 @@ delinearize_@TYPE@_vec(void *dst_in,
 }
 
 void
-nan_@TYPE@_vec(void *dst_in, const LINEARIZE_VDATA_t* data)
+nan_@TYPE@_vec(void *dst_in, const LINEARIZE_DATA_t* data)
 {
     init_constants();
     @typ@ *dst = (@typ@ *) dst_in;
 
     int j;
-    ptrdiff_t cs = data->strides/sizeof(@typ@);
-    for (j = 0; j < data->len; ++j) {
+    ptrdiff_t cs = data->column_strides/sizeof(@typ@);
+    for (j = 0; j < data->columns; ++j) {
         *dst = @nan@;
         dst += cs;
     }
@@ -524,14 +524,14 @@ fortran_int
 void
 linearize_INT_vec(void *dst_in,
                 const void *src_in,
-                const LINEARIZE_VDATA_t *data)
+                const LINEARIZE_DATA_t *data)
 {
     fortran_int *dst = (fortran_int *) dst_in;
     npy_int *src = (npy_int *) src_in;
 
     if (dst) {
-        fortran_int len = (fortran_int)data->len;
-        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_int));
+        fortran_int len = (fortran_int)data->columns;
+        fortran_int strides = (fortran_int)(data->column_strides/sizeof(npy_int));
         int j;
         for (j = 0; j < len; ++j) {
             *dst = (fortran_int)*src;
@@ -544,14 +544,14 @@ linearize_INT_vec(void *dst_in,
 void
 delinearize_INT_vec(void *dst_in,
                     const void *src_in,
-                    const LINEARIZE_VDATA_t *data)
+                    const LINEARIZE_DATA_t *data)
 {
     fortran_int *src = (fortran_int *) src_in;
     npy_int *dst = (npy_int *) dst_in;
 
     if (dst) {
-        fortran_int len = (fortran_int)data->len;
-        fortran_int strides = (fortran_int)(data->strides/sizeof(npy_int));
+        fortran_int len = (fortran_int)data->columns;
+        fortran_int strides = (fortran_int)(data->column_strides/sizeof(npy_int));
         int j;
         for (j = 0; j < len; ++j) {
             *dst = (npy_int)*src;

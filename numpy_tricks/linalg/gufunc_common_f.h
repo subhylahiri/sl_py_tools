@@ -133,7 +133,9 @@ fortran_int_max(fortran_int x, fortran_int y) {
  * column_strides: the number of bytes between consecutive columns.
  * output_lead_dim: BLAS/LAPACK-side leading dimension, in elements
  * conj: should the matrix be complex conjugated?
- */
+ *
+ * For vectors, we set row/col quantites to the same value.
+**/
 typedef struct linearize_data_struct
 {
     npy_intp rows;
@@ -174,17 +176,6 @@ init_linearize_data_ex(LINEARIZE_DATA_t *lin_data,
 }
 
 static NPY_INLINE void
-init_linearize_data(LINEARIZE_DATA_t *lin_data,
-                     npy_intp rows,
-                     npy_intp columns,
-                     npy_intp row_strides,
-                     npy_intp column_strides)
-{
-    init_linearize_data_ex(
-        lin_data, rows, columns, row_strides, column_strides, columns);
-}
-
-static NPY_INLINE void
 init_linearize_datac(LINEARIZE_DATA_t *lin_data,
                     npy_intp rows,
                     npy_intp columns,
@@ -192,45 +183,36 @@ init_linearize_datac(LINEARIZE_DATA_t *lin_data,
                     npy_intp column_strides,
                     npy_intp conj)
 {
-    init_linearize_data_exc(
-        lin_data, rows, columns, row_strides, column_strides, columns, conj);
-}
-
-/*
- * this struct contains information about how to linearize a vector in a local
- * buffer so that it can be used by blas functions.  All strides are specified
- * in bytes and are converted to elements later in type specific functions.
- *
- * len: number of elements in the vector
- * strides: the number bytes between consecutive elements.
- * conj: should the vector be complex conjugated?
-*/
-typedef struct linearize_vdata_struct
-{
-  npy_intp len;
-  npy_intp strides;
-  npy_intp conj;
-} LINEARIZE_VDATA_t;
-
-static NPY_INLINE void
-init_linearize_vdata(LINEARIZE_VDATA_t *lin_data,
-                    npy_intp len,
-                    npy_intp strides)
-{
-    lin_data->len = len;
-    lin_data->strides = strides;
-    lin_data->conj = 0;
+    init_linearize_data_exc(lin_data, rows, columns, row_strides, column_strides,
+                            columns, conj);
 }
 
 static NPY_INLINE void
-init_linearize_vdatac(LINEARIZE_VDATA_t *lin_data,
+init_linearize_data(LINEARIZE_DATA_t *lin_data,
+    npy_intp rows,
+    npy_intp columns,
+    npy_intp row_strides,
+    npy_intp column_strides)
+{
+    init_linearize_datac(lin_data, rows, columns, row_strides, column_strides, 0);
+}
+
+
+static NPY_INLINE void
+init_linearize_vdatac(LINEARIZE_DATA_t *lin_data,
                     npy_intp len,
                     npy_intp strides,
                     npy_intp conj)
 {
-    lin_data->len = len;
-    lin_data->strides = strides;
-    lin_data->conj = conj;
+    init_linearize_datac(lin_data, len, len, strides, strides, conj);
+}
+
+static NPY_INLINE void
+init_linearize_vdata(LINEARIZE_DATA_t *lin_data,
+                    npy_intp len,
+                    npy_intp strides)
+{
+    init_linearize_vdatac(lin_data, len, strides, 0);
 }
 
 #endif

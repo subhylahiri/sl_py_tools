@@ -15,23 +15,23 @@
 **                            Factories                                    **
 *****************************************************************************
 */
-#define DECLARE_FUNC_LINEARIZE(NAME, ...)                                                                          \
-    void linearize_FLOAT_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data);  \
-    void linearize_DOUBLE_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data); \
-    void linearize_CFLOAT_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data); \
-    void linearize_CDOUBLE_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data);
+#define DECLARE_FUNC_LINEARIZE(SHAPE)                                                                          \
+    void linearize_FLOAT_## SHAPE(void *dst_in, const void *src_in, const LINEARIZE_DATA_t* data);  \
+    void linearize_DOUBLE_## SHAPE(void *dst_in, const void *src_in, const LINEARIZE_DATA_t* data); \
+    void linearize_CFLOAT_## SHAPE(void *dst_in, const void *src_in, const LINEARIZE_DATA_t* data); \
+    void linearize_CDOUBLE_## SHAPE(void *dst_in, const void *src_in, const LINEARIZE_DATA_t* data);
 
-#define DECLARE_FUNC_DELINEARIZE(NAME, ...)                                                                          \
-    void delinearize_FLOAT_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data);  \
-    void delinearize_DOUBLE_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data); \
-    void delinearize_CFLOAT_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data); \
-    void delinearize_CDOUBLE_## NAME(void *dst_in, const void *src_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data);
+#define DECLARE_FUNC_DELINEARIZE(SHAPE)                                                                          \
+    void delinearize_FLOAT_## SHAPE(void *dst_in, const void *src_in, const LINEARIZE_DATA_t* data);  \
+    void delinearize_DOUBLE_## SHAPE(void *dst_in, const void *src_in, const LINEARIZE_DATA_t* data); \
+    void delinearize_CFLOAT_## SHAPE(void *dst_in, const void *src_in, const LINEARIZE_DATA_t* data); \
+    void delinearize_CDOUBLE_## SHAPE(void *dst_in, const void *src_in, const LINEARIZE_DATA_t* data);
 
-#define DECLARE_FUNC_FILL(NAME, TYPE, ...)                                                   \
-    void NAME ##_FLOAT_## TYPE(void *dst_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data);  \
-    void NAME ##_DOUBLE_## TYPE(void *dst_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data); \
-    void NAME ##_CFLOAT_## TYPE(void *dst_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data); \
-    void NAME ##_CDOUBLE_## TYPE(void *dst_in, const LINEARIZE_##__VA_ARGS__## DATA_t* data);
+#define DECLARE_FUNC_FILL(NAME, SHAPE)                                                   \
+    void NAME ##_FLOAT_## SHAPE(void *dst_in, const LINEARIZE_DATA_t* data);  \
+    void NAME ##_DOUBLE_## SHAPE(void *dst_in, const LINEARIZE_DATA_t* data); \
+    void NAME ##_CFLOAT_## SHAPE(void *dst_in, const LINEARIZE_DATA_t* data); \
+    void NAME ##_CDOUBLE_## SHAPE(void *dst_in, const LINEARIZE_DATA_t* data);
 /*
 *****************************************************************************
 **                           Declarations                                  **
@@ -44,12 +44,12 @@ DECLARE_FUNC_DELINEARIZE(tril)
 DECLARE_FUNC_FILL(nan, matrix)
 DECLARE_FUNC_FILL(zero, matrix)
 DECLARE_FUNC_FILL(eye, matrix)
-DECLARE_FUNC_LINEARIZE(vec, V)
-DECLARE_FUNC_DELINEARIZE(vec, V)
-DECLARE_FUNC_FILL(nan, vec, V)
+DECLARE_FUNC_LINEARIZE(vec)
+DECLARE_FUNC_DELINEARIZE(vec)
+DECLARE_FUNC_FILL(nan, vec)
 
-void linearize_INT_vec(void *dst_in, const void *src_in, const LINEARIZE_VDATA_t* data);
-void delinearize_INT_vec(void *dst_in, const void *src_in, const LINEARIZE_VDATA_t* data);
+void linearize_INT_vec(void *dst_in, const void *src_in, const LINEARIZE_DATA_t* data);
+void delinearize_INT_vec(void *dst_in, const void *src_in, const LINEARIZE_DATA_t* data);
 
 fortran_int FLOAT_real_int(fortran_real val);
 fortran_int DOUBLE_real_int(fortran_doublereal val);

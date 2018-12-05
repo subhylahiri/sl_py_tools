@@ -660,8 +660,7 @@ INIT_OUTER_LOOP_3
     npy_intp stride_tau = *steps++;
     int error_occurred = get_fp_invalid_and_clear();
     GEQRF_PARAMS_t params;
-    LINEARIZE_DATA_t a_in, r_out;
-    LINEARIZE_VDATA_t tau_out;
+    LINEARIZE_DATA_t a_in, r_out, tau_out;
     npy_intp len_nc = complete ? len_m : len_n;
 
     if(len_m < len_nc) {//signature demands a wide matrix for q, impossible for qr_n.
@@ -1248,8 +1247,7 @@ INIT_OUTER_LOOP_5
     npy_intp stride_tau = *steps++;  // vec
     int error_occurred = get_fp_invalid_and_clear();
     GEQRF_PARAMS_t params;
-    LINEARIZE_DATA_t a_in, b_in, x_out, a_out;
-    LINEARIZE_VDATA_t tau_out;
+    LINEARIZE_DATA_t a_in, b_in, x_out, a_out, tau_out;
     int underconstrained = (len_m < len_n) ? 1 : 0;
     //length of tau
     npy_intp len_k = underconstrained ? len_m : len_n; // min
@@ -1365,8 +1363,7 @@ INIT_OUTER_LOOP_4
     npy_intp stride_x_c = *steps++;
     int error_occurred = get_fp_invalid_and_clear();
     GEQRF_PARAMS_t params;
-    LINEARIZE_DATA_t a_in, b_in, x_out;
-    LINEARIZE_VDATA_t tau_in;
+    LINEARIZE_DATA_t a_in, b_in, x_out, tau_in;
 
     npy_intp len_mn = len_m + len_n - len_k; // max
     if(len_mn < len_k) {//a and tau made from wrong choice of lstsq_qrm/lstsq_qrn
