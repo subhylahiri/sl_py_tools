@@ -18,7 +18,7 @@ def conv_loop_in(converter: Callable,
     Parameters
     ----------
     obj_typ
-        The type of object that needs converting via ``view`` method.
+        The type of object that needs converting.
     tup: Tuple[Any]
         Tuple of inputs to ufunc (or ``out`` argument)
 
@@ -95,7 +95,7 @@ def conv_loop_in_attr(attr: str, obj_typ, tup: ArgTuple) -> (ArgTuple,
     attr: str, None
         The name of the ``obj_typ`` attribute to use in place of class.
     obj_typ
-        The type of object that needs converting via ``view`` method.
+        The type of object that needs converting with its ``attr`` attribute.
     tup: Tuple[Any]
         Tuple of inputs to ufunc (or ``out`` argument)
 
