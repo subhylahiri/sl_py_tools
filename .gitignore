@@ -100,15 +100,13 @@ ENV/
 
 # mypy
 .mypy_cache/
-numpy_tricks/linalg/gufuncs_blas.c
-numpy_tricks/linalg/gufuncs_cloop.c
-numpy_tricks/linalg/gufuncs_lapack.c
-numpy_tricks/linalg/gufuncs_lu_solve.c
-numpy_tricks/linalg/gufuncs_qr_lstsq.c
-numpy_tricks/linalg/rearrange_data.c
+
 numpy_tricks/linalg/.cquery
 numpy_tricks/linalg/compile_commands.json
 numpy_tricks/linalg/compile_commands.fail.json
-numpy_tricks/linalg/gufuncs_lu_solve.c
-numpy_tricks/linalg/gufuncs_qr_lstsq.c
-numpy_tricks/linalg/rearrange_data.c
+numpy_tricks/linalg/src/gufuncs_blas.c
+numpy_tricks/linalg/src/gufuncs_cloop.c
+numpy_tricks/linalg/src/gufuncs_lapack.c
+numpy_tricks/linalg/src/gufuncs_lu_solve.c
+numpy_tricks/linalg/src/gufuncs_qr_lstsq.c
+numpy_tricks/linalg/src/rearrange_data.c

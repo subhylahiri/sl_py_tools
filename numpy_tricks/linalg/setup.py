@@ -52,8 +52,8 @@ config.add_extension('_gufuncs_lu_solve',
                      include_dirs=inc_dirs,
                      extra_info=all_info)
 # =============================================================================
-config.add_extension(in_src('_gufuncs_qr_lstsq'),
-                     sources=['gufuncs_qr_lstsq.c.src', rearrange],
+config.add_extension('_gufuncs_qr_lstsq',
+                     sources=[in_src('gufuncs_qr_lstsq.c.src'), rearrange],
                      include_dirs=inc_dirs,
                      extra_info=all_info)
 # =============================================================================
