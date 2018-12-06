@@ -534,7 +534,7 @@ do_@TYPE@_qr(const void *A, void *Q, void *R,
       return 1;
     }
     // Zero out R
-    zero_@TYPE@_matrix(R, r_out);
+    zero_@TYPE@_tril(R, r_out);
     // Copy R from buffer & triangularise
     delinearize_@TYPE@_triu(R, params->A, r_out);
     // Build Q
@@ -632,7 +632,7 @@ INIT_OUTER_LOOP_2
                     nan_@TYPE@_matrix(args[1], &r_out);
                 } else{
                     // Zero out R
-                    zero_@TYPE@_matrix(args[1], &r_out);
+                    zero_@TYPE@_tril(args[1], &r_out);
                     // Copy R from buffer & triangularise
                     delinearize_@TYPE@_triu(args[1], params.A, &r_out);
                 }

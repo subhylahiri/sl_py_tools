@@ -358,6 +358,46 @@ zero_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
     }
 }
 
+void
+zero_@TYPE@_triu(void *dst_in, const LINEARIZE_DATA_t* data)
+{
+    init_constants();
+    npy_intp len;
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    int i, j;
+    ptrdiff_t cs = data->column_strides/sizeof(@typ@);
+    for (i = 0; i < data->rows; i++) {
+        @typ@ *cp = dst;
+        len = npy_int_min(i + 1, data->columns);
+        for (j = 0; j < len; ++j) {
+            *cp = @zero@;
+            cp += cs;
+        }
+        dst += data->row_strides/sizeof(@typ@);
+    }
+}
+
+void
+zero_@TYPE@_tril(void *dst_in, const LINEARIZE_DATA_t* data)
+{
+    init_constants();
+    npy_intp len;
+    @typ@ *dst = (@typ@ *) dst_in;
+
+    int i, j;
+    ptrdiff_t cs = data->column_strides/sizeof(@typ@);
+    for (i = 0; i < data->rows; i++) {
+        @typ@ *cp = dst + i + 1;
+        len = npy_int_max(0, data->columns - i - 1);
+        for (j = 0; j < len; ++j) {
+            *cp = @zero@;
+            cp += cs;
+        }
+        dst += data->row_strides/sizeof(@typ@);
+    }
+}
+
 /*
 This function does not fill the off-diagonals with zeros.
 To do that, call zero_@TYPE@_matrix first.

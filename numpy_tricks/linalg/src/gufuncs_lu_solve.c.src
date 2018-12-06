@@ -377,10 +377,10 @@ static void
                 nan_@TYPE@_matrix(args[1], &l_out);
                 nan_@TYPE@_matrix(args[2], &u_out);
             } else {
-                zero_@TYPE@_matrix(args[1], &l_out);
+                zero_@TYPE@_triu(args[1], &l_out);
                 eye_@TYPE@_matrix(args[1], &l_out);
                 delinearize_@TYPE@_tril(args[1], params.A, &l_out);
-                zero_@TYPE@_matrix(args[2], &u_out);
+                zero_@TYPE@_tril(args[2], &u_out);
                 delinearize_@TYPE@_triu(args[2], params.A, &u_out);
                 delinearize_INT_vec(args[3], params.IPIV, &ipiv_out);
             }
