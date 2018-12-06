@@ -6,9 +6,13 @@ import itertools
 from typing import Tuple, Any, List, Sequence, Callable
 import numpy as np
 ArgTuple = Tuple[Any]
+# ======================================================================
+# %% Inputs
+# ======================================================================
 
 
-def conv_loop_in(obj_typ, tup: ArgTuple) -> (ArgTuple, List[bool]):
+def conv_loop_in(converter: Callable,
+                 obj_typ, tup: ArgTuple) -> (ArgTuple, List[bool]):
     """Process inputs in an __array_ufunc__ method
 
     Parameters
@@ -17,6 +21,7 @@ def conv_loop_in(obj_typ, tup: ArgTuple) -> (ArgTuple, List[bool]):
         The type of object that needs converting via ``view`` method.
     tup: Tuple[Any]
         Tuple of inputs to ufunc (or ``out`` argument)
+
     Returns
     -------
     out: Tuple[Any]
@@ -28,7 +33,7 @@ def conv_loop_in(obj_typ, tup: ArgTuple) -> (ArgTuple, List[bool]):
     conv = []
     for obj in tup:
         if isinstance(obj, obj_typ):
-            out.append(obj.view(np.ndarray))
+            out.append(converter(obj))
             conv.append(True)
         else:
             out.append(obj)
@@ -36,57 +41,77 @@ def conv_loop_in(obj_typ, tup: ArgTuple) -> (ArgTuple, List[bool]):
     return tuple(out), conv
 
 
-def convert_via_attr(obj, attr: str) -> Callable:
-    """Create function to convert arrays by setting obj.attr
-
-    Parameters
-    ----------
-    obj
-        The template object for conversions.
-    attr: str, None
-        The name of the ``type(obj)`` attribute returned in place of class.
-        It will try to use ``obj.copy(attr=result)``. If that fails, it will
-        use ``obj.copy()`` followed by ``setattr(newobj, attr, result)``.
+def prepare_via_view() -> Callable:
+    """Create function to convert object to an array using view method
     """
     def converter(thing):
-        """convert arrays by setting obj.attr
+        """convert to array using view method
         """
-        try:
-            return obj.copy(**{attr: thing})
-        except TypeError:
-            pass
-        thing_out = obj.copy()
-        setattr(thing_out, attr, thing)
-        return thing_out
+        return thing.view(np.ndarray)
     return converter
 
 
-def convert_via_init(obj) -> Callable:
-    """Create function to convert arrays  using obj.__init__
+def prepare_via_attr(attr: str) -> Callable:
+    """Create function to convert object to an array using an attribute
 
     Parameters
     ----------
-    obj
-        The template object for conversions.
+    attr: str, None
+        The name of the ``obj_typ`` attribute to use in place of class.
     """
     def converter(thing):
-        """convert arrays using obj.__init__
+        """convert to array using an attribute
         """
-        return type(obj)(thing)
+        return getattr(thing, attr)
+    return converter
 
 
-def convert_via_view(obj) -> Callable:
-    """Create function to convert arrays using array.view
+def conv_loop_in_view(obj_typ, tup: ArgTuple) -> (ArgTuple, List[bool]):
+    """Process inputs in an __array_ufunc__ method using view method
 
     Parameters
     ----------
-    obj
-        The template object for conversions.
+    obj_typ
+        The type of object that needs converting via ``view`` method.
+    tup: Tuple[Any]
+        Tuple of inputs to ufunc (or ``out`` argument)
+
+    Returns
+    -------
+    out: Tuple[Any]
+        New tuple of inputs to ufunc (or ``out`` argument) with conversions.
+    conv: List[bool]
+        List of bools telling us if each input was converted.
     """
-    def converter(thing):
-        """convert arrays using array.view
-        """
-        return thing.view(type(obj))
+    return conv_loop_in(prepare_via_view(), obj_typ, tup)
+
+
+def conv_loop_in_attr(attr: str, obj_typ, tup: ArgTuple) -> (ArgTuple,
+                                                             List[bool]):
+    """Process inputs in an __array_ufunc__ method using an attribute
+
+    Parameters
+    ----------
+    attr: str, None
+        The name of the ``obj_typ`` attribute to use in place of class.
+    obj_typ
+        The type of object that needs converting via ``view`` method.
+    tup: Tuple[Any]
+        Tuple of inputs to ufunc (or ``out`` argument)
+
+    Returns
+    -------
+    out: Tuple[Any]
+        New tuple of inputs to ufunc (or ``out`` argument) with conversions.
+    conv: List[bool]
+        List of bools telling us if each input was converted.
+    """
+    return conv_loop_in(prepare_via_attr(attr), obj_typ, tup)
+
+
+# ======================================================================
+# %% Outputs
+# ======================================================================
 
 
 def conv_loop_out(converter: Callable, results: ArgTuple, outputs: ArgTuple,
@@ -124,6 +149,59 @@ def conv_loop_out(converter: Callable, results: ArgTuple, outputs: ArgTuple,
     return tuple(results_out)
 
 
+def restore_via_attr(obj, attr: str) -> Callable:
+    """Create function to convert arrays by setting obj.attr
+
+    Parameters
+    ----------
+    obj
+        The template object for conversions.
+    attr: str, None
+        The name of the ``type(obj)`` attribute returned in place of class.
+        It will try to use ``obj.copy(attr=result)``. If that fails, it will
+        use ``obj.copy()`` followed by ``setattr(newobj, attr, result)``.
+    """
+    def converter(thing):
+        """convert arrays by setting obj.attr
+        """
+        try:
+            return obj.copy(**{attr: thing})
+        except TypeError:
+            pass
+        thing_out = obj.copy()
+        setattr(thing_out, attr, thing)
+        return thing_out
+    return converter
+
+
+def restore_via_init(obj) -> Callable:
+    """Create function to convert arrays  using obj.__init__
+
+    Parameters
+    ----------
+    obj
+        The template object for conversions.
+    """
+    def converter(thing):
+        """convert arrays using obj.__init__
+        """
+        return type(obj)(thing)
+
+
+def restore_via_view(obj) -> Callable:
+    """Create function to convert arrays using array.view
+
+    Parameters
+    ----------
+    obj
+        The template object for conversions.
+    """
+    def converter(thing):
+        """convert arrays using array.view
+        """
+        return thing.view(type(obj))
+
+
 def conv_loop_out_attr(obj, attr: str, results: ArgTuple, outputs: ArgTuple,
                        conv: Sequence[bool] = ()) -> ArgTuple:
     """Process outputs in an __array_ufunc__ method
@@ -154,7 +232,7 @@ def conv_loop_out_attr(obj, attr: str, results: ArgTuple, outputs: ArgTuple,
     It will try to use ``obj.copy(attr=result)``. If that fails, it will use
     ``obj.copy()`` followed by ``setattr(newobj, attr, result)``.
     """
-    return conv_loop_out(convert_via_attr(obj, attr), results, outputs, conv)
+    return conv_loop_out(restore_via_attr(obj, attr), results, outputs, conv)
 
 
 def conv_loop_out_init(obj, results: ArgTuple, outputs: ArgTuple,
@@ -180,7 +258,7 @@ def conv_loop_out_init(obj, results: ArgTuple, outputs: ArgTuple,
     results: Tuple[Any]
         New tuple of results from ufunc with conversions.
     """
-    return conv_loop_out(convert_via_init(obj), results, outputs, conv)
+    return conv_loop_out(restore_via_init(obj), results, outputs, conv)
 
 
 def conv_loop_out_view(obj, results: ArgTuple, outputs: ArgTuple,
@@ -206,4 +284,4 @@ def conv_loop_out_view(obj, results: ArgTuple, outputs: ArgTuple,
     results: Tuple[Any]
         New tuple of results from ufunc with conversions.
     """
-    return conv_loop_out(convert_via_view(obj), results, outputs, conv)
+    return conv_loop_out(restore_via_view(obj), results, outputs, conv)

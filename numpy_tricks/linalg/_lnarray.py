@@ -137,7 +137,7 @@ class lnarray(np.ndarray):
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """Customise ufunc behaviour
         """
-        args = list(cv.conv_loop_in(lnarray, inputs)[0])
+        args = list(cv.conv_loop_in_view(lnarray, inputs)[0])
         if ufunc in self.vec_ufuncs:
             args[0], args[1], squeeze = vec2mat(args[0], args[1],
                                                 self.vec_ufuncs.index(ufunc))
@@ -145,7 +145,7 @@ class lnarray(np.ndarray):
 
         outputs = kwargs.pop('out', None)
         if outputs:
-            out_args = cv.conv_loop_in(lnarray, outputs)[0]
+            out_args = cv.conv_loop_in_view(lnarray, outputs)[0]
             kwargs['out'] = tuple(out_args)
         else:
             outputs = (None,) * ufunc.nout
@@ -443,7 +443,7 @@ class pinvarray(NDArrayOperatorsMixin):
         """
         # which inputs are we converting?
         # For most inputs, we swap multiplication & division instead of inverse
-        args, pinv_in = cv.conv_loop_in(pinvarray, inputs)
+        args, pinv_in = cv.conv_loop_in_attr('_to_invert', pinvarray, inputs)
 
         pinv_out = [False] * ufunc.nout  # which outputs need converting back?
         if ufunc in self._ufunc_map.keys():
@@ -470,7 +470,8 @@ class pinvarray(NDArrayOperatorsMixin):
 
         outputs = kwargs.pop('out', None)
         if outputs:
-            out_args, pinv_out = cv.conv_loop_in(pinvarray, outputs)
+            out_args, pinv_out = cv.conv_loop_in_attr('_to_invert',
+                                                      pinvarray, outputs)
             kwargs['out'] = tuple(out_args)
         else:
             outputs = (None,) * ufunc.nout
@@ -562,10 +563,6 @@ class pinvarray(NDArrayOperatorsMixin):
             axis2 = (-3 - axis2) % self.ndim
         my_t = type(self)
         return my_t(self._to_invert.copy().swapaxes(axis1, axis2))
-
-    def view(self, typ):
-        """View of uninverted matrix as typ"""
-        return self._to_invert.view(typ)
 
     @property
     def shape(self) -> Tuple[int, ...]:
