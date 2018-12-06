@@ -220,7 +220,7 @@ INIT_OUTER_LOOP_2
     npy_intp len_n = *dimensions++;  // dimensions of inner
     npy_intp stride_n = *steps++;  // 1st arg
     NRM2_PARAMS_t params;
-    LINEARIZE_VDATA_t y_in;
+    LINEARIZE_DATA_t y_in;
 
     if(init_@TYPE@_nrm2(&params, len_n)) {
         init_linearize_vdata(&y_in, len_n, stride_n);

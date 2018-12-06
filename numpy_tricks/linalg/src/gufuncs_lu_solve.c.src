@@ -240,9 +240,9 @@ FNAME(@getrs@)(char *trans, int *n, int *nrhs,
 */
 typedef struct gesv_params_struct
 {
-    void *A; /* A is (N,N) of base type */
+    void *A; /* A is (M,N) of base type */
     void *B; /* B is (N,NRHS) of base type */
-    fortran_int *IPIV; /* IPIV is (N,) of int type, work for _geqrf */
+    fortran_int *IPIV; /* IPIV is (N,) of int type */
 
     fortran_int M;
     fortran_int N;
@@ -264,7 +264,7 @@ typedef struct gesv_params_struct
 // lu_signature = "(m,n)->(m,k),(k,n),(k)"
 // lu_raw_signature = "(m,n)->(m,n),(k)"
 /**************************************************
-* Calling BLAS/Lapack functions _gesv, _getr{f,s} *
+* Calling BLAS/Lapack function _getrf *
 ***************************************************/
 
 static NPY_INLINE void
@@ -308,7 +308,7 @@ init_@getrf@(GESV_PARAMS_t *params, npy_intp M_in, npy_intp N_in)
     params->IPIV = (fortran_int*)b;
     params->M = M;
     params->N = N;
-    params->NRHS = 0;
+    params->NRHS = N;
     params->LDA = lda;
     params->LDB = 1;
     params->INFO = 0;
@@ -358,11 +358,10 @@ static void
     npy_intp stride_ip = *steps++;  // elements
     int error_occurred = get_fp_invalid_and_clear();
     GESV_PARAMS_t params;
-    LINEARIZE_DATA_t a_in, l_out, u_out;
-    LINEARIZE_VDATA_t ipiv_out;
-    npy_intp len_k = (len_m < len_n) ? len_m : len_n;
+    LINEARIZE_DATA_t a_in, l_out, u_out, ipiv_out;
+    npy_intp len_k = npy_int_min(len_m, len_n);
 
-    if(init_@getrf@(&params, len_m, len_n)){
+    if(init_@getrf@(&params, len_m, len_n)) {
         init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
         init_linearize_data(&l_out, len_k, len_m, stride_l_c, stride_l_r);
         init_linearize_data_ex(&u_out, len_n, len_k, stride_u_c, stride_u_r, len_m);
@@ -379,8 +378,8 @@ static void
                 nan_@TYPE@_matrix(args[2], &u_out);
             } else {
                 zero_@TYPE@_matrix(args[1], &l_out);
-                delinearize_@TYPE@_tril(args[1], params.A, &l_out);
                 eye_@TYPE@_matrix(args[1], &l_out);
+                delinearize_@TYPE@_tril(args[1], params.A, &l_out);
                 zero_@TYPE@_matrix(args[2], &u_out);
                 delinearize_@TYPE@_triu(args[2], params.A, &u_out);
                 delinearize_INT_vec(args[3], params.IPIV, &ipiv_out);
@@ -411,11 +410,10 @@ static void
     npy_intp stride_ip = *steps++;  // elements
     int error_occurred = get_fp_invalid_and_clear();
     GESV_PARAMS_t params;
-    LINEARIZE_DATA_t a_in, f_out;
-    LINEARIZE_VDATA_t ipiv_out;
-    npy_intp len_k = (len_m < len_n) ? len_m : len_n;
+    LINEARIZE_DATA_t a_in, f_out, ipiv_out;
+    npy_intp len_k = npy_int_min(len_m, len_n);
 
-    if(init_@getrf@(&params, len_m, len_n)){
+    if(init_@getrf@(&params, len_m, len_n)) {
         init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
         init_linearize_data(&f_out, len_n, len_m, stride_f_c, stride_f_r);
         init_linearize_vdata(&ipiv_out, len_k, stride_ip);
@@ -433,7 +431,7 @@ static void
                 delinearize_INT_vec(args[2], params.IPIV, &ipiv_out);
             }
         END_OUTER_LOOP_3
-        release_@gesv@(&params);
+        release_@getrf@(&params);
     }
     set_fp_invalid_or_clear(error_occurred);
 }
@@ -446,14 +444,10 @@ static void
 
 // solve_signature = "(n,n),(n,nrhs)->(n,nrhs)";
 // rsolve_signature = (nrhs,n),(n,n)->(nrhs,n)"
-// solvelu_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
-// rsolvelu_signature = "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)";
-// lusolve_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
-// rlusolve_signature = "(nrhs,n),(n,n),(n)->(nrhs,n)";
 
-/**************************************************
-* Calling BLAS/Lapack functions _gesv, _getr{f,s} *
-***************************************************/
+/******************************************
+*   Calling BLAS/Lapack functions _gesv   *
+*******************************************/
 
 static NPY_INLINE void
 call_@gesv@(GESV_PARAMS_t *params)
@@ -461,15 +455,6 @@ call_@gesv@(GESV_PARAMS_t *params)
     // A,B are modified by ?GESV to carry LU info & X
     LAPACK(@gesv@)(&params->N, &params->NRHS, params->A, &params->LDA,
                    params->IPIV, params->B, &params->LDB, &params->INFO);
-}
-
-static NPY_INLINE void
-call_@getrs@(GESV_PARAMS_t *params)
-{
-    // B is modified by ?GETRS to carry X
-    LAPACK(@getrs@)(&params->TRANS, &params->N, &params->NRHS,
-                    params->A, &params->LDA, params->IPIV,
-                    params->B, &params->LDB, &params->INFO);
 }
 
 /***************************************************************************
@@ -522,17 +507,17 @@ init_@gesv@(GESV_PARAMS_t *params, npy_intp N_in, npy_intp NRHS_in, char trans)
     return 0;
 }
 
-/************************
-* Deallocate buffer     *
-*************************/
-
-static NPY_INLINE void
-release_@gesv@(GESV_PARAMS_t *params)
-{
-    /* 1st memory block base is in A */
-    free(params->A);
-    memset(params, 0, sizeof(*params));
-}
+// /************************
+// * Deallocate buffer     *
+// *************************/
+//
+// static NPY_INLINE void
+// release_@gesv@(GESV_PARAMS_t *params)
+// {
+//     /* 1st memory block base is in A */
+//     free(params->A);
+//     memset(params, 0, sizeof(*params));
+// }
 
 
 /************************
@@ -576,7 +561,7 @@ static void
                 delinearize_@TYPE@_matrix(args[2], params.B, &x_out);
             }
         END_OUTER_LOOP_3
-        release_@gesv@(&params);
+        release_@getrf@(&params);
     }
     set_fp_invalid_or_clear(error_occurred);
 }
@@ -613,9 +598,32 @@ static void
     @TYPE@_solve(rargs, rdimensions, rsteps, NULL);
 }
 
-/*************
-* SOLVELU    *
-**************/
+/***********************************************************
+**                       SOLVE with LU                    **
+************************************************************/
+
+// solvelu_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
+// rsolvelu_signature = "(nrhs,n),(n,n)->(nrhs,n),(n,n),(n)";
+// lusolve_signature = "(n,n),(n),(n,nrhs)->(n,nrhs)";
+// rlusolve_signature = "(nrhs,n),(n,n),(n)->(nrhs,n)";
+
+/*******************************************
+*   Calling BLAS/Lapack functions _getrs   *
+********************************************/
+
+static NPY_INLINE void
+call_@getrs@(GESV_PARAMS_t *params)
+{
+    // B is modified by ?GETRS to carry X
+    LAPACK(@getrs@)(&params->TRANS, &params->N, &params->NRHS,
+                    params->A, &params->LDA, params->IPIV,
+                    params->B, &params->LDB, &params->INFO);
+}
+
+
+/************************
+* Inner GUfunc loop     *
+*************************/
 
 // solvelu_signature = "(n,n),(n,nrhs)->(n,nrhs),(n,n),(n)";
 
@@ -636,14 +644,13 @@ static void
     npy_intp stride_ip = *steps++;  // vec, permutations, a = PLU
     int error_occurred = get_fp_invalid_and_clear();
     GESV_PARAMS_t params;
-    LINEARIZE_DATA_t a_in, b_in, x_out, a_out;
-    LINEARIZE_VDATA_t ipiv_out;
+    LINEARIZE_DATA_t a_in, b_in, x_out, af_out, ipiv_out;
 
     if(init_@gesv@(&params, len_n, len_nrhs, trans)){
         init_linearize_data(&a_in, len_n, len_n, stride_a_c, stride_a_r);
         init_linearize_data(&b_in, len_nrhs, len_n, stride_b_c, stride_b_r);
         init_linearize_data(&x_out, len_nrhs, len_n, stride_x_c, stride_x_r);
-        init_linearize_data(&a_out, len_n, len_n, stride_af_c, stride_af_r);
+        init_linearize_data(&af_out, len_n, len_n, stride_af_c, stride_af_r);
         init_linearize_vdata(&ipiv_out, len_n, stride_ip);
 
         BEGIN_OUTER_LOOP_5
@@ -656,14 +663,14 @@ static void
             if (not_ok) {
                 error_occurred = 1;
                 nan_@TYPE@_matrix(args[2], &x_out);
-                nan_@TYPE@_matrix(args[3], &a_out);
+                nan_@TYPE@_matrix(args[3], &af_out);
             } else {
                 delinearize_@TYPE@_matrix(args[2], params.B, &x_out);
-                delinearize_@TYPE@_matrix(args[3], params.A, &a_out);
+                delinearize_@TYPE@_matrix(args[3], params.A, &af_out);
                 delinearize_INT_vec(args[4], params.IPIV, &ipiv_out);
             }
         END_OUTER_LOOP_5
-        release_@gesv@(&params);
+        release_@getrf@(&params);
     }
     set_fp_invalid_or_clear(error_occurred);
 }
@@ -733,8 +740,7 @@ static void
     npy_intp stride_x_c = *steps++;
     int error_occurred = get_fp_invalid_and_clear();
     GESV_PARAMS_t params;
-    LINEARIZE_DATA_t a_in, b_in, x_out;
-    LINEARIZE_VDATA_t ipiv_in;
+    LINEARIZE_DATA_t a_in, b_in, x_out, ipiv_in;
 
     if(init_@gesv@(&params, len_n, len_nrhs, trans)){
         init_linearize_data(&a_in, len_n, len_n, stride_af_c, stride_af_r);
@@ -756,7 +762,7 @@ static void
                 delinearize_@TYPE@_matrix(args[3], params.B, &x_out);
             }
         END_OUTER_LOOP_4
-        release_@gesv@(&params);
+        release_@getrf@(&params);
     }
     set_fp_invalid_or_clear(error_occurred);
 }
@@ -861,7 +867,7 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
     { "lu_rawm", "(m,n)->(m,n),(m)", lu_raw__doc__, 4, 1, 2,
         FUNC_ARRAY_NAME(lu_raw), ufn_types_lu_3 },
     { "lu_rawn", "(m,n)->(m,n),(n)", lu_raw__doc__, 4, 1, 2,
-        FUNC_ARRAY_NAME(lu_raw), ufn_types_lu_3 },
+        FUNC_ARRAY_NAME(lu_raw), ufn_types_lu_3 }
 };
 
 /*
@@ -876,7 +882,7 @@ static PyMethodDef GUfuncs_LUSOLVE_Methods[] = {
 
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
-    "_gufuncs_lapack",
+    "_gufuncs_lu_solve",
     NULL,
     -1,
     GUfuncs_LUSOLVE_Methods,
