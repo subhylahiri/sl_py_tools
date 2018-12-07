@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-"""
+"""Test python wrappers of gufuncs.
+It has been established, in test_gu*.py, that the gufuncs return the correct
+values. We just check that the python wrappers call the correct ones.
 """
 import unittest
 # import numpy as np
@@ -93,21 +95,51 @@ class TestShape(utn.TestCaseNumpy):
         """Check that qr returns correct shape in each mode
         """
         q, r = la.qr(self.x['d'], 'reduced')
+        self.assertEqual((q.ndim, r.ndim), (3, 3))
         self.assertEqual(q.shape + r.shape, (2, 5, 3, 2, 3, 3))
         q, r = la.qr(self.y['d'], 'reduced')
+        self.assertEqual((q.ndim, r.ndim), (2, 2))
         self.assertEqual(q.shape + r.shape, (3, 3, 3, 5))
         q, r = la.qr(self.x['d'], 'complete')
+        self.assertEqual((q.ndim, r.ndim), (3, 3))
         self.assertEqual(q.shape + r.shape, (2, 5, 5, 2, 5, 3))
         q, r = la.qr(self.y['d'], 'complete')
+        self.assertEqual((q.ndim, r.ndim), (2, 2))
         self.assertEqual(q.shape + r.shape, (3, 3, 3, 5))
         r = la.qr(self.x['d'], 'r')
         self.assertEqual(r.shape, (2, 3, 3))
         r = la.qr(self.y['d'], 'r')
         self.assertEqual(r.shape, (3, 5))
         h, tau = la.qr(self.x['d'], 'raw')
+        self.assertEqual((h.ndim, tau.ndim), (3, 2))
         self.assertEqual(h.shape + tau.shape, (2, 3, 5, 2, 3))
         h, tau = la.qr(self.y['d'], 'raw')
+        self.assertEqual((h.ndim, tau.ndim), (2, 1))
         self.assertEqual(h.shape + tau.shape, (5, 3, 3))
+
+    def test_lu(self):
+        """Check that qr returns correct shape in each mode
+        """
+        low, up, piv = la.lu(self.w['d'], 'separate')
+        self.assertEqual((low.ndim, up.ndim, piv.ndim), (3, 3, 2))
+        self.assertEqual(low.shape + up.shape + piv.shape,
+                         (2, 3, 3, 2, 3, 3, 2, 3))
+        low, up, piv = la.lu(self.x['d'], 'separate')
+        self.assertEqual((low.ndim, up.ndim, piv.ndim), (3, 3, 2))
+        self.assertEqual(low.shape + up.shape + piv.shape,
+                         (2, 5, 3, 2, 3, 3, 2, 3))
+        low, up, piv = la.lu(self.y['d'], 'separate')
+        self.assertEqual((low.ndim, up.ndim, piv.ndim), (2, 2, 1))
+        self.assertEqual(low.shape + up.shape + piv.shape, (3, 3, 3, 5, 3))
+        luf, piv = la.lu(self.w['d'], 'raw')
+        self.assertEqual((luf.ndim, piv.ndim), (3, 2))
+        self.assertEqual(luf.shape + piv.shape, (2, 3, 3, 2, 3))
+        luf, piv = la.lu(self.x['d'], 'raw')
+        self.assertEqual((luf.ndim, piv.ndim), (3, 2))
+        self.assertEqual(luf.shape + piv.shape, (2, 5, 3, 2, 3))
+        luf, piv = la.lu(self.y['d'], 'raw')
+        self.assertEqual((luf.ndim, piv.ndim), (2, 1))
+        self.assertEqual(luf.shape + piv.shape, (3, 5, 3))
 
 
 # =============================================================================

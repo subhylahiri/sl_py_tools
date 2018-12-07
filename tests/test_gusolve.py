@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Test solve & lstsq families of gufuncs
+"""Test solve & lu families of gufuncs
 """
 import unittest
 import numpy as np
