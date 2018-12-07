@@ -56,7 +56,7 @@ static const char* gufuncs_lu_solve_version_string = "0.1.0";
 ********************/
 
 PyDoc_STRVAR(lu__doc__,
-//"solve(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
+//"lu(A: ndarray) -> (L: ndarray, U: ndarray, IP: ndarray)\n\n"
 "LU decomposition.\n\n"
 "Write matrix ``A`` as ``A = PLU``, where  ``P`` is a permutation matrix, \n"
 "``L`` is lower triangular with ones on the diagonal and \n"
@@ -75,14 +75,14 @@ PyDoc_STRVAR(lu__doc__,
 );
 
 PyDoc_STRVAR(lu_raw__doc__,
-//"solve(A: ndarray, B: ndarray) -> (C: ndarray)\n\n"
+//"lu_raw(A: ndarray) -> (AF: ndarray, IP: ndarray)\n\n"
 "LU decomposition.\n\n"
 "Write matrix ``A`` as ``A = PLU``, where  ``P`` is a permutation matrix, \n"
 "``L`` is lower triangular with ones on the diagonal and \n"
 "``U`` is upper triangular.\n\n"
 "Parameters\n-----------\n"
 "A: ndarray (...,M,N)\n"
-"    Matrix to be fcatored.\n\n"
+"    Matrix to be factored.\n\n"
 "Returns\n-------\n"
 "AF: ndarray (...,M,N)\n"
 "   LU factors of ``A``, with the nonzero elements of ``U`` above and on \n"
@@ -92,6 +92,43 @@ PyDoc_STRVAR(lu_raw__doc__,
 "   Vector of pivot indices, where swaps ``A[...,i,:] <--> A[...,IP[i],:]`` \n"
 "   are performed in order ``i=1,...,K``, ``K=min(M,N)``."
 );
+
+/*******************
+*       Pivot      *
+********************/
+
+PyDoc_STRVAR(pivot__doc__,
+//"lu_solve(A: ndarray, IPIV: ndarray) -> (AP: ndarray)\n\n"
+"Perform row pivoting.\n\n"
+"Permute the rows of ``A`` according to pivot indices, ``IP``. \n"
+"If ``IP[I] = J``, rows ``I`` and ``J`` will be swapped, \n"
+"in order of increasing ``I``.\n\n"
+"Parameters\n-----------\n"
+"A: ndarray (...,M,N)\n"
+"    Matrix before pivoting.\n"
+"IP: ndarray[int] (...,N)\n"
+"    Pivot indices from LU factoring, etc.\n\n"
+"Returns\n-------\n"
+"AP: ndarray (...,M,N)\n"
+"    Pivoted matrix."
+);
+
+PyDoc_STRVAR(rpivot__doc__,
+//"lu_solve(AP: ndarray, IPIV: ndarray) -> (A: ndarray)\n\n"
+"Undo row pivoting.\n\n"
+"Permute the rows of ``A`` according to pivot indices, ``IP``. \n"
+"If ``IP[I] = J``, rows ``I`` and ``J`` will be swapped, \n"
+"in order of decreasing ``I``.\n\n"
+"Parameters\n-----------\n"
+"AP: ndarray (...,M,N)\n"
+"    Pivoted matrix.\n"
+"IP: ndarray[int] (...,N)\n"
+"    Pivot indices from LU factoring, etc.\n\n"
+"Returns\n-------\n"
+"A: ndarray (...,M,N)\n"
+"    Matrix before pivoting."
+);
+
 
 /*******************
 *       Solve      *
@@ -211,16 +248,22 @@ PyDoc_STRVAR(rlu_solve__doc__,
 
 /**begin repeat
     #typ = float, double, f2c_complex, f2c_doublecomplex#
+    #laswp = slaswp, dlaswp, claswp, zlaswp#
     #gesv = sgesv, dgesv, cgesv, zgesv#
     #getrf = sgetrf, dgetrf, cgetrf, zgetrf#
     #getrs = sgetrs, dgetrs, cgetrs, zgetrs#
 */
+
+/* pivot rows of a */
+extern void
+FNAME(@laswp@)(int *n, @typ@ *a, int *lda, int *k1, int *k2, int *ipiv, int *incx);
 
 /* solve a x = b for x */
 extern void
 FNAME(@gesv@)(int *n, int *nrhs,
             @typ@ *a, int *lda, int * ipiv,
             @typ@ *b, int *ldb, int *info);
+
 /* LU factors of a */
 extern void
 FNAME(@getrf@)(int *m, int *n, @typ@ *a, int *lda, int * ipiv, int *info);
@@ -256,13 +299,16 @@ typedef struct gesv_params_struct
 /**begin repeat
     #TYPE = FLOAT, DOUBLE, CFLOAT, CDOUBLE#
     #ftyp = fortran_real, fortran_doublereal, fortran_complex, fortran_doublecomplex#
+    #laswp = slaswp, dlaswp, claswp, zlaswp#
     #gesv = sgesv, dgesv, cgesv, zgesv#
     #getrf = sgetrf, dgetrf, cgetrf, zgetrf#
     #getrs = sgetrs, dgetrs, cgetrs, zgetrs#
+    #zero = s_zero, d_zero, c_zero, z_zero#
 */
 
 // lu_signature = "(m,n)->(m,k),(k,n),(k)"
 // lu_raw_signature = "(m,n)->(m,n),(k)"
+
 /**************************************************
 * Calling BLAS/Lapack function _getrf *
 ***************************************************/
@@ -291,7 +337,7 @@ init_@getrf@(GESV_PARAMS_t *params, npy_intp M_in, npy_intp N_in)
     N = (fortran_int)N_in;
     K = fortran_int_min(M, N);
     lda = fortran_int_max(M, 1);
-    safe_N = M_in;
+    safe_M = M_in;
     safe_N = N_in;
     safe_K = K;
 
@@ -380,8 +426,10 @@ static void
                 zero_@TYPE@_triu(args[1], &l_out);
                 eye_@TYPE@_matrix(args[1], &l_out);
                 delinearize_@TYPE@_tril(args[1], params.A, &l_out);
+
                 zero_@TYPE@_tril(args[2], &u_out);
                 delinearize_@TYPE@_triu(args[2], params.A, &u_out);
+
                 delinearize_INT_vec(args[3], params.IPIV, &ipiv_out);
             }
         END_OUTER_LOOP_4
@@ -434,6 +482,138 @@ static void
         release_@getrf@(&params);
     }
     set_fp_invalid_or_clear(error_occurred);
+}
+
+/*
+******************************************************************************
+**                                PIVOT                                     **
+******************************************************************************
+*/
+
+// pivot_signature = "(m,n),(k)->(m,n)";
+// rsolve_signature = "(m,n),(k)->(m,n)"
+
+/**************************************************
+* Calling BLAS/Lapack function _laswp *
+***************************************************/
+
+static NPY_INLINE void
+call_@laswp@(GESV_PARAMS_t *params)
+{
+    fortran_int zero = 1;
+    // A is modified by ?GETRF to carry LU info
+    LAPACK(@laswp@)(&params->N, params->A, &params->LDA, &zero, &params->M,
+                    params->IPIV, &params->INFO);
+}
+
+/***************************************************************************
+* Initialize the parameters to use in the lapack functions _gesv           *
+* Handles buffer allocation
+****************************************************************************/
+static NPY_INLINE int
+init_@laswp@(GESV_PARAMS_t *params,
+            npy_intp M_in, npy_intp N_in, npy_intp K_in, npy_intp direction)
+{
+    npy_uint8 *mem_buff = NULL;
+    npy_uint8 *a, *b;
+    fortran_int M, N, K, lda;
+    size_t safe_M, safe_N, safe_K;
+
+    M = (fortran_int)M_in;
+    N = (fortran_int)N_in;
+    K = (fortran_int)K_in;
+    lda = fortran_int_max(M, 1);
+    safe_M = M_in;
+    safe_N = N_in;
+    safe_K = K;
+
+    mem_buff = malloc(safe_M * safe_N * sizeof(@ftyp@)
+                    + safe_K * sizeof(fortran_int));
+    if (!mem_buff) {
+        goto error;
+    }
+    a = mem_buff;
+    b = a + safe_M * safe_N * sizeof(@ftyp@);
+
+    params->A = a;
+    params->B = NULL;
+    params->IPIV = (fortran_int*)b;
+    params->M = K;
+    params->N = N;
+    params->NRHS = N;
+    params->LDA = lda;
+    params->LDB = 1;
+    params->INFO = (fortran_int)direction;
+    params->TRANS = 'N';
+
+    return 1;
+
+  error:
+    free(mem_buff);
+    memset(params, 0, sizeof(*params));
+    // PyErr_NoMemory();
+
+    return 0;
+}
+
+/************************
+* Inner GUfunc loop     *
+*************************/
+
+static void
+do_@TYPE@_pivot(char **args, npy_intp *dimensions, npy_intp *steps,
+                npy_intp direction)
+{
+    INIT_OUTER_LOOP_3
+    npy_intp len_m = *dimensions++;  // rows
+    npy_intp len_n = *dimensions++;  // columns
+    npy_intp len_k = *dimensions++;  // columns
+    npy_intp stride_a_r = *steps++;  // rows
+    npy_intp stride_a_c = *steps++;
+    npy_intp stride_ip = *steps++;  // elements
+    npy_intp stride_p_r = *steps++;  // rows
+    npy_intp stride_p_c = *steps++;
+    int error_occurred = get_fp_invalid_and_clear();
+    GESV_PARAMS_t params;
+    LINEARIZE_DATA_t a_in, ipiv_in, p_out;
+
+    if(init_@laswp@(&params, len_m, len_n, len_k, direction)) {
+        init_linearize_data(&a_in, len_n, len_m, stride_a_c, stride_a_r);
+        init_linearize_vdata(&ipiv_in, len_k, stride_ip);
+        init_linearize_data(&p_out, len_n, len_m, stride_p_c, stride_p_r);
+
+        BEGIN_OUTER_LOOP_3
+            int not_ok;
+            linearize_@TYPE@_matrix(params.A, args[0], &a_in);
+            linearize_INT_vec(params.IPIV, args[1], &ipiv_in);
+            call_@laswp@(&params);
+            delinearize_@TYPE@_matrix(args[2], params.A, &p_out);
+        END_OUTER_LOOP_3
+        release_@getrf@(&params);
+    }
+    set_fp_invalid_or_clear(error_occurred);
+}
+
+/************************
+* Outer GUfunc loop     *
+*************************/
+
+// pivot_signature = "(m,n),(k)->(m,n)";
+
+static void
+@TYPE@_pivot(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
+{
+    do_@TYPE@_pivot(args, dimensions, steps, 1);
+}
+
+// rsolve_signature = "(m,n),(k)->(m,n)"
+
+static void
+@TYPE@_rpivot(char **args, npy_intp *dimensions, npy_intp *steps,
+            void *NPY_UNUSED(func))
+{
+    do_@TYPE@_pivot(args, dimensions, steps, -1);
 }
 
 /*
@@ -825,7 +1005,13 @@ GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lu_solve);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rlu_solve);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lu);
 GUFUNC_FUNC_ARRAY_REAL_COMPLEX(lu_raw);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(pivot);
+GUFUNC_FUNC_ARRAY_REAL_COMPLEX(rpivot);
 
+static char ufn_types_pivot_3[] = { NPY_FLOAT, NPY_INT, NPY_FLOAT,
+                                NPY_DOUBLE, NPY_INT, NPY_DOUBLE,
+                                NPY_CFLOAT, NPY_INT, NPY_CFLOAT,
+                                NPY_CDOUBLE, NPY_INT, NPY_CDOUBLE };
 static char ufn_types_solve_4[] = { NPY_FLOAT, NPY_INT, NPY_FLOAT, NPY_FLOAT,
                                 NPY_DOUBLE, NPY_INT, NPY_DOUBLE, NPY_DOUBLE,
                                 NPY_CFLOAT, NPY_INT, NPY_CFLOAT, NPY_CFLOAT,
@@ -867,7 +1053,11 @@ GUFUNC_DESCRIPTOR_t gufunc_descriptors[] = {
     { "lu_rawm", "(m,n)->(m,n),(m)", lu_raw__doc__, 4, 1, 2,
         FUNC_ARRAY_NAME(lu_raw), ufn_types_lu_3 },
     { "lu_rawn", "(m,n)->(m,n),(n)", lu_raw__doc__, 4, 1, 2,
-        FUNC_ARRAY_NAME(lu_raw), ufn_types_lu_3 }
+        FUNC_ARRAY_NAME(lu_raw), ufn_types_lu_3 },
+    { "pivot", "(m,n),(k)->(m,n)", pivot__doc__, 4, 2, 1,
+        FUNC_ARRAY_NAME(pivot), ufn_types_pivot_3 },
+    { "rpivot", "(m,n),(k)->(m,n)", rpivot__doc__, 4, 2, 1,
+        FUNC_ARRAY_NAME(rpivot), ufn_types_pivot_3 }
 };
 
 /*
@@ -906,7 +1096,7 @@ PyObject *PyInit__gufuncs_lu_solve(void)
     import_ufunc();
 
     /* Load the ufunc operators into the module's namespace */
-    int failure = addUfuncs(m, gufunc_descriptors, 10, gufuncs_lu_solve_version_string);
+    int failure = addUfuncs(m, gufunc_descriptors, 12, gufuncs_lu_solve_version_string);
 
     if (PyErr_Occurred() || failure) {
         PyErr_SetString(PyExc_RuntimeError,

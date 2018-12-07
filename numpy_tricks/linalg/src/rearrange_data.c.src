@@ -362,13 +362,14 @@ void
 zero_@TYPE@_triu(void *dst_in, const LINEARIZE_DATA_t* data)
 {
     init_constants();
+    @typ@ *cp;
     npy_intp len;
     @typ@ *dst = (@typ@ *) dst_in;
 
     int i, j;
     ptrdiff_t cs = data->column_strides/sizeof(@typ@);
     for (i = 0; i < data->rows; i++) {
-        @typ@ *cp = dst;
+        cp = dst;
         len = npy_int_min(i + 1, data->columns);
         for (j = 0; j < len; ++j) {
             *cp = @zero@;
@@ -382,13 +383,15 @@ void
 zero_@TYPE@_tril(void *dst_in, const LINEARIZE_DATA_t* data)
 {
     init_constants();
+    @typ@ *cp;
     npy_intp len;
     @typ@ *dst = (@typ@ *) dst_in;
 
     int i, j;
     ptrdiff_t cs = data->column_strides/sizeof(@typ@);
+
     for (i = 0; i < data->rows; i++) {
-        @typ@ *cp = dst + i + 1;
+        cp = dst + (i + 1) * cs;
         len = npy_int_max(0, data->columns - i - 1);
         for (j = 0; j < len; ++j) {
             *cp = @zero@;
@@ -410,9 +413,11 @@ eye_@TYPE@_matrix(void *dst_in, const LINEARIZE_DATA_t* data)
 
     int i;
     ptrdiff_t cs = data->column_strides/sizeof(@typ@);
+    ptrdiff_t rs = data->row_strides/sizeof(@typ@);
+
     for (i = 0; (i < data->rows) && (i < data->columns); i++) {
         *dst = @one@;
-        dst += (data->row_strides/sizeof(@typ@)) * (data->output_lead_dim + 1);
+        dst += cs + rs;
     }
 }
 

@@ -44,7 +44,6 @@ class TestLU(utn.TestCaseNumpy):
             self.assertEqual(tl_u.shape, (2, 2))
             self.assertEqual(tl_ip.shape, (2,))
 
-    # @unittest.skip("failing")
     def test_lu_raw_shape(self):
         """Test shape of raw LU"""
         sq_f, sq_ip = gfl.lu_rawm(self.square['d'])
@@ -60,27 +59,46 @@ class TestLU(utn.TestCaseNumpy):
             self.assertEqual(tl_f.shape, (5, 2))
             self.assertEqual(tl_ip.shape, (2,))
 
-    @unittest.expectedFailure
     @utn.loop_test()
     def test_lu_basic_val(self, sctype):
         """Test values of basic LU"""
         sq_l, sq_u, sq_ip = gfl.lu_m(self.square[sctype])
-        inds = (...,) + np.diag_indices(5, 2)
+        sq = gfl.rpivot(sq_l @ sq_u, sq_ip)
+        sqp = gfl.pivot(self.square[sctype], sq_ip)
+        dinds = (...,) + np.diag_indices(5, 2)
+        linds = (...,) + np.tril_indices(5, -1)
+        uinds = (...,) + np.triu_indices(5, 1)
         with self.subTest(msg="square"):
-            self.assertArrayAllClose(sq_l @ sq_u, self.square[sctype])
-            self.assertArrayAllClose(sq_l[inds], 1.)
+            self.assertArrayAllClose(sq_l[dinds], 1.)
+            self.assertArrayAllClose(sq_l[uinds], 0.)
+            self.assertArrayAllClose(sq_u[linds], 0.)
+            self.assertArrayAllClose(sq_l @ sq_u, sqp)
+            self.assertArrayAllClose(sq, self.square[sctype])
         wd_l, wd_u, wd_ip = gfl.lu_m(self.wide[sctype])
-        inds = (...,) + np.diag_indices(3, 2)
+        wd = gfl.rpivot(wd_l @ wd_u, wd_ip)
+        wdp = gfl.pivot(self.wide[sctype], wd_ip)
+        dinds = (...,) + np.diag_indices(3, 2)
+        linds = (...,) + np.tril_indices(3, -1)
+        uinds = (...,) + np.triu_indices(3, 1)
         with self.subTest(msg="wide"):
-            self.assertArrayAllClose(wd_l @ wd_u, self.wide[sctype])
-            self.assertArrayAllClose(wd_l[inds], 1.)
+            self.assertArrayAllClose(wd_l[dinds], 1.)
+            self.assertArrayAllClose(wd_l[uinds], 0.)
+            self.assertArrayAllClose(wd_u[linds], 0.)
+            self.assertArrayAllClose(wd_l @ wd_u, wdp)
+            self.assertArrayAllClose(wd, self.wide[sctype])
         tl_l, tl_u, tl_ip = gfl.lu_n(self.tall[sctype])
-        inds = (...,) + np.diag_indices(2, 2)
+        tl = gfl.rpivot(tl_l @ tl_u, tl_ip)
+        tlp = gfl.pivot(self.tall[sctype], tl_ip)
+        dinds = (...,) + np.diag_indices(2, 2)
+        linds = (...,) + np.tril_indices(2, -1)
+        uinds = (...,) + np.triu_indices(2, 1)
         with self.subTest(msg="tall"):
-            self.assertArrayAllClose(tl_l @ tl_u, self.tall[sctype])
-            self.assertArrayAllClose(tl_l[inds], 1.)
+            self.assertArrayAllClose(tl_l[dinds], 1.)
+            self.assertArrayAllClose(tl_l[uinds], 0.)
+            self.assertArrayAllClose(tl_u[linds], 0.)
+            self.assertArrayAllClose(tl_l @ tl_u, tlp)
+            self.assertArrayAllClose(tl, self.tall[sctype])
 
-    @unittest.skip("failing")
     @utn.loop_test()
     def test_lu_raw_val(self, sctype):
         """Test values of raw LU"""
