@@ -319,8 +319,8 @@ def lu(x: np.ndarray, mode: str = 'separate') -> (np.ndarray, np.ndarray):
     ipiv: ndarray (...,K,). Modes: `separate, raw`.
         Pivot indices
     """
-    if mode not in qr_modes.keys():
+    if mode not in lu_modes.keys():
         raise ValueError('Modes known to lu: separate, raw.\n'
                          + 'Unknown mode: ' + mode)
-    ufunc = qr_modes[mode][x.shape[-2] > x.shape[-1]]
+    ufunc = lu_modes[mode][x.shape[-2] > x.shape[-1]]
     return ufunc(x)
