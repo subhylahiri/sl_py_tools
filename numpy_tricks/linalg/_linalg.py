@@ -10,6 +10,8 @@ Functions
 ---------
 transpose
     Transpose last two indices.
+dagger
+    Transpose-conjugate last two indices.
 col
     Treat multi-dim array as a stack of column vectors.
 row
@@ -24,19 +26,29 @@ matrdiv
     Matrix division from right.
 qr
     QR decomposition with broadcasting and subclass passing.
+lu
+    LU decomposition with broadcasting and subclass passing.
 """
 import numpy as np
 import numpy.linalg.linalg as nla
 from . import gufuncs as gf
 
 __all__ = [
+    'transpose',
+    'dagger',
     'col',
     'row',
     'scal',
     'matmul',
+    'rmatmul',
+    'solve',
+    'rsolve',
+    'lstsq',
+    'rlstsq',
     'matldiv',
     'matrdiv',
     'qr',
+    'lu',
 ]
 
 # =============================================================================
@@ -224,6 +236,11 @@ def matrdiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
     return rlstsq(x, y, *args, **kwargs)
 
 
+# =============================================================================
+# Matrix decomposition
+# =============================================================================
+
+
 qr_modes = {'reduced': (gf.qr_m, gf.qr_n),
             'complete': (gf.qr_m, gf.qr_m),
             'r': (gf.qr_rm, gf.qr_rn),
@@ -260,7 +277,7 @@ def qr(x: np.ndarray, mode: str = 'reduced') -> (np.ndarray, np.ndarray):
             Sub-diagonal: lower part of Householder reflectors `v`, in columns.
     tau: ndarray (...,K,). Modes: `raw`.
         Scaling factors for Householder reflectors. The unit normal to the
-        reflection plane is ``V = sqrt(tau/2) [0 ... 0 1 v^T]``.
+        reflection plane is ``V = sqrt(tau/2) [0 ... 0 1 v^T]^T``.
     """
     if mode not in qr_modes.keys():
         raise ValueError('Modes known to qr: reduced, complete, r, raw.\n'
@@ -298,12 +315,12 @@ def lu(x: np.ndarray, mode: str = 'separate') -> (np.ndarray, np.ndarray):
     AF: ndarray (...,N,M). Modes: `raw`.
         Raw matrix output from Lapack in Fortran.
             On & super-diagonal: non-zero part of `U`.
-            Sub-diagonal: non-zero part of `L`, except for diagonal.
+            Sub-diagonal: non-zero part of `L`, excluding diagonal.
     ipiv: ndarray (...,K,). Modes: `separate, raw`.
         Pivot indices
     """
     if mode not in qr_modes.keys():
-        raise ValueError('Modes known to qr: reduced, complete, r, raw.\n'
+        raise ValueError('Modes known to lu: separate, raw.\n'
                          + 'Unknown mode: ' + mode)
     ufunc = qr_modes[mode][x.shape[-2] > x.shape[-1]]
     return ufunc(x)

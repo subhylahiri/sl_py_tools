@@ -72,9 +72,9 @@ Examples
 
 from ._lnarray import lnarray, pinvarray, invarray, lnmatrix
 from ._ldarray import ldarray
-from ._linalg import transpose, col, row, scal
+from ._linalg import transpose, dagger, col, row, scal
 from ._linalg import (matmul, rmatmul, solve, rsolve, lstsq, rlstsq,
-                      matldiv, matrdiv, qr)
+                      matldiv, matrdiv, qr, lu)
 from .gufuncs import norm
 from . import gufuncs
 from . import _ln_wrap as wrappers

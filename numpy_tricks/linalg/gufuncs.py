@@ -65,11 +65,26 @@ def return_shape_mat(x, y):
 def vec2mat(x, y, case=0):
     """Convert vectors to single column/row matrices for linear algebra gufuncs
 
-    case
+    Only does anything when `x.ndim==1` or `y.ndim==1`.
+
+    Parameters
+    ----------
+    x,y : ndarray
+        Left/right-hand-side of a linear algebra binary operation.
+    case : int
         convert to row or column? `case = x_ax + 3*y_ax`.
-        ax = 0: x/y -> row/column
-        ax = 1: x/y -> column/row
-        ax = 2: do not change
+            ax = 0: x/y -> row/column
+            ax = 1: x/y -> column/row
+            ax = 2: do not change
+        for `case=4` we also reverse `needs_squeeze`
+
+    Returns
+    -------
+    x,y : ndarray
+        The inputs, but with singleton axes added so that linear algebra
+        gufuncs behave correctly.
+    needs_squeeze : list(bool)
+        Tells us if axes [-2, -1] need to be removed from the gufunc output.
     """
     needs_squeeze = [False, False]
     if x.ndim == 1:
@@ -88,7 +103,19 @@ def vec2mat(x, y, case=0):
 
 
 def mat2vec(z, squeeze):
-    """Convert vectors to column/rowvectors for linear algebra gufuncs
+    """Convert column/row-matrices back to vectors from linear algebra gufuncs
+
+    Parameters
+    ----------
+    z : ndarray
+        Output of a gufunc performing a linear algebra binary operation.
+    needs_squeeze : list(bool)
+        Tells us if axes [-2, -1] need to be removed from the gufunc output.
+
+    Returns
+    -------
+    z : ndarray
+        The input, stripped of any sigleton axes added by `vec2mat`.
     """
     axs = (-2,) * squeeze[0] + (-1,) * squeeze[1]
     z = z.squeeze(axis=axs)
@@ -104,10 +131,18 @@ _bin_doc = "It is intended for use in binary operators.\n"
 
 def vec_wrap(gufunc, case):
     """Wrap a gufunc with special handling for vectors
+
+    Parameters
+    ----------
+    case : int
+        convert to row or column? `case = x_ax + 3*y_ax`.
+        ax = 0: x/y -> row/column
+        ax = 1: x/y -> column/row
+        ax = 2: do not change
     """
     @functools.wraps(gufunc)
     def wrapper(x, y, *args, **kwargs):
-        x, y, squeeze = vec2mat(x, y, case)
+        x, y, squeeze = vec2mat(_np.asanyarray(x), _np.asanyarray(y), case)
         with _np.errstate(invalid='raise'):
             try:
                 z = gufunc(x, y, *args, **kwargs)
