@@ -118,7 +118,11 @@ class TestShape(utn.TestCaseNumpy):
         self.assertEqual(h.shape + tau.shape, (5, 3, 3))
 
     def test_lu(self):
+<<<<<<< HEAD
         """Check that lu returns correct shape in each mode
+=======
+        """Check that qr returns correct shape in each mode
+>>>>>>> b97afb4758bda3e3bc51146072109940d0e57d0e
         """
         low, up, piv = la.lu(self.w['d'], 'separate')
         self.assertEqual((low.ndim, up.ndim, piv.ndim), (3, 3, 2))
