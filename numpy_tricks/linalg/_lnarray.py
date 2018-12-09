@@ -15,7 +15,11 @@ lnarray
     dealing with stacks of vectors and scalars.
 pinvarray
     Provides interface for matrix division when it is matrix multiplied (@).
-    Does not actually invert the matrix unless it has to: if you try to do
+    Does not actually invert the matrix. It will raise if you try to do
+    anything other than matrix multiplication or multiplication by scalars.
+invarray
+    Provides interface for matrix division when it is matrix multiplied (@).
+    Does not actually invert the matrix. It will raise if you try to do
     anything other than matrix multiplication or multiplication by scalars.
 lnmatrix
     Subclass of `lnarray` with swapped elementwise/matrix multiplication and
@@ -370,7 +374,7 @@ def _inv_output(ufunc, pinv_in: Sequence[bool]) -> bool:
 class pinvarray(gf.LNArrayOperatorsMixin):
     """Lazy matrix pseudoinverse of `lnarray`.
 
-    Does not actually perform the matrix pseudoinversion unless it has to.
+    Does not actually perform the matrix pseudoinversion.
     It will use matrix division for matmul (@) with an `lnarray`.
 
     It is intended to be ephemeral, appearing in larger expressions rather than
@@ -390,17 +394,14 @@ class pinvarray(gf.LNArrayOperatorsMixin):
     It can also be multiplied and divided by a nonzero scalar or stack of
     scalars, i.e. `ndarray` with last two dimensions singletons.
     Actually divides/multiplies the pre-inversion object.
+    It will also behave appropriately in the `(r)lstsq` functions from *this*
+    package (not the `numpy` versions).
 
-    *Any* other operation or attribute access will require actually
-    performing the (pseudo)inversion and using that instead (except for `len`,
-    `shape`, `size`, 'ndim`, `repr`, `str`, `t` and `inv`).
+    *Any* other operation or attribute access would require actually
+    performing the pseudoinversion and using that instead (except for `len`,
+    `shape`, `size`, 'ndim`, `repr`, `str`, `t`, `h` and `inv`).
 
-    If the `lnarray` instance to be inverted is square, uses `np.linalg.solve`
-    or `np.linalg.inv`.
-    If it is two-dimensional and rectangular, uses `np.linalg.lstsq` or
-    `np.linalg.pinv`.
-    Otherwise it uses the standard formula for the Moore-Penrose pseudoinverse,
-    assuming full-rank.
+    It uses `gufuncs.lstsq`,`gufuncs.rlstsq` for @ and `np.linalg.pinv` for ().
 
     Examples
     --------
@@ -414,8 +415,7 @@ class pinvarray(gf.LNArrayOperatorsMixin):
     Raises
     ------
     LinAlgError
-        If a is not full rank (square, or broadcasting non-square) or
-        if computation doesn't converge (non-square, no broadcasting).
+        If computation does not converge.
 
     See also
     --------
@@ -619,6 +619,11 @@ class pinvarray(gf.LNArrayOperatorsMixin):
         """A copy of object, but view of data"""
         return pinvarray(self._to_invert.t)
 
+    @property
+    def h(self) -> 'pinvarray':
+        """A copy of object, but view of data"""
+        return pinvarray(self._to_invert.h)
+
     def copy(self, order='C', **kwds) -> 'pinvarray':
         """Copy data"""
         my_t = type(self)
@@ -649,7 +654,7 @@ class pinvarray(gf.LNArrayOperatorsMixin):
 class invarray(pinvarray):
     """Lazy matrix inverse of `lnarray`.
 
-    Does not actually perform the matrix inversion unless it has to.
+    Does not actually perform the matrix inversion.
     It will use matrix division for matmul (@) with an `lnarray`.
 
     It is intended to be ephemeral, appearing in larger expressions rather than
@@ -669,27 +674,28 @@ class invarray(pinvarray):
     It can also be multiplied and divided by a nonzero scalar or stack of
     scalars, i.e. `ndarray` with last two dimensions singletons.
     Actually divides/multiplies the pre-inversion object.
+    It will also behave appropriately in the `(r)solve` functions from *this*
+    package (not the `numpy` versions).
 
-    *Any* other operation or attribute access will require actually
+    *Any* other operation or attribute access would require actually
     performing the inversion and using that instead (except for `len`,
     `shape`, `size`, 'ndim`, `repr`, `str`, `t` and `inv`).
 
-    It uses `np.linalg.solve` or `np.linalg.inv`.
+    It uses `gufuncs.solve`, `gufuncs.rsolve` for @ and `np.linalg.inv` for ().
 
     Examples
     --------
     >>> import numpy as np
     >>> import linalg as sp
-    >>> x = sp.lnarray(np.random.rand(2, 3, 4))
-    >>> y = sp.lnarray(np.random.rand(2, 3, 4))
+    >>> x = sp.lnarray(np.random.rand(2, 3, 3))
+    >>> y = sp.lnarray(np.random.rand(2, 3, 3))
     >>> z = x.inv @ y
     >>> w = x @ y.inv
 
     Raises
     ------
     LinAlgError
-        If a is not full rank (square, or broadcasting non-square) or
-        if computation doesn't converge (non-square, no broadcasting).
+        If original matrix is not full rank.
 
     See also
     --------
