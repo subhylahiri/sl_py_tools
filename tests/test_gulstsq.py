@@ -4,8 +4,8 @@
 import unittest
 import numpy as np
 import unittest_numpy as utn
-import sl_py_tools.numpy_tricks.linalg._gufuncs_qr_lstsq as gfl
-import sl_py_tools.numpy_tricks.linalg._gufuncs_blas as gfb
+import sl_py_tools.numpy_tricks.linalg.gufuncs._gufuncs_qr_lstsq as gfl
+import sl_py_tools.numpy_tricks.linalg.gufuncs._gufuncs_blas as gfb
 from sl_py_tools.numpy_tricks.linalg import transpose
 
 errstate = utn.errstate(invalid='raise')

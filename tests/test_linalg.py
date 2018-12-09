@@ -7,6 +7,7 @@ import unittest
 # import numpy as np
 import unittest_numpy as utn
 import sl_py_tools.numpy_tricks.linalg as la
+import sl_py_tools.numpy_tricks.linalg._linalg as lr
 
 errstate = utn.errstate(invalid='raise')
 # =============================================================================
@@ -52,8 +53,8 @@ class TestShape(utn.TestCaseNumpy):
         self.assertEqual(la.matmul(self.x['d'], self.y['d']).shape, (2, 5, 5))
         self.assertEqual(la.matmul(self.x['d'], self.z['d']).shape, (2, 5))
         # rmatmul
-        self.assertEqual(la.rmatmul(self.x['d'], self.y['d']).shape, (2, 3, 3))
-        self.assertEqual(la.rmatmul(self.y['d'], self.z['d']).shape, (5,))
+        self.assertEqual(lr.rmatmul(self.x['d'], self.y['d']).shape, (2, 3, 3))
+        self.assertEqual(lr.rmatmul(self.y['d'], self.z['d']).shape, (5,))
         # solve
         self.assertEqual(la.solve(self.w['d'], self.y['d']).shape, (2, 3, 5))
         self.assertEqual(la.solve(self.w['d'], self.z['d']).shape, (2, 3))
