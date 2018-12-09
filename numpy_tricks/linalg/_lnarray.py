@@ -32,15 +32,14 @@ Examples
 >>> u = x @ y.t
 >>> v = (x.r @ y.t).ur
 """
+from __future__ import annotations
 
-from typing import Optional, Tuple
-from collections.abc import Sequence
+from typing import Optional, Tuple, Sequence
+from collections.abc import Sequence as SequenceType
 import numpy as np
-from numpy import multiply, true_divide
-from numpy.lib.mixins import _numeric_methods, NDArrayOperatorsMixin
+import numpy.lib.mixins as _mix
 from . import _linalg as la
-from .gufuncs import matmul, rmatmul, solve, rsolve, lstsq, rlstsq
-from .gufuncs import vec2mat, mat2vec, rtrue_divide
+from . import gufuncs as gf
 from . import convert_loop as cv
 
 
@@ -119,7 +118,8 @@ class lnarray(np.ndarray):
     `ldarray` : class that provides another interface for matrix division.
     """
     # Set of ufuncs that need special handling of vectors (index gives case)
-    vec_ufuncs = (matmul, lstsq, solve, rlstsq, rmatmul, None, rsolve)
+    vec_ufuncs = (gf.matmul, gf.lstsq, gf.solve,
+                  gf.rlstsq, gf.rmatmul, None, gf.rsolve)
 
     def __new__(cls, input_array):
         # Input array is an already formed ndarray instance
@@ -131,16 +131,18 @@ class lnarray(np.ndarray):
 #    def __array_finalize__(self, obj):
 #        # We are not adding any attributes
 #        pass
-
-    __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(matmul, 'matmul')
+    (__matmul__,
+     __rmatmul__,
+     __imatmul__) = _mix._numeric_methods(gf.matmul, 'matmul')
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """Customise ufunc behaviour
         """
         args = list(cv.conv_loop_in_view(lnarray, inputs)[0])
         if ufunc in self.vec_ufuncs:
-            args[0], args[1], squeeze = vec2mat(args[0], args[1],
-                                                self.vec_ufuncs.index(ufunc))
+            args[0], args[1], squeeze = gf.vec2mat(
+                args[0], args[1], self.vec_ufuncs.index(ufunc)
+            )
         args = tuple(args)
 
         outputs = kwargs.pop('out', None)
@@ -158,12 +160,12 @@ class lnarray(np.ndarray):
         if ufunc.nout == 1:
             results = (results,)
         if ufunc in self.vec_ufuncs and any(squeeze):
-            results = (mat2vec(results[0], squeeze),) + results[1:]
+            results = (gf.mat2vec(results[0], squeeze),) + results[1:]
         results = cv.conv_loop_out_view(self, results, outputs)
 
         return results[0] if len(results) == 1 else results
 
-    def flattish(self, start, stop) -> 'lnarray':
+    def flattish(self, start: int, stop: int) -> 'lnarray':
         """Partial flattening.
 
         Flattens those axes in the range [start:stop)
@@ -179,7 +181,7 @@ class lnarray(np.ndarray):
         """
         if isinstance(axis, int):
             return np.expand_dims(self, axis).view(type(self))
-        elif not isinstance(axis, Sequence):
+        elif not isinstance(axis, SequenceType):
             raise TypeError("axis must be an int or a sequence of ints")
         elif len(axis) == 0:
             return self
@@ -342,8 +344,30 @@ class lnarray(np.ndarray):
 # Class: pinvarray
 # =============================================================================
 
+_div_status = {gf.matmul: (False, False),
+               gf.rmatmul: (False, False),
+               gf.solve: (True, False),
+               gf.rsolve: (False, True),
+               gf.lstsq: (True, False),
+               gf.rlstsq: (False, True)}
 
-class pinvarray(NDArrayOperatorsMixin):
+
+def _inv_output(ufunc, pinv_in: Sequence[bool]) -> bool:
+    """Should the ufunc output be converted to (p)invarray?
+    """
+    if ufunc in {np.multiply, np.true_divide}:
+        return True
+    if ufunc not in _div_status.keys():
+        return False
+    return all(x ^ y for x, y in zip(pinv_in, _div_status[ufunc]))
+
+
+# =============================================================================
+# Class: pinvarray
+# =============================================================================
+
+
+class pinvarray(gf.LNArrayOperatorsMixin):
     """Lazy matrix pseudoinverse of `lnarray`.
 
     Does not actually perform the matrix pseudoinversion unless it has to.
@@ -402,26 +426,22 @@ class pinvarray(NDArrayOperatorsMixin):
     _to_invert: lnarray
     _inverted: Optional[lnarray]
 
-    # _ufunc_map[ufunc_in][arg1][arg2] -> (ufunc_out, out1), where:
+    # _ufunc_map[ufunc_in][arg1][arg2] -> ufunc_out, where:
     # ufunc_in = ufunc we were given
     # ar1/arg2 = is the first/second argument a pinvarray?
     # ufunc_out = ufunc to use instead
-    # out1 = is the first output a pinvarray?
-    _ufunc_map = {matmul: {True: {True: (None, False),  # a^+ b^+
-                                  False: (lstsq, False)},  # a^+ b
-                           False: {True: (rlstsq, False)}},  # a b^+
-                  lstsq: {True: {True: (rlstsq, False),  # a^++ b^+
-                                 False: (matmul, False)},  # a^++ b
-                          False: {True: (None, False)}},  # a^+ b^+
-                  multiply: {True: {True: (None, False),  # a^+ * b^+
-                                    False: (true_divide, True)},  # a^+*b
-                             False: {True: (rtrue_divide, True)}},  # a*b^+
-                  true_divide: {True: {True: (None, False),  # a^+/b^+
-                                       False: (multiply, True)},  # a^+/b
-                                False: {True: (None, False)}},  # a/b^+
-                  rlstsq: {True: {True: (lstsq, False),  # a^+ b^++
-                                  False: (None, False)},  # a^+ b^+
-                           False: {True: (matmul, False)}}}  # a b^++
+    _ufn_map = {
+        # a b, a b^+, a^+ b, a^+ b^+:
+        gf.matmul: [[None, gf.rlstsq], [gf.lstsq, None]],
+        # a^+ b, a^+ b^+, a^++ b, a^++ b^+
+        gf.lstsq: [[None, None], [gf.matmul, gf.rlstsq]],
+        # a b^+, a b^++, a^+ b^+, a^+ b^++
+        gf.rlstsq: [[None, gf.matmul], [None, gf.lstsq]],
+        # a*b, a*b^+, a^+*b, a^+ * b^+
+        np.multiply: [[None, gf.rtrue_divide], [np.true_divide, None]],
+        # a/b, a/b^+ a^+/b, a^+/b^+
+        np.true_divide: [[None, None], [np.multiply, None]]
+    }
 
     # these ufuncs are passed on to self._to_invert
     _unary_ufuncs = {np.positive, np.negative}
@@ -436,8 +456,6 @@ class pinvarray(NDArrayOperatorsMixin):
             self._to_invert = np.asarray(to_invert).view(lnarray)
         self._inverted = None
 
-    __matmul__, __rmatmul__, __imatmul__ = _numeric_methods(matmul, 'matmul')
-
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """Handling ufuncs with pinvarrays
         """
@@ -447,7 +465,8 @@ class pinvarray(NDArrayOperatorsMixin):
 
         pinv_out = [False] * ufunc.nout  # which outputs need converting back?
         if ufunc in self._ufunc_map.keys():
-            ufunc, pinv_out[0] = self._ufunc_map[ufunc][pinv_in[0]][pinv_in[1]]
+            pinv_out[0] = _inv_output(ufunc, pinv_in)
+            ufunc = self._ufn_map[ufunc][pinv_in[0]][pinv_in[1]]
         elif ufunc in self._unary_ufuncs:
             # Apply ufunc to self._to_invert.
             # Already converted input; just need to convert output
@@ -458,15 +477,15 @@ class pinvarray(NDArrayOperatorsMixin):
             return NotImplemented
         # Alternative: other ufuncs use implicit inversion.
         # Not used on the basis that explicit > implicit. Use __call__ instead.
-#            args = []
-#            for input_ in inputs:
-#                if isinstance(input_, pinvarray):
-#                    args.append(input_())
-#                else:
-#                    args.append(input_)
-#            args = tuple(args)
-#            return self._to_invert.__array_ufunc__(ufunc, method, *args,
-#                                                   **kwargs)
+        # args = []
+        # for input_ in inputs:
+        #     if isinstance(input_, pinvarray):
+        #         args.append(input_())
+        #     else:
+        #         args.append(input_)
+        # args = tuple(args)
+        # return self._to_invert.__array_ufunc__(ufunc, method, *args,
+        #                                        **kwargs)
 
         outputs = kwargs.pop('out', None)
         if outputs:
@@ -491,20 +510,20 @@ class pinvarray(NDArrayOperatorsMixin):
 
     # This would allow other operations to work with implicit inversion.
     # Not used on the basis that explicit > implicit. Use __call__ instead.
-#    def __getattr__(self, name):
-#        """Get `np.ndarray proerties from actual (pseudo)inverse.
-#
-#        Get unknown attributes from `lnarray` stored as `self._inverted`.
-#
-#        Notes
-#        -----
-#        If self._to_invert has not been (pseudo)inverted, it will compute the
-#        (pseudo)inverse first.
-#        """
-#        if hasattr(self._to_invert, name):
-#            return getattr(self(), name)
-#        else:
-#            raise AttributeError
+    # def __getattr__(self, name):
+    #     """Get `np.ndarray proerties from actual (pseudo)inverse.
+    #
+    #     Get unknown attributes from `lnarray` stored as `self._inverted`.
+    #
+    #     Notes
+    #     -----
+    #     If self._to_invert has not been (pseudo)inverted, it will compute the
+    #     (pseudo)inverse first.
+    #     """
+    #     if hasattr(self._to_invert, name):
+    #         return getattr(self(), name)
+    #     else:
+    #         raise AttributeError
 
     # make this __call__? @property? get()? do()? __array__?
     def __call__(self) -> lnarray:
@@ -678,26 +697,22 @@ class invarray(pinvarray):
     `matldiv`, `matrdiv`
     `pinvarray` : class that provides another interface for matrix division.
     """
-    # _ufunc_map[ufunc_in][arg1][arg2] -> (ufunc_out, out1), where:
+    # _ufunc_map[ufunc_in][arg1][arg2] -> ufunc_out, where:
     # ufunc_in = ufunc we were given
-    # ar1/arg2 = is the first/second argument an invarray?
+    # ar1/arg2 = is the first/second argument a pinvarray?
     # ufunc_out = ufunc to use instead
-    # out1 = is the first output an invarray?
-    _ufunc_map = {matmul: {True: {True: (rmatmul, True),  # a^- b^-
-                                  False: (solve, False)},  # a^- b
-                           False: {True: (rsolve, False)}},  # a b^-
-                  solve: {True: {True: (rsolve, False),  # a^-- b^-
-                                 False: (matmul, False)},  # a^-- b
-                          False: {True: (rmatmul, True)}},  # a^- b^-
-                  multiply: {True: {True: (None, False),  # a^- * b^-
-                                    False: (true_divide, True)},  # a^-*b
-                             False: {True: (rtrue_divide, True)}},  # a*b^-
-                  true_divide: {True: {True: (None, False),  # a^-/b^-
-                                       False: (multiply, True)},  # a^-/b
-                                False: {True: (None, False)}},  # a/b^-
-                  rsolve: {True: {True: (solve, False),  # a^- b^--
-                                  False: (rmatmul, True)},  # a^- b^-
-                           False: {True: (matmul, False)}}}  # a b^--
+    _ufn_map = {
+        # a b, a b^-, a^- b, a^- b^-:
+        gf.matmul: [[None, gf.rsolve], [gf.solve, gf.rmatmul]],
+        # a^- b, a^- b^-, a^-- b, a^-- b^-
+        gf.solve: [[None, gf.rmatmul], [gf.matmul, gf.rsolve]],
+        # a b^-, a b^--, a^- b^-, a^- b^--
+        gf.rsolve: [[None, gf.matmul], [gf.matmul, gf.solve]],
+        # a*b, a*b^-, a^-*b, a^- * b^-
+        np.multiply: [[None, gf.rtrue_divide], [np.true_divide, None]],
+        # a/b, a/b^- a^-/b, a^-/b^-
+        np.true_divide: [[None, None], [np.multiply, None]]
+    }
 
     def __init__(self, to_invert: lnarray):
         super().__init__(to_invert)
@@ -777,8 +792,9 @@ class lnmatrix(lnarray):
     __matmul__ = lnarray.__mul__
     __rmatmul__ = lnarray.__rmul__
     __imatmul__ = lnarray.__imul__
-    __truediv__, __rtruediv__, __itruediv__ = _numeric_methods(la.matrdiv,
-                                                               'matrdiv')
+    (__truediv__,
+     __rtruediv__,
+     __itruediv__) = _mix._numeric_methods(la.matrdiv, 'matrdiv')
 
     @property
     def a(self) -> lnarray:
