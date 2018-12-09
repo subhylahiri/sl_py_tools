@@ -5,11 +5,12 @@ algebra in `numpy` cleaner, particularly with respect to broadcasting.
 The main way of using this is via the `lnarray` class (the `qr` function is the
 only other thing I find useful here).
 
-The `lnarray` class has properties `t` for transposing, `r` for row vectors,
-`c` for column vectors and `s` for scalars in a way that fits with `numpy.linalg`
-broadcasting rules (`t` only transposes the last two indices, `r,c,s` add
-singleton axes so that linear algebra routines treat them as arrays of
-vectors/scalars rather than matrices, and `uc,ur,us` undo the effects of `r,c,s`).
+The `lnarray` class has properties `t` for transposing, `h` for
+conjugate-transposing, `r` for row vectors, `c` for column vectors and `s` for
+scalars in a way that fits with `numpy.linalg` broadcasting rules (`t` only
+transposes the last two indices, `r,c,s` add singleton axes so that linear
+algebra routines treat them as arrays of vectors/scalars rather than matrices,
+and `uc,ur,us` undo the effects of `r,c,s`).
 
 The `lnarray` class also has properties for delayed matrix division:
 ```python
@@ -30,17 +31,17 @@ accurate](https://www.johndcook.com/blog/2010/01/19/dont-invert-that-matrix/). T
 
 * `lnarray`:  
     Subclass of `numpy.ndarray` with properties such as `pinv/inv` for matrix
-    division, `t` for transposing stacks of matrices, `c`, `r` and `s` for
+    division, `t` and `h` for transposing stacks of matrices, `c`, `r` and `s` for
     dealing with stacks of vectors and scalars.
 * `pinvarray`:  
     Provides interface for matrix division when it is matrix multiplied (@).
-    Returned by `lnarray.pinv`. It calls `np.linalg.lstsq` behind the scenes.
+    Returned by `lnarray.pinv`. It calls `lstsq` behind the scenes.
     Does not actually pseudoinvert the matrix unless it is explicitly called.
     I think it is best not to store these objects in variables, and call on
     `lnarray.pinv` on the rhs instead.
 * `invarray`:  
     Provides interface for matrix division when it is matrix multiplied (@).
-    Returned by `lnarray.inv`. It calls `np.linalg.solve` behind the scenes.
+    Returned by `lnarray.inv`. It calls `solve` behind the scenes.
     Does not actually invert the matrix unless it is explicitly called.
     I think it is best not to store these objects in variables, and call on
     `lnarray.inv` on the rhs instead.
@@ -74,6 +75,8 @@ accurate](https://www.johndcook.com/blog/2010/01/19/dont-invert-that-matrix/). T
     Vector 2-norm. Broadcasts and passes through subclasses.
 * `transpose`:  
     Transpose last two indices.  
+* `dagger`:  
+    Complex conjugate and transpose last two indices.  
 * `col`:  
     Treat multi-dim array as a stack of column vectors.
 * `row`:  
@@ -84,6 +87,8 @@ accurate](https://www.johndcook.com/blog/2010/01/19/dont-invert-that-matrix/). T
     Matrix division from left (exact or least-squares).
 * `matrdiv`:  
     Matrix division from right (exact or least-squares).
+* `lu`:  
+    LU decomposition with broadcasting and subclass passing.
 * `qr`:  
     QR decomposition with broadcasting and subclass passing. Does not implement
     the deprecated modes of `numpy.linalg.qr`.
@@ -96,8 +101,16 @@ These implement the functions above.
 * `gufuncs.rsolve`:  
 * `gufuncs.lstsq`:  
 * `gufuncs.rlstsq`:  
+    These implement the functions above.
 * `gufuncs.norm`:  
-    These are literally the same as the functions above.
+    This is literally the same as the functions above.
+* `gufuncs.lu_m`:  
+    Implements `lu` for wide matrices.
+* `gufuncs.lu_n`:  
+    Implements `lu` for narrow matrices.
+* `gufuncs.lu_rawm`:  
+* `gufuncs.lu_rawn`:  
+    Implements `lu` in `raw` mode.
 * `gufuncs.qr_m`:  
     Implements `qr` for wide matrices in `reduced` mode, and all matrices in
     `complete` mode.
@@ -109,6 +122,23 @@ These implement the functions above.
 * `gufuncs.qr_rawm`:  
 * `gufuncs.qr_rawn`:  
     Implement `qr` in `raw` mode.
+* `gufuncs.pivot`:  
+* `gufuncs.rpivot`:  
+    Perform row pivots with the output of lu_*.
+* `gufuncs.solve_lu`:  
+* `gufuncs.rsolve_lu`:  
+    Also return LU decomposition in `raw` form for future use.
+* `gufuncs.lu_solve`:  
+* `gufuncs.rlu_solve`:  
+    Use LU decomposition in `raw` form from previous use.
+* `gufuncs.lstsq_qrm`:  
+* `gufuncs.lstsq_qrn`:  
+* `gufuncs.rlstsq_qrm`:  
+* `gufuncs.rlstsq_qrn`:  
+    Also return QR decomposition in `raw` form for future use.
+* `gufuncs.qr_lstsq`:  
+* `gufuncs.rqr_lstsq`:  
+    Use QR decomposition in `raw` form from previous use.
 * `gufuncs.rmatmul`
 * `gufuncs.rtrue_tivide`:  
     Reversed versions of `matmul` and `np.true_divide`. Used by `pinvarray` and
@@ -155,11 +185,11 @@ Examples
 You will need to have the appropriate C compilers. On Linux, you should already have them.
 On Windows, [see here](https://wiki.python.org/moin/WindowsCompilers).
 
-You will need a BBLAS/Lapack distribution. Anaconda usually uses MKL, but they
+You will need a BLAS/Lapack distribution. Anaconda usually uses MKL, but they
 recently moved the headers to a different package. You can find them on
 [Intel's anaconda channel](https://software.intel.com/en-us/articles/using-intel-distribution-for-python-with-anaconda):
 ```
-> conda install mkl -c intel --no-update-deps
+> conda install mkl-devel -c intel --no-update-deps
 ```
 I found this wreaked havoc with its dependencies.
 Alternatively, you can downgrade to a version that has the headers, e.g.
@@ -184,3 +214,9 @@ or you can install it system-wide:
 ```
 > python setup.py install
 ```
+If you have `setuptools`, you can also do:
+```
+> python setup.py develop
+```
+this builds it in-place and creates an `.egg-link` file to make it available
+system-wide.

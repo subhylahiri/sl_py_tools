@@ -10,23 +10,40 @@ Generalized ufunc versions of `numpy.linalg` routines:
 matmul
     Matrix multiplication.
 rmatmul
-    Reversed matrix multiplication.
+    Reversed matrix multiplication (only useful to implement binary operators).
 solve
     Solve systems of linear equations.
 rsolve
     Solve reversed systems of linear equations.
+solve_lu, rsolve_lu
+    Also return LU factors for use next time.
+lu_solve, rlu_solve
+    Use LU factors from previous time.
 lstsq
     Least square solution of systems of linear equations.
 rlstsq
     Least square solution of reversed systems of linear equations.
+lstsq_qrm, lstsq_qrn, rlstsq_qrm, rlstsq_qrn
+    Also return QR factors for use next time.
+qr_lstsq, rqr_lstsq
+    Use QR factors from previous time.
 norm
     Vector 2-norm.
+lu_*
+    LU factorization in various forms - {m,n,rawm,rawn}.
+        m: #(rows) < #(columns).
+        n: #(rows) > #(columns).
+        raw: return `AF`, which contains `L` and `U`, and `ipiv`.
+pivot, rpivot
+    Perform row pivots with the output of lu_*.
 qr_*
     QR factorization in various forms - {m,n,rm,rn,rawm,rawn}.
-        m: #(rows) < #(columns)
-        n: #(rows) > #(columns)
-        r: only return R
-        raw: return H and tau, from which Q and R can be computed
+        m: #(rows) < #(columns).
+        n: #(rows) > #(columns).
+        r: only return `R`.
+        raw: return `H` and `tau`, from which `Q` and `R` can be computed.
+rtrue_tivide
+    Reversed division (only useful to implement binary operators).
 
 They raise ValueError instead of LinAlgError
 
@@ -38,8 +55,12 @@ import numpy as _np
 from ._gufuncs_cloop import norm, rtrue_divide  # matmul, rmatmul
 from ._gufuncs_blas import matmul, rmatmul  # norm
 # from ._gufuncs_lapack import *
-from ._gufuncs_lu_solve import *
-from ._gufuncs_qr_lstsq import *
+from ._gufuncs_lu_solve import (lu_m, lu_n, lu_rawm, lu_rawn, solve, rsolve,
+                                solve_lu, rsolve_lu, lu_solve, rlu_solve,
+                                pivot, rpivot)
+from ._gufuncs_qr_lstsq import (qr_m, qr_n, qr_rm, qr_rn, qr_rawm, qr_rawn,
+                                lstsq, rlstsq, lstsq_qrm, lstsq_qrn,
+                                rlstsq_qrm, rlstsq_qrn, qr_lstsq, rqr_lstsq)
 
 
 # =============================================================================
