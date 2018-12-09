@@ -52,6 +52,7 @@ see `lnarray` class).
 """
 import functools
 import numpy as _np
+import numpy.lib.mixins as _mix
 from ._gufuncs_cloop import norm, rtrue_divide  # matmul, rmatmul
 from ._gufuncs_blas import matmul, rmatmul  # norm
 # from ._gufuncs_lapack import *
@@ -61,6 +62,24 @@ from ._gufuncs_lu_solve import (lu_m, lu_n, lu_rawm, lu_rawn, solve, rsolve,
 from ._gufuncs_qr_lstsq import (qr_m, qr_n, qr_rm, qr_rn, qr_rawm, qr_rawn,
                                 lstsq, rlstsq, lstsq_qrm, lstsq_qrn,
                                 rlstsq_qrm, rlstsq_qrn, qr_lstsq, rqr_lstsq)
+
+
+# =============================================================================
+# Mixin for linear algebra operators
+# =============================================================================
+
+
+class MatmulOperatorsMixin():
+    """Mixin for defining __matmul__ special methods via gufuncs
+    """
+    __matmul__, __rmatmul__, __imatmul__ = _mix._numeric_methods(matmul,
+                                                                 'matmul')
+
+
+class LNArrayOperatorsMixin(_mix.NDArrayOperatorsMixin, MatmulOperatorsMixin):
+    """Mixin for defining operator special methods via __array_ufunc__
+    """
+    pass
 
 
 # =============================================================================
