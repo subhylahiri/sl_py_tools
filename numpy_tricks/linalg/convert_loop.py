@@ -186,6 +186,7 @@ def restore_via_init(obj) -> Callable:
         """convert arrays using obj.__init__
         """
         return type(obj)(thing)
+    return converter
 
 
 def restore_via_view(obj) -> Callable:
@@ -200,6 +201,7 @@ def restore_via_view(obj) -> Callable:
         """convert arrays using array.view
         """
         return thing.view(type(obj))
+    return converter
 
 
 def conv_loop_out_attr(obj, attr: str, results: ArgTuple, outputs: ArgTuple,
