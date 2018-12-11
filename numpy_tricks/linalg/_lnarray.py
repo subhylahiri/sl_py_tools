@@ -375,7 +375,7 @@ class pinvarray(gf.LNArrayOperatorsMixin):
     """Lazy matrix pseudoinverse of `lnarray`.
 
     Does not actually perform the matrix pseudoinversion.
-    It will use matrix division for matmul (@) with an `lnarray`.
+    It will use least-square matrix division for matmul (@) with an `lnarray`.
 
     It is intended to be ephemeral, appearing in larger expressions rather than
     being stored in a variable.
@@ -421,7 +421,7 @@ class pinvarray(gf.LNArrayOperatorsMixin):
     --------
     `lnarray` : the array class used.
     `matldiv`, `matrdiv`
-    `invarray` : class that provides another interface for matrix division.
+    `invarray` : class that provides an interface for matrix division.
     """
     _to_invert: lnarray
     _inverted: Optional[lnarray]
@@ -696,12 +696,14 @@ class invarray(pinvarray):
     ------
     LinAlgError
         If original matrix is not full rank.
+    ValueError
+        if original matrix is not square.
 
     See also
     --------
     `lnarray` : the array class used.
     `matldiv`, `matrdiv`
-    `pinvarray` : class that provides another interface for matrix division.
+    `pinvarray` : class that provides an interface for matrix psudo-division.
     """
     # _ufunc_map[ufunc_in][arg1][arg2] -> ufunc_out, where:
     # ufunc_in = ufunc we were given
