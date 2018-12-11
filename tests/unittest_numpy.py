@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
+"""Customised unittest for numpy
 """
 import unittest
 import contextlib

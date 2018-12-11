@@ -123,7 +123,8 @@ class lnarray(np.ndarray):
     """
     # Set of ufuncs that need special handling of vectors (index gives case)
     vec_ufuncs = (gf.matmul, gf.lstsq, gf.solve,
-                  gf.rlstsq, gf.rmatmul, None, gf.rsolve)
+                  gf.rlstsq, gf.rmatmul, None,
+                  gf.rsolve, None, None)
 
     def __new__(cls, input_array):
         # Input array is an already formed ndarray instance
@@ -183,17 +184,21 @@ class lnarray(np.ndarray):
         Alias of `numpy.expand_dims` when `axis` is a single `int`. If `axis`
         is a sequence of `int`, axis numbers are relative to the *final* shape.
         """
-        if isinstance(axis, int):
+        try:
             return np.expand_dims(self, axis).view(type(self))
-        elif not isinstance(axis, SequenceType):
-            raise TypeError("axis must be an int or a sequence of ints")
-        elif len(axis) == 0:
+        except TypeError:
+            if not isinstance(axis, SequenceType):
+                raise TypeError("axis must be an int or a sequence of ints."
+                                + " axis = {0} {1}".format(axis, type(axis)))
+        if len(axis) == 0:
             return self
         axes = np.sort(np.mod(axis, self.ndim + len(axis)))
         if not np.diff(axes).all():
             raise ValueError('repeated axes: '
                              + str(axes[np.nonzero(np.diff(axes) == 0)]))
-        return self.expand_dims(axes[0]).expand_dims(axes[1:])
+        if len(axes) == 2:
+            return (self.expand_dims(axes[0])).expand_dims(axes[1])
+        return (self.expand_dims(axes[0])).expand_dims(axes[1:])
 
     @property
     def t(self) -> 'lnarray':
@@ -347,13 +352,23 @@ class lnarray(np.ndarray):
 # =============================================================================
 # Class: pinvarray
 # =============================================================================
-
+# Tells us if a function divides be its first or second argument
 _div_status = {gf.matmul: (False, False),
                gf.rmatmul: (False, False),
                gf.solve: (True, False),
-               gf.rsolve: (False, True),
+               gf.solve_lu: (True, False),
+               gf.lu_solve: (True, False),
                gf.lstsq: (True, False),
-               gf.rlstsq: (False, True)}
+               gf.lstsq_qrm: (True, False),
+               gf.lstsq_qrn: (True, False),
+               gf.qr_lstsq: (True, False),
+               gf.rsolve: (False, True),
+               gf.rsolve_lu: (False, True),
+               gf.rlu_solve: (False, True),
+               gf.rlstsq: (False, True),
+               gf.rlstsq_qrm: (False, True),
+               gf.rlstsq_qrn: (False, True),
+               gf.rqr_lstsq: (False, True)}
 
 
 def _inv_output(ufunc, pinv_in: Sequence[bool]) -> bool:
@@ -430,7 +445,7 @@ class pinvarray(gf.LNArrayOperatorsMixin):
     # ufunc_in = ufunc we were given
     # ar1/arg2 = is the first/second argument a pinvarray?
     # ufunc_out = ufunc to use instead
-    _ufn_map = {
+    _ufunc_map = {
         # a b, a b^+, a^+ b, a^+ b^+:
         gf.matmul: [[None, gf.rlstsq], [gf.lstsq, None]],
         # a^+ b, a^+ b^+, a^++ b, a^++ b^+
@@ -466,7 +481,7 @@ class pinvarray(gf.LNArrayOperatorsMixin):
         pinv_out = [False] * ufunc.nout  # which outputs need converting back?
         if ufunc in self._ufunc_map.keys():
             pinv_out[0] = _inv_output(ufunc, pinv_in)
-            ufunc = self._ufn_map[ufunc][pinv_in[0]][pinv_in[1]]
+            ufunc = self._ufunc_map[ufunc][pinv_in[0]][pinv_in[1]]
         elif ufunc in self._unary_ufuncs:
             # Apply ufunc to self._to_invert.
             # Already converted input; just need to convert output
@@ -564,10 +579,8 @@ class pinvarray(gf.LNArrayOperatorsMixin):
 
         Parameters
         ----------
-        axis1 : int
-            First axis.
-        axis2 : int
-            Second axis.
+        axis1/axis2 : int
+            First/Second axis.
 
         Returns
         -------
@@ -702,14 +715,14 @@ class invarray(pinvarray):
     See also
     --------
     `lnarray` : the array class used.
-    `matldiv`, `matrdiv`
-    `pinvarray` : class that provides an interface for matrix psudo-division.
+    `solve`, `rsolve`, `matldiv`, `matrdiv`
+    `pinvarray` : class that provides an interface for matrix pseudo-division.
     """
     # _ufunc_map[ufunc_in][arg1][arg2] -> ufunc_out, where:
     # ufunc_in = ufunc we were given
     # ar1/arg2 = is the first/second argument a pinvarray?
     # ufunc_out = ufunc to use instead
-    _ufn_map = {
+    _ufunc_map = {
         # a b, a b^-, a^- b, a^- b^-:
         gf.matmul: [[None, gf.rsolve], [gf.solve, gf.rmatmul]],
         # a^- b, a^- b^-, a^-- b, a^-- b^-
@@ -726,14 +739,14 @@ class invarray(pinvarray):
         super().__init__(to_invert)
 
         if to_invert.ndim < 2:
-            msg = "Array to be inverted must have ndim >= 2, "
-            msg += "but to_invert.ndim = {}. ".format(to_invert.ndim)
-            msg += "Must be a matrix, or stack of matrices."
+            msg = ("Array to be inverted must have ndim >= 2, "
+                   + "but to_invert.ndim = {}. ".format(to_invert.ndim)
+                   + "Must be a matrix, or stack of matrices.")
             raise ValueError(msg)
 
         if to_invert.shape[-1] != to_invert.shape[-2]:
-            msg = "Array to be inverted must square "
-            msg += "but to_invert.shape = {}. ".format(to_invert.shape)
+            msg = ("Array to be inverted must be square "
+                   + "but to_invert.shape = {}. ".format(to_invert.shape))
             raise ValueError(msg)
 
     @property
