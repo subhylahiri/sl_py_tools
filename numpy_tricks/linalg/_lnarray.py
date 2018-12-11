@@ -123,7 +123,8 @@ class lnarray(np.ndarray):
     """
     # Set of ufuncs that need special handling of vectors (index gives case)
     vec_ufuncs = (gf.matmul, gf.lstsq, gf.solve,
-                  gf.rlstsq, gf.rmatmul, None, gf.rsolve)
+                  gf.rlstsq, gf.rmatmul, None,
+                  gf.rsolve, None, None)
 
     def __new__(cls, input_array):
         # Input array is an already formed ndarray instance
@@ -183,17 +184,21 @@ class lnarray(np.ndarray):
         Alias of `numpy.expand_dims` when `axis` is a single `int`. If `axis`
         is a sequence of `int`, axis numbers are relative to the *final* shape.
         """
-        if isinstance(axis, int):
+        try:
             return np.expand_dims(self, axis).view(type(self))
-        elif not isinstance(axis, SequenceType):
-            raise TypeError("axis must be an int or a sequence of ints")
-        elif len(axis) == 0:
+        except TypeError:
+            if not isinstance(axis, SequenceType):
+                raise TypeError("axis must be an int or a sequence of ints."
+                                + " axis = {0} {1}".format(axis, type(axis)))
+        if len(axis) == 0:
             return self
         axes = np.sort(np.mod(axis, self.ndim + len(axis)))
         if not np.diff(axes).all():
             raise ValueError('repeated axes: '
                              + str(axes[np.nonzero(np.diff(axes) == 0)]))
-        return self.expand_dims(axes[0]).expand_dims(axes[1:])
+        if len(axes) == 2:
+            return (self.expand_dims(axes[0])).expand_dims(axes[1])
+        return (self.expand_dims(axes[0])).expand_dims(axes[1:])
 
     @property
     def t(self) -> 'lnarray':

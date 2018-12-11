@@ -1,9 +1,10 @@
 # Numpy linear algebra helpers
 
 This package contains classes and functions that make the syntax for linear
-algebra in `numpy` cleaner, particularly with respect to broadcasting.
-The main way of using this is via the `lnarray` class (the `qr` function is the
-only other thing I find useful here).
+algebra in `numpy` cleaner, particularly with respect to broadcasting and
+matrix division. The main way of using this is via the `lnarray` class
+(the `qr` function is the only other thing I find useful here). All of the
+functions will work with `numpy.ndarray` objects as well.
 
 The `lnarray` class has properties `t` for transposing, `h` for
 conjugate-transposing, `r` for row vectors, `c` for column vectors and `s` for
@@ -17,11 +18,12 @@ The `lnarray` class also has properties for delayed matrix division:
 >>> z = x.inv @ y
 >>> z = x @ y.inv
 >>> z = x.pinv @ y
->>> z = x @ y.inv
+>>> z = x @ y.pinv
 ```
 None of the above actually invert the matrices. They return `invarray/pinvarray`
 objects that call `solve/lstsq` behind the scenes, which is [faster and more
-accurate](https://www.johndcook.com/blog/2010/01/19/dont-invert-that-matrix/). To get the actual inverse matrices:
+accurate](https://www.johndcook.com/blog/2010/01/19/dont-invert-that-matrix/).
+To get the actual inverse matrices:
 ```python
 >>> x = y.inv()
 >>> x = y.pinv()
@@ -31,8 +33,8 @@ accurate](https://www.johndcook.com/blog/2010/01/19/dont-invert-that-matrix/). T
 
 * `lnarray`:  
     Subclass of `numpy.ndarray` with properties such as `pinv/inv` for matrix
-    division, `t` and `h` for transposing stacks of matrices, `c`, `r` and `s` for
-    dealing with stacks of vectors and scalars.
+    division, `t` and `h` for transposing stacks of matrices, `c`, `r` and `s`
+    for dealing with stacks of vectors and scalars.
 * `pinvarray`:  
     Provides interface for matrix division when it is matrix multiplied (@).
     Returned by `lnarray.pinv`. It calls `lstsq` behind the scenes.
@@ -49,8 +51,8 @@ accurate](https://www.johndcook.com/blog/2010/01/19/dont-invert-that-matrix/). T
     Subclass of `lnarray` which swaps matrix/elementwise multiplication and
     division from the right. Shouldn't be necessary given `lnarray`'s syntax.
 * `ldarray`:  
-    Subclass of `lnarray` which overloads bitshift operators for matrix division.
-    One of several reasons why this is a bad idea is that bitshifting has lower
+    Subclass of `lnarray` which overloads bit-shift operators for matrix division.
+    One of several reasons why this is a bad idea is that bit-shifting has lower
     operator priority than division, so you will have to use parentheses often.
     I think you're better off sticking with `lnarray`.
 
