@@ -83,6 +83,22 @@ class LNArrayOperatorsMixin(_mix.NDArrayOperatorsMixin, MatmulOperatorsMixin):
 
 
 # =============================================================================
+# Categories of binary operators
+# =============================================================================
+
+_mult_funcs = (matmul,)
+_left_div_funcs = (solve, solve_lu, lu_solve,
+                   lstsq, lstsq_qrm, lstsq_qrn, qr_lstsq)
+_right_div_funcs = (rsolve, rsolve_lu, rlu_solve,
+                    rlstsq, rlstsq_qrm, rlstsq_qrn, rqr_lstsq)
+_reverse_mult_funcs = (rmatmul,)
+# maps gufunc to Tuple[bool, bool]: tells us if each argument is a denominator
+operator_categories = {fun: (False, False) for fun in _mult_funcs}
+operator_categories.update({fun: (True, False) for fun in _left_div_funcs})
+operator_categories.update({fun: (False, True) for fun in _right_div_funcs})
+operator_categories.update({fun: (True, True) for fun in _reverse_mult_funcs})
+
+# =============================================================================
 # Shape for linear algebra
 # =============================================================================
 
@@ -102,7 +118,7 @@ def return_shape_mat(x, y):
     return _np.broadcast(x[..., :1], y[..., :1, :]).shape
 
 
-def vec2mat(x, y, case=0):
+def vec2mat(x, y, case=(False, False)):
     """Convert vectors to single column/row matrices for linear algebra gufuncs
 
     Only does anything when `x.ndim==1` or `y.ndim==1`.
@@ -111,12 +127,12 @@ def vec2mat(x, y, case=0):
     ----------
     x,y : ndarray
         Left/right-hand-side of a linear algebra binary operation.
-    case : int
-        convert to row or column? `case = x_ax + 3*y_ax`.
-            ax = 0: x/y -> row/column
-            ax = 1: x/y -> column/row
-            ax = 2: do not change
-        for `case=4` we also reverse `needs_squeeze`
+    case : Tuple[bool or None, bool or None]
+        convert to row or column? `case = (x_ax, y_ax)`.
+            ax = False: x/y -> row/column
+            ax = True: x/y -> column/row
+            ax = None: do not change
+        for `case=(True, True)` we also reverse `needs_squeeze`
 
     Returns
     -------
@@ -127,17 +143,13 @@ def vec2mat(x, y, case=0):
         Tells us if axes [-2, -1] need to be removed from the gufunc output.
     """
     needs_squeeze = [False, False]
-    if x.ndim == 1:
-        x_ax = case % 3
-        if x_ax < 2:
-            x = _np.expand_dims(x, x_ax)
-            needs_squeeze[0] = True
-    if y.ndim == 1:
-        y_ax = (case // 3) % 3
-        if y_ax < 2:
-            y = _np.expand_dims(y, 1 - y_ax)
-            needs_squeeze[1] = True
-    if case == 4:
+    if x.ndim == 1 and case[0] is not None:
+        x = _np.expand_dims(x, case[0] + 0)
+        needs_squeeze[0] = True
+    if y.ndim == 1 and case[1] is not None:
+        y = _np.expand_dims(y, 1 - case[1])
+        needs_squeeze[1] = True
+    if all(case):
         needs_squeeze = [x for x in reversed(needs_squeeze)]
     return x, y, needs_squeeze
 
@@ -162,6 +174,7 @@ def mat2vec(z, squeeze):
     return z[()] if z.ndim == 0 else z
 
 
+# these help adjust docstrings in wrapped functions
 _vec_doc = """
 Does matrix-matrix, matrix-vector, vector-matrix and vector-vector versions,
 with vector versions used *only* when one-dimensional.
@@ -169,7 +182,7 @@ with vector versions used *only* when one-dimensional.
 _bin_doc = "It is intended for use in binary operators.\n"
 
 
-def vec_wrap(gufunc, case):
+def vec_wrap(gufunc, case=()):
     """Wrap a gufunc with special handling for vectors
 
     Parameters
@@ -180,6 +193,9 @@ def vec_wrap(gufunc, case):
         ax = 1: x/y -> column/row
         ax = 2: do not change
     """
+    if not case:
+        case = operator_categories[gufunc]
+
     @functools.wraps(gufunc)
     def wrapper(x, y, *args, **kwargs):
         x, y, squeeze = vec2mat(_np.asanyarray(x), _np.asanyarray(y), case)

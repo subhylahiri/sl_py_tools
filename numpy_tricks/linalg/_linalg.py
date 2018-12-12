@@ -147,21 +147,21 @@ def scal(a: np.ndarray) -> np.ndarray:
 # =============================================================================
 # Division & Multiplication
 # =============================================================================
-matmul = gf.vec_wrap(gf.matmul, 0)
-rmatmul = gf.vec_wrap(gf.rmatmul, 4)
-solve = gf.vec_wrap(gf.solve, 2)
-rsolve = gf.vec_wrap(gf.rsolve, 6)
-lstsq = gf.vec_wrap(gf.lstsq, 1)
-rlstsq = gf.vec_wrap(gf.rlstsq, 3)
+matmul = gf.vec_wrap(gf.matmul)
+rmatmul = gf.vec_wrap(gf.rmatmul)
+solve = gf.vec_wrap(gf.solve)
+rsolve = gf.vec_wrap(gf.rsolve)
+lstsq = gf.vec_wrap(gf.lstsq)
+rlstsq = gf.vec_wrap(gf.rlstsq)
 
 
 def matldiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
     """Matrix division from left.
 
-    Computes :math:`z = x \\ y = x^{-1} y` for square `x`, or :math:`x^+ y`
-    for rectangular `x`.
-    Pseudo-inverse version uses `gufunc.lstsq`.
-    Full inverse version uses `gufunc.solve`.
+    Computes :math:`z = x \\ y = x^{-1} y` for invertible `x`, or :math:`x^+ y`
+    for non-invertible `x`.
+    Pseudo-inverse version uses `lstsq`.
+    Full inverse version uses `solve`.
     Both versions broadcast using gufunc machinery.
 
     Parameters
@@ -199,9 +199,10 @@ def matldiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
 def matrdiv(x: np.ndarray, y: np.ndarray, *args, **kwargs) -> np.ndarray:
     """Matrix division from right.
 
-    Computes :math:`z = x / y = x y^{-1}`, or :math:`x y^+` if y isn't square.
-    Pseudo-inverse version uses `gufunc.rlstsq`.
-    Full inverse version uses `gufunc.rsolve`.
+    Computes :math:`z = x / y = x y^{-1}` for invertible `y`, or :math:`x y^+`
+    for non-invertible `y`.
+    Pseudo-inverse version uses `rlstsq`.
+    Full inverse version uses `rsolve`.
     Both versions broadcast using gufunc machinery.
 
     Parameters

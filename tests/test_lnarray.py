@@ -62,8 +62,12 @@ class TestArray(utn.TestCaseNumpy):
         self.assertEqual(x.r.ur.shape, (2, 5, 3))
         self.assertEqual(w.s.shape, (3, 3, 1, 1))
         self.assertEqual(x.s.us.shape, (2, 5, 3))
-        self.assertEqual(w.expand_dims((1, 3)).shape, (3, 1, 3, 1))
+        self.assertEqual(w.expand_dims(1, 3).shape, (3, 1, 3, 1))
         self.assertEqual((x.s * w).flattish(1, 4).shape, (2, 45, 3))
+        with self.assertRaisesRegex(ValueError, "repeated axes"):
+            x.expand_dims(2, -3)
+        with self.assertRaises(ValueError):
+            (x.s * w).flattish(3, -3)
 
 
 if __name__ == '__main__':

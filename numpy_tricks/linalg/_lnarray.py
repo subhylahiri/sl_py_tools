@@ -39,7 +39,6 @@ Examples
 from __future__ import annotations
 
 from typing import Optional, Tuple, Sequence
-from collections.abc import Sequence as SequenceType
 import numpy as np
 import numpy.lib.mixins as _mix
 from . import _linalg as la
@@ -121,10 +120,6 @@ class lnarray(np.ndarray):
     `lnmatrix` : `lnarray`, but with matrix/elementwise operators swapped
     `ldarray` : class that provides another interface for matrix division.
     """
-    # Set of ufuncs that need special handling of vectors (index gives case)
-    vec_ufuncs = (gf.matmul, gf.lstsq, gf.solve,
-                  gf.rlstsq, gf.rmatmul, None,
-                  gf.rsolve, None, None)
 
     def __new__(cls, input_array):
         # Input array is an already formed ndarray instance
@@ -144,9 +139,10 @@ class lnarray(np.ndarray):
         """Customise ufunc behaviour
         """
         args = list(cv.conv_loop_in_view(lnarray, inputs)[0])
-        if ufunc in self.vec_ufuncs:
+        # Set of ufuncs that need special handling for vectors
+        if ufunc in gf.operator_categories.keys():
             args[0], args[1], squeeze = gf.vec2mat(
-                args[0], args[1], self.vec_ufuncs.index(ufunc)
+                    args[0], args[1], gf.operator_categories[ufunc]
             )
         args = tuple(args)
 
@@ -164,7 +160,7 @@ class lnarray(np.ndarray):
 
         if ufunc.nout == 1:
             results = (results,)
-        if ufunc in self.vec_ufuncs and any(squeeze):
+        if ufunc in gf.operator_categories.keys() and any(squeeze):
             results = (gf.mat2vec(results[0], squeeze),) + results[1:]
         results = cv.conv_loop_out_view(self, results, outputs)
 
@@ -178,27 +174,21 @@ class lnarray(np.ndarray):
         newshape = self.shape[:start] + (-1,) + self.shape[stop:]
         return self.reshape(newshape)
 
-    def expand_dims(self, axis) -> 'lnarray':
+    def expand_dims(self, *axis) -> 'lnarray':
         """Expand the shape of the array with length one axes
 
-        Alias of `numpy.expand_dims` when `axis` is a single `int`. If `axis`
+        Alias of `numpy.expand_dims` when `*axis` is a single `int`. If `axis`
         is a sequence of `int`, axis numbers are relative to the *final* shape.
         """
-        try:
-            return np.expand_dims(self, axis).view(type(self))
-        except TypeError:
-            if not isinstance(axis, SequenceType):
-                raise TypeError("axis must be an int or a sequence of ints."
-                                + " axis = {0} {1}".format(axis, type(axis)))
         if len(axis) == 0:
             return self
-        axes = np.sort(np.mod(axis, self.ndim + len(axis)))
-        if not np.diff(axes).all():
-            raise ValueError('repeated axes: '
-                             + str(axes[np.nonzero(np.diff(axes) == 0)]))
-        if len(axes) == 2:
-            return (self.expand_dims(axes[0])).expand_dims(axes[1])
-        return (self.expand_dims(axes[0])).expand_dims(axes[1:])
+        if len(axis) == 1:
+            return np.expand_dims(self, axis[0]).view(type(self))
+        axes_sort = tuple(np.sort(np.mod(axis, self.ndim + len(axis))))
+        axes_same = np.flatnonzero(np.diff(axes_sort) == 0)
+        if axes_same.size > 0:
+            raise ValueError('repeated axes, arguments: {}'.format(axes_same))
+        return self.expand_dims(axes_sort[0]).expand_dims(*axes_sort[1:])
 
     @property
     def t(self) -> 'lnarray':
@@ -260,7 +250,7 @@ class lnarray(np.ndarray):
         ------------------
         a : lnarray, (...,) --> expanded : lnarray, (..., 1, 1)
         """
-        return self.expand_dims((-1, -2))
+        return self.expand_dims(-1, -2)
 
     @property
     def ur(self) -> 'lnarray':
@@ -350,25 +340,8 @@ class lnarray(np.ndarray):
 
 
 # =============================================================================
-# Class: pinvarray
+# Helper: pinvarray
 # =============================================================================
-# Tells us if a function divides be its first or second argument
-_div_status = {gf.matmul: (False, False),
-               gf.rmatmul: (False, False),
-               gf.solve: (True, False),
-               gf.solve_lu: (True, False),
-               gf.lu_solve: (True, False),
-               gf.lstsq: (True, False),
-               gf.lstsq_qrm: (True, False),
-               gf.lstsq_qrn: (True, False),
-               gf.qr_lstsq: (True, False),
-               gf.rsolve: (False, True),
-               gf.rsolve_lu: (False, True),
-               gf.rlu_solve: (False, True),
-               gf.rlstsq: (False, True),
-               gf.rlstsq_qrm: (False, True),
-               gf.rlstsq_qrn: (False, True),
-               gf.rqr_lstsq: (False, True)}
 
 
 def _inv_output(ufunc, pinv_in: Sequence[bool]) -> bool:
@@ -376,9 +349,9 @@ def _inv_output(ufunc, pinv_in: Sequence[bool]) -> bool:
     """
     if ufunc in {np.multiply, np.true_divide}:
         return True
-    if ufunc not in _div_status.keys():
+    if ufunc not in gf.operator_categories.keys():
         return False
-    return all(x ^ y for x, y in zip(pinv_in, _div_status[ufunc]))
+    return all(x ^ y for x, y in zip(pinv_in, gf.operator_categories[ufunc]))
 
 
 # =============================================================================
