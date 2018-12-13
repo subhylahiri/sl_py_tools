@@ -7,12 +7,12 @@ import unittest_numpy as utn
 import sl_py_tools.numpy_tricks.linalg as la
 
 # =============================================================================
-# %% Test python funcs
+# %% Test python classes
 # =============================================================================
 
 
-class TestArray(utn.TestCaseNumpy):
-    """Testing row, col, scal and transpose"""
+class TestClasses(utn.TestCaseNumpy):
+    """Testing lnarray, pinvarray, etc"""
 
     def setUp(self):
         super().setUp()
@@ -30,6 +30,10 @@ class TestArray(utn.TestCaseNumpy):
             self.x[sctype] = utn.randn_asa((2, 5, 3), sctype).view(la.lnarray)
             self.y[sctype] = utn.randn_asa((3, 5), sctype)
             self.z[sctype] = utn.randn_asa((3,), sctype)
+
+
+class TestArray(TestClasses):
+    """Testing lnarray"""
 
     def test_type(self):
         """Check that functions & operators return the correct type
@@ -68,6 +72,13 @@ class TestArray(utn.TestCaseNumpy):
             x.expand_dims(2, -3)
         with self.assertRaises(ValueError):
             (x.s * w).flattish(3, -3)
+
+    @utn.loop_test()
+    def test_value(self, sctype):
+        """Check that operator returns the correct value
+        """
+        w, x = self.w[sctype], self.x[sctype]
+        self.assertArrayAllClose(x @ w, np.matmul(x, w))
 
 
 if __name__ == '__main__':

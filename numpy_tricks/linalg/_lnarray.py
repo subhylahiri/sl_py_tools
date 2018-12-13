@@ -140,9 +140,9 @@ class lnarray(np.ndarray):
         """
         args = list(cv.conv_loop_in_view(lnarray, inputs)[0])
         # Set of ufuncs that need special handling for vectors
-        if ufunc in gf.operator_categories.keys():
+        if ufunc in gf.inverse_arguments.keys():
             args[0], args[1], squeeze = gf.vec2mat(
-                    args[0], args[1], gf.operator_categories[ufunc]
+                    args[0], args[1], gf.inverse_arguments[ufunc]
             )
         args = tuple(args)
 
@@ -160,7 +160,7 @@ class lnarray(np.ndarray):
 
         if ufunc.nout == 1:
             results = (results,)
-        if ufunc in gf.operator_categories.keys() and any(squeeze):
+        if ufunc in gf.inverse_arguments.keys() and any(squeeze):
             results = (gf.mat2vec(results[0], squeeze),) + results[1:]
         results = cv.conv_loop_out_view(self, results, outputs)
 
@@ -171,6 +171,8 @@ class lnarray(np.ndarray):
 
         Flattens those axes in the range [start:stop)
         """
+        if start > stop:
+            raise ValueError("start={} > stop={}".format(start, stop))
         newshape = self.shape[:start] + (-1,) + self.shape[stop:]
         return self.reshape(newshape)
 
@@ -340,18 +342,22 @@ class lnarray(np.ndarray):
 
 
 # =============================================================================
-# Helper: pinvarray
+# Helpers for pinvarray
 # =============================================================================
 
 
 def _inv_output(ufunc, pinv_in: Sequence[bool]) -> bool:
     """Should the ufunc output be converted to (p)invarray?
     """
-    if ufunc in {np.multiply, np.true_divide}:
+    if ufunc in {np.multiply, np.true_divide, gf.rtrue_divide}:
         return True
-    if ufunc not in gf.operator_categories.keys():
+    if ufunc not in gf.inverse_arguments.keys():
         return False
-    return all(x ^ y for x, y in zip(pinv_in, gf.operator_categories[ufunc]))
+    # inverse_arguments tells us if each argument is a 'denominator'.
+    # A `(p)invarray` in a 'numerator' slot -> 'denominator' & vice versa.
+    # Hence `xor`.
+    # the only operation that returns an `invarray` is `invarray` @ `invarray`
+    return all(x ^ y for x, y in zip(pinv_in, gf.inverse_arguments[ufunc]))
 
 
 # =============================================================================
@@ -425,10 +431,14 @@ class pinvarray(gf.LNArrayOperatorsMixin):
         gf.lstsq: [[None, None], [gf.matmul, gf.rlstsq]],
         # a b^+, a b^++, a^+ b^+, a^+ b^++
         gf.rlstsq: [[None, gf.matmul], [None, gf.lstsq]],
+        # # b a, b^+ a, b a^+, b^+ a^+: would also need to swap
+        # gf.rmatmul: [[None, gf.lstsq], [gf.rlstsq, None]],
         # a*b, a*b^+, a^+*b, a^+ * b^+
         np.multiply: [[None, gf.rtrue_divide], [np.true_divide, None]],
         # a/b, a/b^+ a^+/b, a^+/b^+
-        np.true_divide: [[None, None], [np.multiply, None]]
+        np.true_divide: [[None, None], [np.multiply, None]],
+        # a\b, a\b^+ a^+\b, a^+\b^+
+        np.rtrue_divide: [[None, np.multiply], [None, None]],
     }
 
     # these ufuncs are passed on to self._to_invert
@@ -702,10 +712,14 @@ class invarray(pinvarray):
         gf.solve: [[None, gf.rmatmul], [gf.matmul, gf.rsolve]],
         # a b^-, a b^--, a^- b^-, a^- b^--
         gf.rsolve: [[None, gf.matmul], [gf.matmul, gf.solve]],
+        # # b a, b^- a, b a^-, b^- a^-: would also need to swap
+        # gf.rmatmul: [[None, gf.solve], [gf.rsolve, gf.matmul]],
         # a*b, a*b^-, a^-*b, a^- * b^-
         np.multiply: [[None, gf.rtrue_divide], [np.true_divide, None]],
         # a/b, a/b^- a^-/b, a^-/b^-
-        np.true_divide: [[None, None], [np.multiply, None]]
+        np.true_divide: [[None, None], [np.multiply, None]],
+        # a\b, a\b^+ a^+\b, a^+\b^+
+        np.rtrue_divide: [[None, np.multiply], [None, None]],
     }
 
     def __init__(self, to_invert: lnarray):

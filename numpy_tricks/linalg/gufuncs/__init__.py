@@ -93,10 +93,10 @@ _right_div_funcs = (rsolve, rsolve_lu, rlu_solve,
                     rlstsq, rlstsq_qrm, rlstsq_qrn, rqr_lstsq)
 _reverse_mult_funcs = (rmatmul,)
 # maps gufunc to Tuple[bool, bool]: tells us if each argument is a denominator
-operator_categories = {fun: (False, False) for fun in _mult_funcs}
-operator_categories.update({fun: (True, False) for fun in _left_div_funcs})
-operator_categories.update({fun: (False, True) for fun in _right_div_funcs})
-operator_categories.update({fun: (True, True) for fun in _reverse_mult_funcs})
+inverse_arguments = {fun: (False, False) for fun in _mult_funcs}
+inverse_arguments.update({fun: (True, False) for fun in _left_div_funcs})
+inverse_arguments.update({fun: (False, True) for fun in _right_div_funcs})
+inverse_arguments.update({fun: (True, True) for fun in _reverse_mult_funcs})
 
 # =============================================================================
 # Shape for linear algebra
@@ -188,13 +188,13 @@ def vec_wrap(gufunc, case=()):
     Parameters
     ----------
     case : int
-        convert to row or column? `case = x_ax + 3*y_ax`.
+        convert to row or column? `case = (x_ax, y_ax)`.
         ax = 0: x/y -> row/column
         ax = 1: x/y -> column/row
         ax = 2: do not change
     """
     if not case:
-        case = operator_categories[gufunc]
+        case = inverse_arguments[gufunc]
 
     @functools.wraps(gufunc)
     def wrapper(x, y, *args, **kwargs):

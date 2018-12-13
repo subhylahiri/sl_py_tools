@@ -73,6 +73,7 @@ class TestCaseNumpy(unittest.TestCase):
     """
 
     def setUp(self):
+        # Scalar types:
         self.sctype = ['f', 'd', 'F', 'D']
         self.all_close_opts = {'atol': 1e-5, 'rtol': 1e-5, 'equal_nan': False}
         self.addTypeEqualityFunc(np.ndarray, self.assertArrayAllClose)
@@ -86,9 +87,9 @@ class TestCaseNumpy(unittest.TestCase):
         numpy.testing.assert_allclose) and processes the results like a
         unittest.TestCase method.
         """
-        if msg is None:
-            msg = miss_str(actual, desired, **self.all_close_opts)
         if not np.allclose(actual, desired, **self.all_close_opts):
+            if msg is None:
+                msg = miss_str(actual, desired, **self.all_close_opts)
             self.fail(msg)
 
     def assertArrayEqual(self, actual, desired, msg=None):
@@ -117,9 +118,9 @@ class TestCaseNumpy(unittest.TestCase):
         numpy.testing.assert_allclose), negates and processes the results like
         a unittest.TestCase method.
         """
-        if msg is None:
-            msg = miss_str(actual, desired, **self.all_close_opts)
         if np.allclose(actual, desired, **self.all_close_opts):
+            if msg is None:
+                msg = miss_str(actual, desired, **self.all_close_opts)
             self.fail(msg)
 
     def assertArrayNotEqual(self, actual, desired, msg=None):
