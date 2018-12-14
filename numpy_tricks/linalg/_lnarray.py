@@ -346,18 +346,40 @@ class lnarray(np.ndarray):
 # =============================================================================
 
 
-def _inv_output(ufunc, pinv_in: Sequence[bool]) -> bool:
-    """Should the ufunc output be converted to (p)invarray?
+def _inv_input(ufunc, pinv_in: Sequence[bool]) -> bool:
+    """Is each gufunc input an array to be lazily (pseudo)inverted?
+
+    Parameters
+    ----------
+    ufunc
+        The original ufunc that was called
+    pinv_in: Sequence[bool]
+        Tells us if each original argument was a (p)invarray
     """
-    if ufunc in {np.multiply, np.true_divide, gf.rtrue_divide}:
-        return True
-    if ufunc not in gf.inverse_arguments.keys():
-        return False
     # inverse_arguments tells us if each argument is a 'denominator'.
     # A `(p)invarray` in a 'numerator' slot -> 'denominator' & vice versa.
     # Hence `xor`.
-    # the only operation that returns an `invarray` is `invarray` @ `invarray`
-    return all(x ^ y for x, y in zip(pinv_in, gf.inverse_arguments[ufunc]))
+    return tuple(x ^ y for x, y in zip(pinv_in, gf.inverse_arguments[ufunc]))
+
+
+def _inv_input_scalar(ufunc, pinv_in: Sequence[bool]) -> bool:
+    """Is the other ufunc input a numerator (after swapping for inverse, etc)?
+
+    Parameters
+    ----------
+    ufunc
+        The original ufunc that was called
+    pinv_in: Sequence[bool]
+        Tells us if each original argument was a (p)invarray
+    """
+    # inverse_scalar_arguments tells us if the other argument is a 'numerator'.
+    # A `(p)invarray` in a 'numerator' slot -> 'denominator' & vice versa.
+    # Hence `xor`.
+    # if both arguments are (p)invarrays, return (indices of) None
+    if all(pinv_in):
+        return (False, False)
+    func_in = gf.inverse_scalar_arguments[ufunc]
+    return tuple(x ^ y for x, y in zip(pinv_in, func_in))
 
 
 # =============================================================================
@@ -420,26 +442,14 @@ class pinvarray(gf.LNArrayOperatorsMixin):
     _to_invert: lnarray
     _inverted: Optional[lnarray]
 
-    # _ufunc_map[ufunc_in][arg1][arg2] -> ufunc_out, where:
-    # ufunc_in = ufunc we were given
-    # ar1/arg2 = is the first/second argument a pinvarray?
-    # ufunc_out = ufunc to use instead
-    _ufunc_map = {
-        # a b, a b^+, a^+ b, a^+ b^+:
-        gf.matmul: [[None, gf.rlstsq], [gf.lstsq, None]],
-        # a^+ b, a^+ b^+, a^++ b, a^++ b^+
-        gf.lstsq: [[None, None], [gf.matmul, gf.rlstsq]],
-        # a b^+, a b^++, a^+ b^+, a^+ b^++
-        gf.rlstsq: [[None, gf.matmul], [None, gf.lstsq]],
-        # # b a, b^+ a, b a^+, b^+ a^+: would also need to swap
-        # gf.rmatmul: [[None, gf.lstsq], [gf.rlstsq, None]],
-        # a*b, a*b^+, a^+*b, a^+ * b^+
-        np.multiply: [[None, gf.rtrue_divide], [np.true_divide, None]],
-        # a/b, a/b^+ a^+/b, a^+/b^+
-        np.true_divide: [[None, None], [np.multiply, None]],
-        # a\b, a\b^+ a^+\b, a^+\b^+
-        np.rtrue_divide: [[None, np.multiply], [None, None]],
-    }
+    # _ufunc_map[arg1][arg2] -> ufunc_out, where:
+    # ar1/arg2 = is the second/first argument the numerator?
+    # ufunc_out = ufunc to use instead of original for scalar operator
+    _ufunc_map = gf.truediv_family
+    # _gufunc_map[arg1][arg2] -> gufunc_out, where:
+    # ar1/arg2 = is the first/second argument an array to be lazily inverted?
+    # ufunc_out = gufunc to use instead of original in matrix operation
+    _gufunc_map = gf.lstsq_family
 
     # these ufuncs are passed on to self._to_invert
     _unary_ufuncs = {np.positive, np.negative}
@@ -462,12 +472,18 @@ class pinvarray(gf.LNArrayOperatorsMixin):
         args, pinv_in = cv.conv_loop_in_attr('_to_invert', pinvarray, inputs)
 
         pinv_out = [False] * ufunc.nout  # which outputs need converting back?
-        if ufunc in self._ufunc_map.keys():
-            pinv_out[0] = _inv_output(ufunc, pinv_in)
-            ufunc = self._ufunc_map[ufunc][pinv_in[0]][pinv_in[1]]
+        if ufunc in gf.inverse_arguments.keys():
+            left_arg, right_arg = _inv_input(ufunc, pinv_in)
+            ufunc = self._gufunc_map[left_arg][right_arg]
+            # only operation that returns `invarray` is `invarray @ invarray`
+            pinv_out[0] = left_arg and right_arg
+        elif ufunc in gf.inverse_scalar_arguments.keys():
+            left_arg, right_arg = _inv_input_scalar(ufunc, pinv_in)
+            ufunc = self._ufunc_map[left_arg][right_arg]
+            pinv_out[0] = True  # one of left_arg/right_arg must be True
         elif ufunc in self._unary_ufuncs:
             # Apply ufunc to self._to_invert.
-            # Already converted input; just need to convert output
+            # Already converted input; just need to convert output back
             pinv_out[0] = True
         else:
             return NotImplemented
@@ -547,15 +563,14 @@ class pinvarray(gf.LNArrayOperatorsMixin):
         return self.shape[0]
 
     def __str__(self) -> str:
-        return str(self._to_invert) + '**(-1)'
+        return str(self._to_invert) + '**(+)'
 
     def __repr__(self) -> str:
-        namelen = len(type(self).__name__)
-        extra = len(type(self._to_invert).__name__) - namelen
-        # len('pinvarray') == 8
+        selfname = type(self).__name__
+        extra = len(type(self._to_invert).__name__) - len(selfname)
         rep = repr(self._to_invert).replace("\n" + " " * extra,
                                             "\n" + " " * -extra)
-        return "pinvarray" + rep[(extra + namelen):]
+        return selfname + rep[(len(selfname) + extra):]
 
     def swapaxes(self, axis1, axis2) -> 'pinvarray':
         """Interchange two axes in a copy
@@ -701,26 +716,10 @@ class invarray(pinvarray):
     `solve`, `rsolve`, `matldiv`, `matrdiv`
     `pinvarray` : class that provides an interface for matrix pseudo-division.
     """
-    # _ufunc_map[ufunc_in][arg1][arg2] -> ufunc_out, where:
-    # ufunc_in = ufunc we were given
-    # ar1/arg2 = is the first/second argument a pinvarray?
-    # ufunc_out = ufunc to use instead
-    _ufunc_map = {
-        # a b, a b^-, a^- b, a^- b^-:
-        gf.matmul: [[None, gf.rsolve], [gf.solve, gf.rmatmul]],
-        # a^- b, a^- b^-, a^-- b, a^-- b^-
-        gf.solve: [[None, gf.rmatmul], [gf.matmul, gf.rsolve]],
-        # a b^-, a b^--, a^- b^-, a^- b^--
-        gf.rsolve: [[None, gf.matmul], [gf.matmul, gf.solve]],
-        # # b a, b^- a, b a^-, b^- a^-: would also need to swap
-        # gf.rmatmul: [[None, gf.solve], [gf.rsolve, gf.matmul]],
-        # a*b, a*b^-, a^-*b, a^- * b^-
-        np.multiply: [[None, gf.rtrue_divide], [np.true_divide, None]],
-        # a/b, a/b^- a^-/b, a^-/b^-
-        np.true_divide: [[None, None], [np.multiply, None]],
-        # a\b, a\b^+ a^+\b, a^+\b^+
-        np.rtrue_divide: [[None, np.multiply], [None, None]],
-    }
+    # _gufunc_map[arg1][arg2] -> gufunc_out, where:
+    # ar1/arg2 = is the first/second argument an array to be lazily inverted?
+    # ufunc_out = gufunc to use instead of original in matrix operation
+    _gufunc_map = gf.solve_family
 
     def __init__(self, to_invert: lnarray):
         super().__init__(to_invert)
@@ -735,6 +734,9 @@ class invarray(pinvarray):
             msg = ("Array to be inverted must be square "
                    + "but to_invert.shape = {}. ".format(to_invert.shape))
             raise ValueError(msg)
+
+    def __str__(self) -> str:
+        return str(self._to_invert) + '**(-1)'
 
     @property
     def pinv(self) -> lnarray:

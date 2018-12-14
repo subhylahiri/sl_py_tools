@@ -50,7 +50,8 @@ They raise ValueError instead of LinAlgError
 `numpy.linalg` broadcasting rules apply. 1D arrays are not dealt with here (but
 see `lnarray` class).
 """
-import functools
+import functools as _ft
+import itertools as _it
 import numpy as _np
 import numpy.lib.mixins as _mix
 from ._gufuncs_cloop import norm, rtrue_divide  # matmul, rmatmul
@@ -86,17 +87,51 @@ class LNArrayOperatorsMixin(_mix.NDArrayOperatorsMixin, MatmulOperatorsMixin):
 # Categories of binary operators
 # =============================================================================
 
-_mult_funcs = (matmul,)
-_left_div_funcs = (solve, solve_lu, lu_solve,
-                   lstsq, lstsq_qrm, lstsq_qrn, qr_lstsq)
-_right_div_funcs = (rsolve, rsolve_lu, rlu_solve,
-                    rlstsq, rlstsq_qrm, rlstsq_qrn, rqr_lstsq)
-_reverse_mult_funcs = (rmatmul,)
-# maps gufunc to Tuple[bool, bool]: tells us if each argument is a denominator
-inverse_arguments = {fun: (False, False) for fun in _mult_funcs}
-inverse_arguments.update({fun: (True, False) for fun in _left_div_funcs})
-inverse_arguments.update({fun: (False, True) for fun in _right_div_funcs})
-inverse_arguments.update({fun: (True, True) for fun in _reverse_mult_funcs})
+# maps Tuple[bool] (left, right) -> gufunc
+# if left, 1st argument of gufunc is 'inverted'
+# if right, 2nd argument of gufunc is 'inverted'
+solve_family = ((matmul, rsolve), (solve, rmatmul))
+solve_lu_family = ((matmul, rsolve_lu), (solve_lu, rmatmul))
+lu_solve_family = ((matmul, rlu_solve), (lu_solve, rmatmul))
+lstsq_family = ((matmul, rlstsq), (lstsq, None))
+lstsq_qrm_family = ((matmul, rlstsq_qrm), (lstsq_qrm, None))
+lstsq_qrn_family = ((matmul, rlstsq_qrn), (lstsq_qrn, None))
+qr_lstsq_family = ((matmul, rqr_lstsq), (qr_lstsq, None))
+
+_families = [
+        solve_family,
+        solve_lu_family,
+        lu_solve_family,
+        lstsq_family,
+        lstsq_qrm_family,
+        lstsq_qrn_family,
+        qr_lstsq_family,
+]
+
+# maps gufunc -> (left, right) Tuple[bool]
+# if left, 1st argument of gufunc is 'inverted'
+# if right, 2nd argument of gufunc is 'inverted'
+inverse_arguments = {}
+_bools = (False, True)
+for _family, _left_arg, _right_arg in _it.product(_families, _bools, _bools):
+    _func = _family[_left_arg][_right_arg]
+    if _func is not None and _func not in inverse_arguments.keys():
+        inverse_arguments[_func] = (_left_arg, _right_arg)
+
+
+# backwards maps Tuple[bool] (left, right) -> ufunc
+# if left, *2nd* argument of ufunc is a *numerator*
+# if right, *1st* argument of ufunc is a *numerator*
+truediv_family = ((None, _np.true_divide), (rtrue_divide, _np.multiply))
+inverse_scalar_arguments = {}
+# backwards maps ufunc -> (left, right) Tuple[bool]
+for _left_arg, _right_arg in _it.product(_bools, _bools):
+    _func = truediv_family[_left_arg][_right_arg]
+    if _func is not None and _func not in inverse_scalar_arguments.keys():
+        inverse_scalar_arguments[_func] = (_left_arg, _right_arg)
+
+wide_matrices = {lu_m, lu_rawm, qr_m, qr_rm, qr_rawm, lstsq_qrm, rlstsq_qrm}
+tall_matrices = {lu_n, lu_rawn, qr_n, qr_rn, qr_rawn, lstsq_qrn, rlstsq_qrn}
 
 # =============================================================================
 # Shape for linear algebra
@@ -196,7 +231,7 @@ def vec_wrap(gufunc, case=()):
     if not case:
         case = inverse_arguments[gufunc]
 
-    @functools.wraps(gufunc)
+    @_ft.wraps(gufunc)
     def wrapper(x, y, *args, **kwargs):
         x, y, squeeze = vec2mat(_np.asanyarray(x), _np.asanyarray(y), case)
         with _np.errstate(invalid='raise'):
