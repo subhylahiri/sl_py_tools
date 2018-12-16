@@ -83,3 +83,9 @@ from ._ln_manipulation import *
 # import _ld_wrap as wrappers
 # from ._ld_creation import *
 # from ._ld_manipulation import *
+assert gufuncs
+assert wrappers
+assert norm
+assert all((lnarray, pinvarray, invarray, lnmatrix, ldarray))
+assert all((transpose, dagger, col, row, scal, qr, lu, matmul, solve, rsolve,
+            lstsq, rlstsq, matldiv, matrdiv))

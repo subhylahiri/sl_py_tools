@@ -63,8 +63,12 @@ from ._gufuncs_lu_solve import (lu_m, lu_n, lu_rawm, lu_rawn, solve, rsolve,
 from ._gufuncs_qr_lstsq import (qr_m, qr_n, qr_rm, qr_rn, qr_rawm, qr_rawn,
                                 lstsq, rlstsq, lstsq_qrm, lstsq_qrn,
                                 rlstsq_qrm, rlstsq_qrn, qr_lstsq, rqr_lstsq)
-
-
+# fool pyflakes
+assert norm
+assert pivot
+assert rpivot
+assert any((lu_m, lu_n, lu_rawm, lu_rawn))
+assert any((qr_m, qr_n, qr_rm, qr_rn, qr_rawm, qr_rawn))
 # =============================================================================
 # Mixin for linear algebra operators
 # =============================================================================
@@ -129,9 +133,6 @@ for _left_arg, _right_arg in _it.product(_bools, _bools):
     _func = truediv_family[_left_arg][_right_arg]
     if _func is not None and _func not in inverse_scalar_arguments.keys():
         inverse_scalar_arguments[_func] = (_left_arg, _right_arg)
-
-wide_matrices = {lu_m, lu_rawm, qr_m, qr_rm, qr_rawm, lstsq_qrm, rlstsq_qrm}
-tall_matrices = {lu_n, lu_rawn, qr_n, qr_rn, qr_rawn, lstsq_qrn, rlstsq_qrn}
 
 # =============================================================================
 # Shape for linear algebra
@@ -244,6 +245,12 @@ def vec_wrap(gufunc, case=()):
 
     wrapper.__doc__ = wrapper.__doc__.replace("\nParameters",
                                               "\n" + _vec_doc + "\nParameters")
+    wrapper.__doc__ = wrapper.__doc__.replace("(...,M,N)",
+                                              "(...,M,N) or (N,)")
+    wrapper.__doc__ = wrapper.__doc__.replace("(...,N,P)",
+                                              "(...,N,P) or (N,)")
+    wrapper.__doc__ = wrapper.__doc__.replace(
+                            "(...,M,P)", "(...,M,P), (...,M), (...,P) or ()")
     wrapper.__doc__ = wrapper.__doc__.replace("(...,M,NRHS)",
                                               "(...,M,NRHS) or (M,)")
     wrapper.__doc__ = wrapper.__doc__.replace("(...,NRHS,M)",
