@@ -238,9 +238,9 @@ def vec_wrap(gufunc, case=()):
         with _np.errstate(invalid='raise'):
             try:
                 z = gufunc(x, y, *args, **kwargs)
-            except FloatingPointError:
-                raise _np.linalg.LinAlgError("Failure in linalg routine "
-                                             + gufunc.__name__)
+            except FloatingPointError as exc:
+                raise _np.linalg.LinAlgError(
+                    "Failure in linalg routine: " + gufunc.__name__) from exc
         return mat2vec(z, squeeze)
 
     wrapper.__doc__ = wrapper.__doc__.replace("\nParameters",

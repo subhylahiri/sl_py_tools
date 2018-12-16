@@ -37,7 +37,6 @@ Examples
 >>> v = (x.r @ y.t).ur
 """
 from __future__ import annotations
-
 from typing import Optional, Tuple, Sequence
 import numpy as np
 import numpy.lib.mixins as _mix
@@ -154,7 +153,14 @@ class lnarray(np.ndarray):
             outputs = (None,) * ufunc.nout
 
         with np.errstate(invalid='raise'):
-            results = super().__array_ufunc__(ufunc, method, *args, **kwargs)
+            try:
+                results = super().__array_ufunc__(ufunc, method, *args,
+                                                  **kwargs)
+            except FloatingPointError as exc:
+                if ufunc in gf.inverse_arguments.keys():
+                    raise np.linalg.LinAlgError("Failure in linalg routine: "
+                                                + ufunc.__name__) from exc
+                raise
         if results is NotImplemented:
             return NotImplemented
 
@@ -346,7 +352,7 @@ class lnarray(np.ndarray):
 # =============================================================================
 
 
-def _inv_input(ufunc, pinv_in: Sequence[bool]) -> bool:
+def _inv_input(ufunc, pinv_in: Sequence[bool]) -> Tuple[bool, ...]:
     """Is each gufunc input an array to be lazily (pseudo)inverted?
 
     Parameters
@@ -355,11 +361,21 @@ def _inv_input(ufunc, pinv_in: Sequence[bool]) -> bool:
         The original ufunc that was called
     pinv_in: Sequence[bool]
         Tells us if each original argument was a (p)invarray
+    Returns
+    -------
+    left, right
+        `gufuncs.inverse_arguments` of ufunc to call
+    swap
+        should imputs be swapped?
     """
     # inverse_arguments tells us if each argument is a 'denominator'.
     # A `(p)invarray` in a 'numerator' slot -> 'denominator' & vice versa.
     # Hence `xor`.
-    return tuple(x ^ y for x, y in zip(pinv_in, gf.inverse_arguments[ufunc]))
+    func_in = gf.inverse_arguments[ufunc]
+    if all(func_in) and all(pinv_in):
+        return (True, True, True)
+    swap = all(func_in)
+    return tuple(x ^ y for x, y in zip(pinv_in, func_in)) + (swap,)
 
 
 def _inv_input_scalar(ufunc, pinv_in: Sequence[bool]) -> bool:
@@ -473,8 +489,10 @@ class pinvarray(gf.LNArrayOperatorsMixin):
 
         pinv_out = [False] * ufunc.nout  # which outputs need converting back?
         if ufunc in gf.inverse_arguments.keys():
-            left_arg, right_arg = _inv_input(ufunc, pinv_in)
+            left_arg, right_arg, swap = _inv_input(ufunc, pinv_in)
             ufunc = self._gufunc_map[left_arg][right_arg]
+            if swap:
+                args = (args[1], args[0]) + args[2:]
             # only operation that returns `invarray` is `invarray @ invarray`
             pinv_out[0] = left_arg and right_arg
         elif ufunc in gf.inverse_scalar_arguments.keys():
@@ -591,8 +609,7 @@ class pinvarray(gf.LNArrayOperatorsMixin):
             axis1 = (-3 - axis1) % self.ndim
         if axis2 % self.ndim in {self.ndim - 1, self.ndim - 2}:
             axis2 = (-3 - axis2) % self.ndim
-        my_t = type(self)
-        return my_t(self._to_invert.copy().swapaxes(axis1, axis2))
+        return type(self)(self._to_invert.swapaxes(axis1, axis2))
 
     @property
     def shape(self) -> Tuple[int, ...]:
@@ -628,31 +645,29 @@ class pinvarray(gf.LNArrayOperatorsMixin):
     @property
     def t(self) -> 'pinvarray':
         """A copy of object, but view of data"""
-        return pinvarray(self._to_invert.t)
+        return type(self)(self._to_invert.t)
 
     @property
     def h(self) -> 'pinvarray':
         """A copy of object, but view of data"""
-        return pinvarray(self._to_invert.h)
+        return type(self)(self._to_invert.h)
 
     def copy(self, order='C', **kwds) -> 'pinvarray':
         """Copy data"""
-        my_t = type(self)
         _to_invert = kwds.pop('_to_invert', None)
         if _to_invert is None:
             _to_invert = self._to_invert.copy(order=order)
-        return my_t(_to_invert, **kwds)
+        return type(self)(_to_invert, **kwds)
 
     def _invert(self):
         """Actually perform (pseudo)inverse
         """
         if self.ndim < 2:
             # scalar or vector
-            self._inverted = (self._to_invert
-                              / np.linalg.norm(self._to_invert)**2)
+            self._inverted = self._to_invert / gf.norm(self._to_invert)**2
         elif self.ndim >= 2:
             # pinv broadcasts
-            self._inverted = np.linalg.pinv(self._to_invert)
+            self._inverted = np.linalg.pinv(self._to_invert).view(lnarray)
         else:
             raise ValueError('Nothing to invert? ' + str(self._to_invert))
 
@@ -724,15 +739,10 @@ class invarray(pinvarray):
     def __init__(self, to_invert: lnarray):
         super().__init__(to_invert)
 
-        if to_invert.ndim < 2:
-            msg = ("Array to be inverted must have ndim >= 2, "
-                   + "but to_invert.ndim = {}. ".format(to_invert.ndim)
+        if to_invert.ndim < 2 or (to_invert.shape[-1] != to_invert.shape[-2]):
+            msg = ("Array to be inverted must have ndim >= 2 and be square, "
+                   + "but to_invert.shape = {}. ".format(to_invert.shape)
                    + "Must be a matrix, or stack of matrices.")
-            raise ValueError(msg)
-
-        if to_invert.shape[-1] != to_invert.shape[-2]:
-            msg = ("Array to be inverted must be square "
-                   + "but to_invert.shape = {}. ".format(to_invert.shape))
             raise ValueError(msg)
 
     def __str__(self) -> str:
