@@ -45,10 +45,45 @@ qr_*
 rtrue_tivide
     Reversed division (only useful to implement binary operators).
 
-They raise ValueError instead of LinAlgError
+They raise `ValueError` instead of `LinAlgError`, except when using `lnarrays`.
 
 `numpy.linalg` broadcasting rules apply. 1D arrays are not dealt with here (but
 see `lnarray` class).
+
+This module also contains utilities (for internal use) that help in defining
+functions and classes that use these gufuncs:
+
+MatmulOperatorsMixin
+    Mixin class that uses `matmul` from here to define @ operators.
+LNArrayOperatorsMixin
+    Subclass of `numpy.lib.mixins.NDArrayOperatorsMixin` that uses `matmul`
+    from here to define @ operators.
+return_shape_mat:
+    Shape of result of broadcasted matrix multiplication
+vec2mat:
+    Convert vectors to single column/row matrices for linear algebra gufuncs.
+mat2vec:
+    Convert column/row-matrices back to vectors from linear algebra gufuncs.
+vec_wrap:
+    Wrap a gufunc with special handling for vectors.
+
+The following variables, for internal use, are useful for determining the
+behaviour of 1D arrays, pinvarrays and invarrays in linear algebraic functions:
+
+solve_family, solve_lu_family, lu_solve_family:
+    2x2 lists of gufuncs used to interpret behaviour of `invarrays` in them.
+    Member[x][y] interprets first/second argument as a divisor if x/y is True.
+lstsq_family, lstsq_qrm_family, lstsq_qrn_family, qr_lstsq_family:
+    2x2 lists of gufuncs used to interpret behaviour of `pinvarrays` in them.
+truediv_family:
+    2x2 list of ufuncs used to interpret behaviour of `(p)invarrays` in them.
+    Member[x][y] interprets second/first argument as a divisor if x/y is False.
+inverse_arguments:
+    dict `{gufunc: Tuple[bool]}` describing gufunc's position in its family.
+inverse_scalar_arguments:
+    dict `{ufunc: Tuple[bool]}` describing ufunc's position in its family.
+same_family:
+    Function returning true if both its arguments are in the same super-family.
 """
 import functools as _ft
 import itertools as _it
@@ -83,6 +118,10 @@ class MatmulOperatorsMixin():
 
 class LNArrayOperatorsMixin(_mix.NDArrayOperatorsMixin, MatmulOperatorsMixin):
     """Mixin for defining operator special methods via __array_ufunc__
+
+    See also
+    --------
+    `numpy.lib.mixins.NDArrayOperatorsMixin` : base class.
     """
     pass
 
@@ -116,14 +155,6 @@ _lstsq_families = [
 _solve_funcs = set([z for x in _solve_families for y in x for z in y])
 _lstsq_funcs = set([z for x in _lstsq_families for y in x for z in y])
 
-
-def same_family(ufunc_in, ufunc_out) -> bool:
-    """Are the two ufuncs from the same family?
-    """
-    return any([(ufunc_in in x) and (ufunc_out in x)
-                for x in [_solve_funcs, _lstsq_funcs]])
-
-
 _families = _solve_families + _lstsq_families
 # maps gufunc -> (left, right) Tuple[bool]
 # if left, 1st argument of gufunc is 'inverted'
@@ -146,6 +177,14 @@ for _left_arg, _right_arg in _it.product(_bools, _bools):
     _func = truediv_family[_left_arg][_right_arg]
     if _func is not None and _func not in inverse_scalar_arguments.keys():
         inverse_scalar_arguments[_func] = (_left_arg, _right_arg)
+
+
+def same_family(ufunc_in, ufunc_out) -> bool:
+    """Are the two ufuncs from the same family?
+    """
+    return any([(ufunc_in in x) and (ufunc_out in x)
+                for x in [_solve_funcs, _lstsq_funcs]])
+
 
 # =============================================================================
 # Shape for linear algebra

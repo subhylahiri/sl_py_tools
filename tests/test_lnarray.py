@@ -178,39 +178,49 @@ class TestPinvarray(TestNewClasses):
 
     @utn.loop_test()
     def test_pinv_ops(self, sctype):
-        """test (p)invarray behaviour in operators
+        """test pinvarray behaviour in operators
         """
-        u, v = self.u[sctype], self.v[sctype]
-        w, x, y = self.w[sctype], self.x[sctype], self.y[sctype]
-        xw = x[:, :3]
+        u, v, x = self.u[sctype], self.v[sctype], self.x[sctype]
+        vs = v.view(la.lnarray).s
         self.assertArrayAllClose(x.pinv @ v, gf.lstsq(x, v))
         self.assertArrayAllClose(u @ x.pinv.t, gf.rlstsq(u, x.t))
         with self.assertRaises(TypeError):
             x.pinv @ u.pinv
-        self.assertArrayAllClose(w.inv @ y, gf.solve(w, y))
-        self.assertArrayAllClose(x @ w.inv, gf.rsolve(x, w))
-        self.assertArrayAllClose((w.inv @ xw.inv).inv, xw @ w)
         self.assertArrayAllClose((x.pinv * 3.5).pinv, x / 3.5)
         self.assertArrayAllClose((2.4 * x.pinv).pinv, x / 2.4)
         self.assertArrayAllClose((x.pinv / 3.564).pinv, x * 3.564)
         with self.assertRaises(TypeError):
             65 / x.pinv
-        self.assertArrayAllClose((w.inv * 3.5).inv, w / 3.5)
-        self.assertArrayAllClose((2.4 * w.inv).inv, w / 2.4)
-        self.assertArrayAllClose((w.inv / 3.564).inv, w * 3.564)
-        with self.assertRaises(TypeError):
-            45.564 / w.inv
-        vs = v.view(la.lnarray).s
         self.assertArrayAllClose((x.pinv * vs).pinv, x / vs)
         self.assertArrayAllClose((vs * x.pinv).pinv, x / vs)
         self.assertArrayAllClose((x.pinv / vs).pinv, x * vs)
         with self.assertRaises(TypeError):
             vs / x.pinv
-        self.assertArrayAllClose((xw.inv * vs).pinv, x / vs)
-        self.assertArrayAllClose((vs * xw.inv).pinv, x / vs)
-        self.assertArrayAllClose((xw.inv / vs).pinv, x * vs)
+        with self.assertRaises(TypeError):
+            vs.pinv * x.pinv
+
+    @utn.loop_test()
+    def test_inv_ops(self, sctype):
+        """test invarray behaviour in operators
+        """
+        vs, w = self.v[sctype].view(la.lnarray).s, self.w[sctype]
+        x, y = self.x[sctype], self.y[sctype]
+        xw = x[:, :3]
+        self.assertArrayAllClose(w.inv @ y, gf.solve(w, y))
+        self.assertArrayAllClose(x @ w.inv, gf.rsolve(x, w))
+        self.assertArrayAllClose((w.inv @ xw.inv).inv, xw @ w)
+        self.assertArrayAllClose((w.inv * 3.5).inv, w / 3.5)
+        self.assertArrayAllClose((2.4 * w.inv).inv, w / 2.4)
+        self.assertArrayAllClose((w.inv / 3.564).inv, w * 3.564)
+        with self.assertRaises(TypeError):
+            45.564 / w.inv
+        self.assertArrayAllClose((xw.inv * vs).inv, xw / vs)
+        self.assertArrayAllClose((vs * xw.inv).inv, xw / vs)
+        self.assertArrayAllClose((xw.inv / vs).inv, xw * vs)
         with self.assertRaises(TypeError):
             vs / xw.inv
+        with self.assertRaises(TypeError):
+            vs.inv * xw.inv
 
 
 if __name__ == '__main__':
