@@ -133,7 +133,7 @@ class TestPinvarray(TestNewClasses):
 
     @utn.loop_test()
     def test_pinv_funcs(self, sctype):
-        """test behaviour in gufuncs
+        """test pinvarray behaviour in gufuncs
         """
         u, v, x = self.u[sctype], self.v[sctype], self.x[sctype]
         self.assertArrayAllClose(gf.matmul(x.pinv, v), gf.lstsq(x, v))
@@ -146,14 +146,16 @@ class TestPinvarray(TestNewClasses):
         self.assertArrayAllClose(gf.rlstsq(v.T, u.t.pinv), gf.matmul(v.T, u.t))
         with self.assertRaises(TypeError):
             gf.rlstsq(u.t.pinv, v.T)
-        self.assertArrayAllClose(gf.rmatmul(v, x.pinv), gf.lstsq(x, v))
-        self.assertArrayAllClose(gf.rmatmul(x.pinv.t, u), gf.rlstsq(u, x.t))
         with self.assertRaises(TypeError):
             gf.rmatmul(u.pinv, x.pinv)
+        with self.assertRaises(TypeError):
+            gf.solve(u.pinv, v)
+        with self.assertRaises(TypeError):
+            gf.rsolve(u, x.pinv)
 
     @utn.loop_test()
     def test_inv_funcs(self, sctype):
-        """test behaviour in gufuncs
+        """test invarray behaviour in gufuncs
         """
         w, x, y = self.w[sctype], self.x[sctype], self.y[sctype]
         xw = x[:, :3]
@@ -169,6 +171,46 @@ class TestPinvarray(TestNewClasses):
         self.assertArrayAllClose(gf.rmatmul(w, xw.inv), gf.solve(xw, w))
         self.assertArrayAllClose(gf.rmatmul(xw.inv, w), gf.rsolve(w, xw))
         self.assertArrayAllClose(gf.rmatmul(xw.inv, w.inv).inv, xw @ w)
+        with self.assertRaises(TypeError):
+            gf.lstsq(w.inv, y)
+        with self.assertRaises(TypeError):
+            gf.rlstsq(x, w.inv)
+
+    @utn.loop_test()
+    def test_pinv_ops(self, sctype):
+        """test (p)invarray behaviour in operators
+        """
+        u, v = self.u[sctype], self.v[sctype]
+        w, x, y = self.w[sctype], self.x[sctype], self.y[sctype]
+        xw = x[:, :3]
+        self.assertArrayAllClose(x.pinv @ v, gf.lstsq(x, v))
+        self.assertArrayAllClose(u @ x.pinv.t, gf.rlstsq(u, x.t))
+        with self.assertRaises(TypeError):
+            x.pinv @ u.pinv
+        self.assertArrayAllClose(w.inv @ y, gf.solve(w, y))
+        self.assertArrayAllClose(x @ w.inv, gf.rsolve(x, w))
+        self.assertArrayAllClose((w.inv @ xw.inv).inv, xw @ w)
+        self.assertArrayAllClose((x.pinv * 3.5).pinv, x / 3.5)
+        self.assertArrayAllClose((2.4 * x.pinv).pinv, x / 2.4)
+        self.assertArrayAllClose((x.pinv / 3.564).pinv, x * 3.564)
+        with self.assertRaises(TypeError):
+            65 / x.pinv
+        self.assertArrayAllClose((w.inv * 3.5).inv, w / 3.5)
+        self.assertArrayAllClose((2.4 * w.inv).inv, w / 2.4)
+        self.assertArrayAllClose((w.inv / 3.564).inv, w * 3.564)
+        with self.assertRaises(TypeError):
+            45.564 / w.inv
+        vs = v.view(la.lnarray).s
+        self.assertArrayAllClose((x.pinv * vs).pinv, x / vs)
+        self.assertArrayAllClose((vs * x.pinv).pinv, x / vs)
+        self.assertArrayAllClose((x.pinv / vs).pinv, x * vs)
+        with self.assertRaises(TypeError):
+            vs / x.pinv
+        self.assertArrayAllClose((xw.inv * vs).pinv, x / vs)
+        self.assertArrayAllClose((vs * xw.inv).pinv, x / vs)
+        self.assertArrayAllClose((xw.inv / vs).pinv, x * vs)
+        with self.assertRaises(TypeError):
+            vs / xw.inv
 
 
 if __name__ == '__main__':

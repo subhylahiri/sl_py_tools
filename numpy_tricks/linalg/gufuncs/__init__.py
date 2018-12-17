@@ -102,16 +102,29 @@ lstsq_qrm_family = ((matmul, rlstsq_qrm), (lstsq_qrm, None))
 lstsq_qrn_family = ((matmul, rlstsq_qrn), (lstsq_qrn, None))
 qr_lstsq_family = ((matmul, rqr_lstsq), (qr_lstsq, None))
 
-_families = [
+_solve_families = [
         solve_family,
         solve_lu_family,
         lu_solve_family,
+]
+_lstsq_families = [
         lstsq_family,
         lstsq_qrm_family,
         lstsq_qrn_family,
         qr_lstsq_family,
 ]
+_solve_funcs = set([z for x in _solve_families for y in x for z in y])
+_lstsq_funcs = set([z for x in _lstsq_families for y in x for z in y])
 
+
+def same_family(ufunc_in, ufunc_out) -> bool:
+    """Are the two ufuncs from the same family?
+    """
+    return any([(ufunc_in in x) and (ufunc_out in x)
+                for x in [_solve_funcs, _lstsq_funcs]])
+
+
+_families = _solve_families + _lstsq_families
 # maps gufunc -> (left, right) Tuple[bool]
 # if left, 1st argument of gufunc is 'inverted'
 # if right, 2nd argument of gufunc is 'inverted'
@@ -121,7 +134,7 @@ for _family, _left_arg, _right_arg in _it.product(_families, _bools, _bools):
     _func = _family[_left_arg][_right_arg]
     if _func is not None and _func not in inverse_arguments.keys():
         inverse_arguments[_func] = (_left_arg, _right_arg)
-
+# NOTE: rmatmul doesn't fit the pattern, needs special handling
 
 # backwards maps Tuple[bool] (left, right) -> ufunc
 # if left, *2nd* argument of ufunc is a *numerator*

@@ -372,6 +372,7 @@ def _inv_input(ufunc, pinv_in: Sequence[bool]) -> Tuple[bool, ...]:
     # A `(p)invarray` in a 'numerator' slot -> 'denominator' & vice versa.
     # Hence `xor`.
     func_in = gf.inverse_arguments[ufunc]
+    # NOTE: rmatmul doesn't fit the pattern, needs special handling
     if all(func_in) and all(pinv_in):
         return (True, True, True)
     swap = all(func_in)
@@ -489,8 +490,11 @@ class pinvarray(gf.LNArrayOperatorsMixin):
 
         pinv_out = [False] * ufunc.nout  # which outputs need converting back?
         if ufunc in gf.inverse_arguments.keys():
+            if not gf.same_family(ufunc, self._gufunc_map[0][1]):
+                return NotImplemented
             left_arg, right_arg, swap = _inv_input(ufunc, pinv_in)
             ufunc = self._gufunc_map[left_arg][right_arg]
+            # NOTE: rmatmul doesn't fit the pattern, needs special handling
             if swap:
                 args = (args[1], args[0]) + args[2:]
             # only operation that returns `invarray` is `invarray @ invarray`
