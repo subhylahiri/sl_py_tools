@@ -5,18 +5,21 @@
 import itertools as _it
 import operator as _op
 import typing as _ty
+A = _ty.TypeVar['T']
 
 
-def default(optional: _ty.Optional[_ty.Any], default_value: _ty.Any):
+def default(optional: _ty.Optional[A], default_value: A):
     """Replace with default if None"""
     return default_value if optional is None else optional
 
 
 def _eq_broadcast(siz0: int, siz1: int):
+    """Would axes of this length be considered broadcastable?"""
     return (siz0 == siz1) or (siz0 == 1) or (siz1 == 1)
 
 
-def same_shape(shape0: tuple, shape1: tuple, compr: _ty.Callable = _op.eq):
+def same_shape(shape0: _ty.Tuple[int, ...], shape1: _ty.Tuple[int, ...],
+               compr: _ty.Callable[[int, int], bool] = _op.eq):
     """Are the two array shapes equivalent, ignoring leading singleton axes?
     """
     if isinstance(shape0, ShapeTuple) and isinstance(shape1, ShapeTuple):
@@ -24,13 +27,13 @@ def same_shape(shape0: tuple, shape1: tuple, compr: _ty.Callable = _op.eq):
     return all(compr(x, y) for x, y in zip(reversed(shape0), reversed(shape1)))
 
 
-def broadcastable(shape0: tuple, shape1: tuple):
+def broadcastable(shape0: _ty.Tuple[int, ...], shape1: _ty.Tuple[int, ...]):
     """Are the two array shapes broadcastable?
     """
     return same_shape(shape0, shape1, _eq_broadcast)
 
 
-def identical_shape(shape0: tuple, shape1: tuple):
+def identical_shape(shape0: _ty.Tuple[int, ...], shape1: _ty.Tuple[int, ...]):
     """Are the two array shapes eaxctly the same, considering all axes?
     """
     return (len(shape0) == len(shape1)) and same_shape(shape0, shape1)
