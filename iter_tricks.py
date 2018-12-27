@@ -402,6 +402,7 @@ class DisplayBatch(DisplayCount):
     >>> for s in dbatch('s', 0, len(x), 10):
     >>>     y[s] = np.linalg.eigvals(x[s])
     """
+
     def __init__(self, *args: _it.DSliceArgs, **kwargs):
         super().__init__(*args, **kwargs)
 
