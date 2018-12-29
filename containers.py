@@ -5,7 +5,7 @@
 import itertools as _it
 import operator as _op
 import typing as _ty
-A = _ty.TypeVar['T']
+A = _ty.TypeVar('A')
 
 
 def default(optional: _ty.Optional[A], default_value: A):
@@ -51,7 +51,7 @@ class ShapeTuple(tuple):
         if isinstance(ind, slice):
             out = super().__getitem__(ind)
             if ind.start is not None and ind.start < -len(self):
-                num = default(ind.stop, 0)
+                num = default(ind.stop, len(self))
                 if num >= 0:
                     num = min(num - len(self), 0)
                 num -= ind.start
@@ -67,3 +67,8 @@ class ShapeTuple(tuple):
 
     def __reversed__(self):
         return _it.chain(reversed(tuple(self)), _it.repeat(1))
+
+
+def invert_dict(to_invert: dict) -> dict:
+    """Swap keys and values"""
+    return {v: k for k, v in to_invert.items()}
