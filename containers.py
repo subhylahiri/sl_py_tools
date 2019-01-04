@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Custom containers
 """
-# import collections.abc as abc
+import collections as cn
 import itertools as _it
 import operator as _op
 import typing as _ty
@@ -70,5 +70,80 @@ class ShapeTuple(tuple):
 
 
 def invert_dict(to_invert: dict) -> dict:
-    """Swap keys and values"""
+    """Swap keys and values.
+
+    Assumes values are distinct."""
     return {v: k for k, v in to_invert.items()}
+
+
+class _PairedDict(dict):
+    """One direction of bidirectional mapping"""
+
+    def __init__(self, *args, inverse=None, **kwds):
+        super().__init__(*args, **kwds)
+        self._inverse = inverse
+
+    def __delitem__(self, key):
+        """Delete inverse map as well as forward map"""
+        super(_PairedDict, self._inverse).__delitem__(self[key])
+        super().__delitem__(key)
+
+    def __setitem__(self, key, value):
+        """Delete inverse & forward maps, then create new foward & inverse map
+        """
+        if key in self.keys():
+            del self[key]
+        if value in self._inverse.keys():
+            del self._inverse[value]
+        super().__setitem__(key, value)
+        super(_PairedDict, self._inverse).__setitem__(value, key)
+
+    @classmethod
+    def make_pairs(cls, *args, **kwds):
+        """Create a pair of dicts that are inverses of each other"""
+        fwd = cls(*args, **kwds)
+        bwd = cls(invert_dict(fwd), inverse=fwd)
+        fwd._inverse = bwd
+        if len(fwd) != len(bwd):
+            raise ValueError("Repeated keys/values")
+        return [fwd, bwd]
+
+
+class AssociativeMap(cn.ChainMap):
+    """Bidirectional mapping
+
+    Similar to a ``dict``, except the statement ``amap.fwd[key1] == key2`` is
+    equivalent to ``amap.bwd[key2] == key1``. Both of these statements imply
+    that ``amap[key1] == key2`` and ``amap[key2] == key1``. Both keys must be
+    unique and hashable.
+
+    An unordered associative map arises when subscripting the object itself.
+    An ordered associative map arises when subscripting the ``fwd`` and ``bwd``
+    properties.
+
+    If an association is modified, in either direction, both mappings are
+    deleted and a new association is created. Setting ``amap[key1] = key2`` is
+    always stored in ``amap.fwd``, with ``amap.bwd`` modified appropriately.
+
+    See Also
+    --------
+    dict
+    collections.ChainMap
+    """
+
+    def __init__(self, *args, **kwds):
+        self.maps = _PairedDict.make_pairs(*args, **kwds)
+
+    def __delitem__(self, key):
+        if key in self.bwd.keys():
+            del self.bwd[key]
+        else:
+            del self.fwd[key]
+
+    @property
+    def fwd(self):
+        return self.maps[0]
+
+    @property
+    def bwd(self):
+        return self.maps[1]
