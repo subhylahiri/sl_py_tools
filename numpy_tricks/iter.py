@@ -115,6 +115,7 @@ class _DispNDIterBase(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
     --------
     numpy.nditer
     """
+
     def __init__(self, *args: _it.Args, **kwds: _it.KeyWords):
         super().__init__(*args, **kwds)
 
@@ -178,6 +179,7 @@ class DisplayNDIter(_DispNDIterBase):
     --------
     numpy.nditer
     """
+
     def __init__(self, *args: _it.Args, **kwds: _it.KeyWords):
         name, args = _it.extract_name(args, kwds)
         my_iter = np.nditer(*args, **kwds)
@@ -218,6 +220,7 @@ class DisplayNDEnumerate(_DispNDIterBase):
     --------
     numpy.ndenumerate
     """
+
     def __init__(self, *args: _it.Args, **kwds: _it.KeyWords):
         name, args = _it.extract_name(args, kwds)
         my_iter = np.ndenumerate(*args, **kwds)

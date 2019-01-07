@@ -152,15 +152,9 @@ class lnarray(np.ndarray):
         else:
             outputs = (None,) * ufunc.nout
 
-        with np.errstate(invalid='raise'):
-            try:
-                results = super().__array_ufunc__(ufunc, method, *args,
-                                                  **kwargs)
-            except FloatingPointError as exc:
-                if ufunc in gf.inverse_arguments.keys():
-                    raise np.linalg.LinAlgError("Failure in linalg routine: "
-                                                + ufunc.__name__) from exc
-                raise
+        if ufunc in gf.inverse_arguments.keys():
+            gf.make_errobj("Failure in routine: " + ufunc.__name__, kwargs)
+        results = super().__array_ufunc__(ufunc, method, *args, **kwargs)
         if results is NotImplemented:
             return NotImplemented
 

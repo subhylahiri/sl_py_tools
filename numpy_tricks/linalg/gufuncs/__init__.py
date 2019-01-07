@@ -58,6 +58,8 @@ MatmulOperatorsMixin
 LNArrayOperatorsMixin
     Subclass of `numpy.lib.mixins.NDArrayOperatorsMixin` that uses `matmul`
     from here to define @ operators.
+make_errobj:
+    create an error handler object for use as ``extobj`` gufunc parameter.
 return_shape_mat:
     Shape of result of broadcasted matrix multiplication
 vec2mat:
@@ -104,6 +106,41 @@ assert pivot
 assert rpivot
 assert any((lu_m, lu_n, lu_rawm, lu_rawn))
 assert any((qr_m, qr_n, qr_rm, qr_rn, qr_rawm, qr_rawn))
+# =============================================================================
+# Error handling
+# =============================================================================
+with _np.errstate(invalid='call'):
+    _errobj = _np.geterrobj()[:2]
+
+
+def make_errobj(msg, kwdict=None):
+    """Create an error handler list
+
+    Parameters
+    ----------
+    msg: str
+        Message for ``LinAlgError``
+    kwdict: Optional[Dict[str, Any]]
+        Dictionary of keyword arguments to which we add ``extobj``.
+        If it already has an extobj, it is left unchanged.
+
+    Returns
+    -------
+    extobj
+        List of [buffer size, error mask, error handler].
+        Error mask corresponds to ``invalid='raise'``.
+        Error handler raises ``LinAlgError`` with message ``msg``.
+    """
+    extobj = list(_errobj)  # make a copy
+
+    def callback(err, flag):
+        raise _np.linalg.LinAlgError(msg)
+    extobj.append(callback)
+    if kwdict is not None and not kwdict.get('extobj'):
+        kwdict['extobj'] = extobj
+    return extobj
+
+
 # =============================================================================
 # Mixin for linear algebra operators
 # =============================================================================
@@ -287,12 +324,8 @@ def vec_wrap(gufunc, case=()):
     @_ft.wraps(gufunc)
     def wrapper(x, y, *args, **kwargs):
         x, y, squeeze = vec2mat(_np.asanyarray(x), _np.asanyarray(y), case)
-        with _np.errstate(invalid='raise'):
-            try:
-                z = gufunc(x, y, *args, **kwargs)
-            except FloatingPointError as exc:
-                raise _np.linalg.LinAlgError(
-                    "Failure in linalg routine: " + gufunc.__name__) from exc
+        make_errobj("Failure in linalg routine: " + gufunc.__name__, kwargs)
+        z = gufunc(x, y, *args, **kwargs)
         return mat2vec(z, squeeze)
 
     wrapper.__doc__ = wrapper.__doc__.replace("\nParameters",
