@@ -29,6 +29,7 @@ qr
 lu
     LU decomposition with broadcasting and subclass passing.
 """
+import typing as ty
 import numpy as np
 import numpy.linalg.linalg as nla
 from . import gufuncs as gf
@@ -248,7 +249,8 @@ qr_modes = {'reduced': (gf.qr_m, gf.qr_n),
             'raw': (gf.qr_rawm, gf.qr_rawn)}
 
 
-def qr(x: np.ndarray, mode: str = 'reduced') -> (np.ndarray, np.ndarray):
+def qr(x: np.ndarray, mode: str = 'reduced', *args,
+       **kwds) -> ty.Tuple[np.ndarray, ...]:
     """QR decomposition.
 
     Factor a matrix as `A = QR` with `Q` orthogonal and `R` upper-triangular.
@@ -284,14 +286,16 @@ def qr(x: np.ndarray, mode: str = 'reduced') -> (np.ndarray, np.ndarray):
         raise ValueError('Modes known to qr: reduced, complete, r, raw.\n'
                          + 'Unknown mode: ' + mode)
     ufunc = qr_modes[mode][x.shape[-2] > x.shape[-1]]
-    return ufunc(x)
+    gf.make_errobj("QR failed: rank deficient?", kwds)
+    return ufunc(x, *args, **kwds)
 
 
 lu_modes = {'separate': (gf.lu_m, gf.lu_n),
             'raw': (gf.lu_rawm, gf.lu_rawn)}
 
 
-def lu(x: np.ndarray, mode: str = 'separate') -> (np.ndarray, np.ndarray):
+def lu(x: np.ndarray, mode: str = 'separate', *args,
+       **kwds) -> ty.Tuple[np.ndarray, ...]:
     """LU decomposition.
 
     Factor a matrix as `A = PLU` with `P` a permutation matrix,
@@ -324,4 +328,5 @@ def lu(x: np.ndarray, mode: str = 'separate') -> (np.ndarray, np.ndarray):
         raise ValueError('Modes known to lu: separate, raw.\n'
                          + 'Unknown mode: ' + mode)
     ufunc = lu_modes[mode][x.shape[-2] > x.shape[-1]]
-    return ufunc(x)
+    gf.make_errobj("LU failed: rank deficient?", kwds)
+    return ufunc(x, *args, **kwds)

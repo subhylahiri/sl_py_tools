@@ -244,6 +244,32 @@ def randn_asa(shape, sctype):
                np.random.standard_normal(shape), sctype)
 
 
+def zeros_asa(shape, sctype):
+    """standard normal array with scalar type
+
+    Parameters
+    ----------
+    shape: tuple[int]
+        shape of arrray
+    sctype
+        a numpy scalar type code, e.g. 'f,d,g,F,D,G'
+    """
+    return asa(np.zeros(shape), np.zeros(shape), sctype)
+
+
+def ones_asa(shape, sctype):
+    """standard normal array with scalar type
+
+    Parameters
+    ----------
+    shape: tuple[int]
+        shape of arrray
+    sctype
+        a numpy scalar type code, e.g. 'f,d,g,F,D,G'
+    """
+    return asa(np.ones(shape), np.zeros(shape), sctype)
+
+
 @contextlib.contextmanager
 def errstate(*args, **kwds):
     """Context manager like np.errstate that can also be used as a decorator

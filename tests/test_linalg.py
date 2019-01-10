@@ -4,7 +4,7 @@ It has been established, in test_gu*.py, that the gufuncs return the correct
 values. We just check that the python wrappers call the correct ones.
 """
 import unittest
-# import numpy as np
+import numpy as np
 import unittest_numpy as utn
 import sl_py_tools.numpy_tricks.linalg as la
 import sl_py_tools.numpy_tricks.linalg._linalg as lr
@@ -30,6 +30,8 @@ class TestLinalg(utn.TestCaseNumpy):
         self.x = {}
         self.y = {}
         self.z = {}
+        self.ones = {}
+        self.zeros = {}
         for sctype in self.sctype:
             self.u[sctype] = utn.randn_asa((7, 5), sctype)
             self.v[sctype] = utn.randn_asa((5, 2), sctype)
@@ -37,6 +39,8 @@ class TestLinalg(utn.TestCaseNumpy):
             self.x[sctype] = utn.randn_asa((2, 5, 3), sctype)
             self.y[sctype] = utn.randn_asa((3, 5), sctype)
             self.z[sctype] = utn.randn_asa((3,), sctype)
+            self.ones[sctype] = utn.ones_asa((3, 3), sctype)
+            self.zeros[sctype] = utn.zeros_asa((3, 3), sctype)
 
 
 class TestShape(TestLinalg):
@@ -151,51 +155,64 @@ class TestShape(TestLinalg):
 class TestValue(TestLinalg):
     """Testing values returned by linalg functions"""
 
-    def test_la_fn(self):
+    @utn.loop_test(attr_inds=slice(4))
+    def test_la_fn(self, sctype):
         """Check (r)matmul, (r)solve, (r)lstsq, return arrays of correct value
         """
         # matmul
-        self.assertArrayAllClose(la.matmul(self.x['d'], self.y['d']),
-                                 gf.matmul(self.x['d'], self.y['d']))
+        self.assertArrayAllClose(la.matmul(self.x[sctype], self.y[sctype]),
+                                 gf.matmul(self.x[sctype], self.y[sctype]))
         # rmatmul
-        self.assertArrayAllClose(lr.rmatmul(self.x['d'], self.y['d']),
-                                 gf.rmatmul(self.x['d'], self.y['d']))
+        self.assertArrayAllClose(lr.rmatmul(self.x[sctype], self.y[sctype]),
+                                 gf.rmatmul(self.x[sctype], self.y[sctype]))
         # solve
-        self.assertArrayAllClose(la.solve(self.w['d'], self.y['d']),
-                                 gf.solve(self.w['d'], self.y['d']))
+        self.assertArrayAllClose(la.solve(self.w[sctype], self.y[sctype]),
+                                 gf.solve(self.w[sctype], self.y[sctype]))
         # rsolve
-        self.assertArrayAllClose(la.rsolve(self.x['d'], self.w['d']),
-                                 gf.rsolve(self.x['d'], self.w['d']))
+        self.assertArrayAllClose(la.rsolve(self.x[sctype], self.w[sctype]),
+                                 gf.rsolve(self.x[sctype], self.w[sctype]))
         # lstsq
-        self.assertArrayAllClose(la.lstsq(self.x['d'], self.v['d']),
-                                 gf.lstsq(self.x['d'], self.v['d']))
-        self.assertArrayAllClose(la.lstsq(self.y['d'], self.w['d']),
-                                 gf.lstsq(self.y['d'], self.w['d']))
+        self.assertArrayAllClose(la.lstsq(self.x[sctype], self.v[sctype]),
+                                 gf.lstsq(self.x[sctype], self.v[sctype]))
+        self.assertArrayAllClose(la.lstsq(self.y[sctype], self.w[sctype]),
+                                 gf.lstsq(self.y[sctype], self.w[sctype]))
         # rlstsq
-        self.assertArrayAllClose(la.rlstsq(self.w['d'], self.x['d']),
-                                 gf.rlstsq(self.w['d'], self.x['d']))
-        self.assertArrayAllClose(la.rlstsq(self.u['d'], self.y['d']),
-                                 gf.rlstsq(self.u['d'], self.y['d']))
+        self.assertArrayAllClose(la.rlstsq(self.w[sctype], self.x[sctype]),
+                                 gf.rlstsq(self.w[sctype], self.x[sctype]))
+        self.assertArrayAllClose(la.rlstsq(self.u[sctype], self.y[sctype]),
+                                 gf.rlstsq(self.u[sctype], self.y[sctype]))
 
-    def test_div_fn(self):
+    @utn.loop_test(attr_inds=slice(4))
+    def test_div_fn(self, sctype):
         """Check matldiv, matrdiv return correct value
         """
         # solve
-        self.assertArrayAllClose(la.matldiv(self.w['d'], self.y['d']),
-                                 gf.solve(self.w['d'], self.y['d']))
+        self.assertArrayAllClose(la.matldiv(self.w[sctype], self.y[sctype]),
+                                 gf.solve(self.w[sctype], self.y[sctype]))
         # rsolve
-        self.assertArrayAllClose(la.matrdiv(self.x['d'], self.w['d']),
-                                 gf.rsolve(self.x['d'], self.w['d']))
+        self.assertArrayAllClose(la.matrdiv(self.x[sctype], self.w[sctype]),
+                                 gf.rsolve(self.x[sctype], self.w[sctype]))
         # lstsq
-        self.assertArrayAllClose(la.matldiv(self.x['d'], self.v['d']),
-                                 gf.lstsq(self.x['d'], self.v['d']))
-        self.assertArrayAllClose(la.matldiv(self.y['d'], self.w['d']),
-                                 gf.lstsq(self.y['d'], self.w['d']))
+        self.assertArrayAllClose(la.matldiv(self.x[sctype], self.v[sctype]),
+                                 gf.lstsq(self.x[sctype], self.v[sctype]))
+        self.assertArrayAllClose(la.matldiv(self.y[sctype], self.w[sctype]),
+                                 gf.lstsq(self.y[sctype], self.w[sctype]))
         # rlstsq
-        self.assertArrayAllClose(la.matrdiv(self.w['d'], self.x['d']),
-                                 gf.rlstsq(self.w['d'], self.x['d']))
-        self.assertArrayAllClose(la.matrdiv(self.u['d'], self.y['d']),
-                                 gf.rlstsq(self.u['d'], self.y['d']))
+        self.assertArrayAllClose(la.matrdiv(self.w[sctype], self.x[sctype]),
+                                 gf.rlstsq(self.w[sctype], self.x[sctype]))
+        self.assertArrayAllClose(la.matrdiv(self.u[sctype], self.y[sctype]),
+                                 gf.rlstsq(self.u[sctype], self.y[sctype]))
+
+    @utn.loop_test(attr_inds=slice(4))
+    def test_low_rank(self, sctype):
+        """Check matldiv, matrdiv return correct value
+        """
+        with self.assertRaises(np.linalg.LinAlgError):
+            la.solve(self.ones[sctype], self.y[sctype])
+        q, r = la.qr(self.ones[sctype])
+        self.assertArrayAllClose(q @ r, self.ones[sctype])
+        low, up, piv = la.lu(self.ones[sctype])
+        self.assertArrayAllClose(low @ up, self.ones[sctype])
 
 
 # =============================================================================

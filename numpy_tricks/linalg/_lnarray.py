@@ -171,9 +171,9 @@ class lnarray(np.ndarray):
 
         Flattens those axes in the range [start:stop)
         """
-        if start > stop:
-            raise ValueError("start={} > stop={}".format(start, stop))
         newshape = self.shape[:start] + (-1,) + self.shape[stop:]
+        if len(newshape) > self.ndim + 1:
+            raise ValueError("start={} > stop={}".format(start, stop))
         return self.reshape(newshape)
 
     def expand_dims(self, *axis) -> 'lnarray':

@@ -310,7 +310,7 @@ typedef struct gesv_params_struct
 // lu_raw_signature = "(m,n)->(m,n),(k)"
 
 /**************************************************
-* Calling BLAS/Lapack function _getrf *
+* Calling BLAS/Lapack function _getrf             *
 ***************************************************/
 
 static NPY_INLINE void
@@ -322,7 +322,7 @@ call_@getrf@(GESV_PARAMS_t *params)
 }
 
 /***************************************************************************
-* Initialize the parameters to use in the lapack functions _gesv           *
+* Initialize the parameters to use in the lapack functions _getrf          *
 * Handles buffer allocation
 ****************************************************************************/
 static NPY_INLINE int
@@ -418,7 +418,7 @@ static void
             linearize_@TYPE@_matrix(params.A, args[0], &a_in);
             call_@getrf@(&params);
             not_ok = params.INFO;
-            if (not_ok) {
+            if (not_ok < 0) {
                 error_occurred = 1;
                 nan_@TYPE@_matrix(args[1], &l_out);
                 nan_@TYPE@_matrix(args[2], &u_out);
@@ -471,7 +471,7 @@ static void
             linearize_@TYPE@_matrix(params.A, args[0], &a_in);
             call_@getrf@(&params);
             not_ok = params.INFO;
-            if (not_ok) {
+            if (not_ok < 0) {
                 error_occurred = 1;
                 nan_@TYPE@_matrix(args[1], &f_out);
             } else {
@@ -494,7 +494,7 @@ static void
 // rsolve_signature = "(m,n),(k)->(m,n)"
 
 /**************************************************
-* Calling BLAS/Lapack function _laswp *
+* Calling BLAS/Lapack function _laswp             *
 ***************************************************/
 
 static NPY_INLINE void
@@ -507,7 +507,7 @@ call_@laswp@(GESV_PARAMS_t *params)
 }
 
 /***************************************************************************
-* Initialize the parameters to use in the lapack functions _gesv           *
+* Initialize the parameters to use in the lapack functions _laswp          *
 * Handles buffer allocation
 ****************************************************************************/
 static NPY_INLINE int

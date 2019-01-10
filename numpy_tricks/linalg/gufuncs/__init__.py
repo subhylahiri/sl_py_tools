@@ -134,7 +134,9 @@ def make_errobj(msg, kwdict=None):
     extobj = list(_errobj)  # make a copy
 
     def callback(err, flag):
+        """Raise LinAlgError"""
         raise _np.linalg.LinAlgError(msg)
+
     extobj.append(callback)
     if kwdict is not None and not kwdict.get('extobj'):
         kwdict['extobj'] = extobj
