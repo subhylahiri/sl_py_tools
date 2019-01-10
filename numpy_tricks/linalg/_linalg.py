@@ -317,7 +317,7 @@ def lu(x: np.ndarray, mode: str = 'separate', *args,
         Matrix with zeros above the diagonal and ones on the diagonal.
     U: ndarray (...,K,N). Modes: `separate`.
         Matrix with zeros below the diagonal.
-    AF: ndarray (...,N,M). Modes: `raw`.
+    AF: ndarray (...,M,N). Modes: `raw`.
         Raw matrix output from Lapack in Fortran.
             On & super-diagonal: non-zero part of `U`.
             Sub-diagonal: non-zero part of `L`, excluding diagonal.

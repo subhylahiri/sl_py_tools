@@ -23,7 +23,6 @@ class TestLinalg(utn.TestCaseNumpy):
 
     def setUp(self):
         super().setUp()
-        self.sctype.append('i')
         self.u = {}
         self.v = {}
         self.w = {}
@@ -155,7 +154,7 @@ class TestShape(TestLinalg):
 class TestValue(TestLinalg):
     """Testing values returned by linalg functions"""
 
-    @utn.loop_test(attr_inds=slice(4))
+    @utn.loop_test()
     def test_la_fn(self, sctype):
         """Check (r)matmul, (r)solve, (r)lstsq, return arrays of correct value
         """
@@ -182,7 +181,7 @@ class TestValue(TestLinalg):
         self.assertArrayAllClose(la.rlstsq(self.u[sctype], self.y[sctype]),
                                  gf.rlstsq(self.u[sctype], self.y[sctype]))
 
-    @utn.loop_test(attr_inds=slice(4))
+    @utn.loop_test()
     def test_div_fn(self, sctype):
         """Check matldiv, matrdiv return correct value
         """
@@ -203,7 +202,44 @@ class TestValue(TestLinalg):
         self.assertArrayAllClose(la.matrdiv(self.u[sctype], self.y[sctype]),
                                  gf.rlstsq(self.u[sctype], self.y[sctype]))
 
-    @utn.loop_test(attr_inds=slice(4))
+    @utn.loop_test()
+    def test_qr(self, sctype):
+        """Check that qr returns correct shape in each mode
+        """
+        q, r = la.qr(self.x[sctype], 'reduced')
+        self.assertArrayAllClose(q @ r, self.x[sctype])
+        q, r = la.qr(self.y[sctype], 'reduced')
+        self.assertArrayAllClose(q @ r, self.y[sctype])
+        q, r = la.qr(self.x[sctype], 'complete')
+        self.assertArrayAllClose(q @ r, self.x[sctype])
+        q, r = la.qr(self.y[sctype], 'complete')
+        self.assertArrayAllClose(q @ r, self.y[sctype])
+        r = la.qr(self.x[sctype], 'r')
+        h, tau = la.qr(self.x[sctype], 'raw')
+        self.assertArrayAllClose(r, np.triu(la.transpose(h))[:, :3])
+        r = la.qr(self.y[sctype], 'r')
+        h, tau = la.qr(self.y[sctype], 'raw')
+        self.assertArrayAllClose(r, np.triu(la.transpose(h)))
+
+    @utn.loop_test()
+    def test_lu(self, sctype):
+        """Check that lu returns correct shape in each mode
+        """
+        low, up, piv = la.lu(self.w[sctype], 'separate')
+        luf, piv = la.lu(self.w[sctype], 'raw')
+        self.assertArrayAllClose(low @ up, gf.pivot(self.w[sctype], piv))
+        self.assertArrayAllClose(np.tril(low, -1), np.tril(luf, -1))
+        self.assertArrayAllClose(up, np.triu(luf))
+        low, up, piv = la.lu(self.x[sctype], 'separate')
+        luf, piv = la.lu(self.x[sctype], 'raw')
+        self.assertArrayAllClose(np.tril(low, -1), np.tril(luf, -1))
+        self.assertArrayAllClose(up, np.triu(luf)[:, :3])
+        low, up, piv = la.lu(self.y[sctype], 'separate')
+        luf, piv = la.lu(self.y[sctype], 'raw')
+        self.assertArrayAllClose(np.tril(low, -1), np.tril(luf, -1)[:, :3])
+        self.assertArrayAllClose(up, np.triu(luf))
+
+    @utn.loop_test()
     def test_low_rank(self, sctype):
         """Check matldiv, matrdiv return correct value
         """

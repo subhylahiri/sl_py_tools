@@ -183,6 +183,7 @@ class TestPinvarray(TestNewClasses):
         u, v, x = self.u[sctype], self.v[sctype], self.x[sctype]
         vs = v.view(la.lnarray).s
         self.assertArrayAllClose(x.pinv @ v, gf.lstsq(x, v))
+        self.assertArrayAllClose(x.pinv() @ v, gf.lstsq(x, v))
         self.assertArrayAllClose(u @ x.pinv.t, gf.rlstsq(u, x.t))
         with self.assertRaises(TypeError):
             x.pinv @ u.pinv
@@ -207,6 +208,7 @@ class TestPinvarray(TestNewClasses):
         x, y = self.x[sctype], self.y[sctype]
         xw = x[:, :3]
         self.assertArrayAllClose(w.inv @ y, gf.solve(w, y))
+        self.assertArrayAllClose(w.inv() @ y, gf.solve(w, y))
         self.assertArrayAllClose(x @ w.inv, gf.rsolve(x, w))
         self.assertArrayAllClose((w.inv @ xw.inv).inv, xw @ w)
         self.assertArrayAllClose((w.inv * 3.5).inv, w / 3.5)
