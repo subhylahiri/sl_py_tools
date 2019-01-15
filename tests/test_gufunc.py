@@ -40,24 +40,23 @@ class TestBlas(utn.TestCaseNumpy):
     def test_norm_shape(self):
         """Check that norm returns arrays with the expected shape
         """
-        # shape
         self.assertEqual(self.gf.norm(self.x['d']).shape, (2, 3))
         self.assertEqual(self.gf.norm(self.x['d'], axis=1).shape, (2, 5))
         self.assertEqual(self.gf.norm(self.x['d'], keepdims=True).shape,
                          (2, 3, 1))
 
-    @utn.loop_test(msg='norm val', attr_inds=slice(1, None))
-    def test_norm_val(self, sctype):
+    @utn.loop_test(msg='norm val', attr_inds=slice(-1))
+    def test_norm_val(self, sctype: str):
         """Check that norm returns the expected values
         """
-        # value
-        n = self.gf.norm(self.w[sctype])
+        nout = np.empty((2, 3), dtype=sctype.lower())
+        n = self.gf.norm(self.w[sctype], out=nout)
         self.assertArrayAllClose(n, self.n[sctype])
+        self.assertArrayAllClose(n, nout)
 
     def test_matmul_shape(self):
         """Check that matmul returns arrays with the expected shape
         """
-        # shape
         with self.assertRaisesRegex(*utn.core_dim_err):
             self.gf.matmul(self.y['d'], self.x['d'])
 
@@ -65,8 +64,8 @@ class TestBlas(utn.TestCaseNumpy):
     def test_matmul_val(self, sctype):
         """Check that matmul returns the expected values
         """
-        # value
-        z = self.gf.matmul(self.x[sctype], self.y[sctype])
+        zout = np.empty((2, 3, 2), sctype)
+        z = self.gf.matmul(self.x[sctype], self.y[sctype], out=zout)
         self.assertArrayAllClose(z, self.z[sctype])
 
     def test_rmatmul_shape(self):
@@ -79,7 +78,8 @@ class TestBlas(utn.TestCaseNumpy):
     def test_rmatmul_val(self, sctype):
         """Check that rmatmul returns the expected values
         """
-        z = self.gf.rmatmul(self.y[sctype], self.x[sctype])
+        zout = np.empty((2, 3, 2), sctype)
+        z = self.gf.rmatmul(self.y[sctype], self.x[sctype], out=zout)
         self.assertArrayAllClose(z, self.z[sctype])
 
 
@@ -99,7 +99,6 @@ class TestCloop(TestBlas):
     def test_rdiv_shape(self):
         """Check that rtrue_divide returns arrays with the expected shape
         """
-        # shape
         with self.assertRaisesRegex(*utn.broadcast_err):
             self.gf.rtrue_divide(self.x['d'], self.z['d'])
 
@@ -107,11 +106,11 @@ class TestCloop(TestBlas):
     def test_rdiv_val(self, sctype):
         """Check that rtrue_divide returns the expected values
         """
-        # value
+        zout = np.empty((2, 3, 5), sctype)
         x = self.x[sctype]
         x[np.abs(x) < 1e-5] += 1.
         y = self.y[sctype].T[:, None]
-        z = self.gf.rtrue_divide(x, y)
+        z = self.gf.rtrue_divide(x, y, out=zout)
         zz = y / x
         self.assertArrayAllClose(z, zz)
         self.assertArrayNotAllClose(z, x / y, msg='x \\ y != x / y')

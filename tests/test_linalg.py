@@ -167,6 +167,9 @@ class TestValue(TestLinalg):
         # solve
         self.assertArrayAllClose(la.solve(self.w[sctype], self.y[sctype]),
                                  gf.solve(self.w[sctype], self.y[sctype]))
+        wyout = np.empty((2, 3, 5), sctype)
+        wy = la.solve(self.w[sctype], self.y[sctype], out=wyout)
+        self.assertArrayAllClose(wyout, wy)
         # rsolve
         self.assertArrayAllClose(la.rsolve(self.x[sctype], self.w[sctype]),
                                  gf.rsolve(self.x[sctype], self.w[sctype]))
@@ -175,6 +178,9 @@ class TestValue(TestLinalg):
                                  gf.lstsq(self.x[sctype], self.v[sctype]))
         self.assertArrayAllClose(la.lstsq(self.y[sctype], self.w[sctype]),
                                  gf.lstsq(self.y[sctype], self.w[sctype]))
+        xvout = np.empty((2, 3, 2), sctype)
+        xv = la.lstsq(self.x[sctype], self.v[sctype], out=xvout)
+        self.assertArrayAllClose(xvout, xv)
         # rlstsq
         self.assertArrayAllClose(la.rlstsq(self.w[sctype], self.x[sctype]),
                                  gf.rlstsq(self.w[sctype], self.x[sctype]))
@@ -188,6 +194,9 @@ class TestValue(TestLinalg):
         # solve
         self.assertArrayAllClose(la.matldiv(self.w[sctype], self.y[sctype]),
                                  gf.solve(self.w[sctype], self.y[sctype]))
+        wyout = np.empty((2, 3, 5), sctype)
+        wy = la.matldiv(self.w[sctype], self.y[sctype], out=wyout)
+        self.assertArrayAllClose(wyout, wy)
         # rsolve
         self.assertArrayAllClose(la.matrdiv(self.x[sctype], self.w[sctype]),
                                  gf.rsolve(self.x[sctype], self.w[sctype]))
@@ -204,7 +213,7 @@ class TestValue(TestLinalg):
 
     @utn.loop_test()
     def test_qr(self, sctype):
-        """Check that qr returns correct shape in each mode
+        """Check that qr returns correct value in each mode
         """
         q, r = la.qr(self.x[sctype], 'reduced')
         self.assertArrayAllClose(q @ r, self.x[sctype])
@@ -223,7 +232,7 @@ class TestValue(TestLinalg):
 
     @utn.loop_test()
     def test_lu(self, sctype):
-        """Check that lu returns correct shape in each mode
+        """Check that lu returns correct value in each mode
         """
         low, up, piv = la.lu(self.w[sctype], 'separate')
         luf, piv = la.lu(self.w[sctype], 'raw')
@@ -241,7 +250,7 @@ class TestValue(TestLinalg):
 
     @utn.loop_test()
     def test_low_rank(self, sctype):
-        """Check matldiv, matrdiv return correct value
+        """Check low rank matrices are handled appropriately
         """
         with self.assertRaises(np.linalg.LinAlgError):
             la.solve(self.ones[sctype], self.y[sctype])

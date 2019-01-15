@@ -181,7 +181,7 @@ class TestPinvarray(TestNewClasses):
         """test pinvarray behaviour in operators
         """
         u, v, x = self.u[sctype], self.v[sctype], self.x[sctype]
-        vs = v.view(la.lnarray).s
+        y, vs = self.y[sctype], v.view(la.lnarray).s
         self.assertArrayAllClose(x.pinv @ v, gf.lstsq(x, v))
         self.assertArrayAllClose(x.pinv() @ v, gf.lstsq(x, v))
         self.assertArrayAllClose(u @ x.pinv.t, gf.rlstsq(u, x.t))
@@ -199,6 +199,8 @@ class TestPinvarray(TestNewClasses):
             vs / x.pinv
         with self.assertRaises(TypeError):
             vs.pinv * x.pinv
+        with self.assertRaises(TypeError):
+            x.pinv + y
 
     @utn.loop_test()
     def test_inv_ops(self, sctype):
@@ -223,6 +225,8 @@ class TestPinvarray(TestNewClasses):
             vs / xw.inv
         with self.assertRaises(TypeError):
             vs.inv * xw.inv
+        with self.assertRaises(TypeError):
+            w + xw.inv
 
 
 if __name__ == '__main__':
