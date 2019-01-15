@@ -4,7 +4,8 @@ This package contains classes and functions that make the syntax for linear
 algebra in `numpy` cleaner, particularly with respect to broadcasting and
 matrix division. The main way of using this is via the `lnarray` class
 (the `qr` function is the only other thing I find useful here). All of the
-functions will work with `numpy.ndarray` objects as well.
+functions will work with `numpy.ndarray` objects as well. Furthermore,
+`matmul` is implemented with a `gufunc` which should make broadcasting faster.
 
 The `lnarray` class has properties `t` for transposing, `h` for
 conjugate-transposing, `r` for row vectors, `c` for column vectors and `s` for
@@ -23,7 +24,7 @@ The `lnarray` class also has properties for delayed matrix division:
 None of the above actually invert the matrices. They return `invarray/pinvarray`
 objects that call `solve/lstsq` behind the scenes, which is [faster and more
 accurate](https://www.johndcook.com/blog/2010/01/19/dont-invert-that-matrix/).
-To get the actual inverse matrices:
+To get the actual inverse matrices you can call the objects:
 ```python
 >>> x = y.inv()
 >>> x = y.pinv()
@@ -39,6 +40,7 @@ To get the actual inverse matrices:
     Provides interface for matrix division when it is matrix multiplied (@).
     Returned by `lnarray.pinv`. It calls `lstsq` behind the scenes.
     Does not actually pseudoinvert the matrix unless it is explicitly called.
+    Other operations, such as addition
     I think it is best not to store these objects in variables, and call on
     `lnarray.pinv` on the rhs instead.
 * `invarray`:  
@@ -83,7 +85,7 @@ To get the actual inverse matrices:
     Treat multi-dim array as a stack of column vectors.
 * `row`:  
     Treat multi-dim array as a stack of row vectors.
-* `scal`:  
+* `scalar`:  
     Treat multi-dim array as a stack of scalars.
 * `matldiv`:  
     Matrix division from left (exact or least-squares).
@@ -98,7 +100,6 @@ To get the actual inverse matrices:
 ## GUfuncs
 These implement the functions above.
 * `gufuncs.matmul`:  
-    Implements `matmul` above.
 * `gufuncs.solve`:  
 * `gufuncs.rsolve`:  
 * `gufuncs.lstsq`:  
@@ -126,7 +127,7 @@ These implement the functions above.
     Implement `qr` in `raw` mode.
 * `gufuncs.pivot`:  
 * `gufuncs.rpivot`:  
-    Perform row pivots with the output of lu_*.
+    Perform row pivots with the output of `lu_*`.
 * `gufuncs.solve_lu`:  
 * `gufuncs.rsolve_lu`:  
     Also return LU decomposition in `raw` form for future use.
@@ -188,10 +189,9 @@ You will need to have the appropriate C compilers. On Linux, you should already 
 On Windows, [see here](https://wiki.python.org/moin/WindowsCompilers).
 
 You will need a BLAS/Lapack distribution. Anaconda usually uses MKL, but they
-recently moved the headers to a different package. You can find them on
-[Intel's anaconda channel](https://software.intel.com/en-us/articles/using-intel-distribution-for-python-with-anaconda):
+recently moved the headers to a different package. You can install them with:
 ```
-> conda install mkl-devel -c intel --no-update-deps
+> conda install mkl-devel
 ```
 I found this wreaked havoc with its dependencies.
 Alternatively, you can downgrade to a version that has the headers, e.g.
@@ -205,7 +205,7 @@ Another option is [OpenBLAS](https://www.openblas.net/)
 ([see here](https://docs.continuum.io/mkl-optimizations/#uninstalling-mkl) under
 Uninstalling MKL).
 
-If your BLAS/Lapack distribution is installed somewhere numpy isn't expecting,
+If your BLAS/Lapack distribution is installed somewhere `numpy` isn't expecting,
 you can provide directions in a [site.cfg file](https://github.com/numpy/numpy/blob/master/site.cfg.example).
 
 Once you have all of the above, you can build the CPython modules in-place:

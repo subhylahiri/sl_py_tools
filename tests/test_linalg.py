@@ -52,7 +52,7 @@ class TestShape(TestLinalg):
         self.assertEqual(la.transpose(self.x['d']).shape, (2, 3, 5))
         self.assertEqual(la.row(self.x['d']).shape, (2, 5, 1, 3))
         self.assertEqual(la.col(self.x['d']).shape, (2, 5, 3, 1))
-        self.assertEqual(la.scal(self.x['d']).shape, (2, 5, 3, 1, 1))
+        self.assertEqual(la.scalar(self.x['d']).shape, (2, 5, 3, 1, 1))
 
     def test_la_fn(self):
         """Check (r)matmul, (r)solve, (r)lstsq, return arrays of correct shape

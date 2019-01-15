@@ -39,7 +39,7 @@ __all__ = [
     'dagger',
     'col',
     'row',
-    'scal',
+    'scalar',
     'matmul',
     'rmatmul',
     'solve',
@@ -55,6 +55,65 @@ __all__ = [
 # =============================================================================
 # Reshaping for linear algebra
 # =============================================================================
+
+
+def flattish(arr: np.ndarray, start: int, stop: int) -> np.ndarray:
+    """Partial flattening.
+
+    Flattens those axes in the range [start:stop)
+
+    Parameters
+    ----------
+    arr : np.ndarray (...,L,M,N,...,P,Q,R,...)
+        Array to be partially flattened.
+    start : int
+        First axis of group to be flattened.
+    stop : int
+        First axis *after* group to be flattened.
+
+    Returns
+    -------
+    new_arr : np.ndarray (...,L,M*N*...*P*Q,R,...)
+        Partially flattened array.
+    """
+    newshape = arr.shape[:start] + (-1,) + arr.shape[stop:]
+    if len(newshape) > arr.ndim + 1:
+        raise ValueError("start={} > stop={}".format(start, stop))
+    return np.reshape(arr, newshape)
+
+
+def expand_dims(arr: np.ndarray, *axis) -> np.ndarray:
+    """Expand the shape of the array with length one axes.
+
+    Alias of `numpy.expand_dims` when `*axis` is a single `int`. If `axis`
+    is a sequence of `int`, axis numbers are relative to the *final* shape.
+
+    Parameters
+    ----------
+    arr : np.ndarray (...,L,M,N,...,P,Q,...)
+        Array to be expanded.
+    *axis : int
+        Positions where new axes are inserted. Negative numbers are allowed.
+        Numbers are with respect to the final shape.
+
+    Returns
+    -------
+    new_arr : np.ndarray (...,L,1,M,1,N,...,P,1,Q,...)
+        Expanded array.
+
+    See Also
+    --------
+    numpy.expand_dims
+    """
+    if len(axis) == 0:
+        return arr
+    if len(axis) == 1:
+        return np.expand_dims(arr, axis[0]).view(type(arr))
+    axes_sort = tuple(np.sort(np.mod(axis, arr.ndim + len(axis))))
+    axes_same = np.flatnonzero(np.diff(axes_sort) == 0)
+    if axes_same.size > 0:
+        raise ValueError('repeated axes, arguments: {}'.format(axes_same))
+    return expand_dims(expand_dims(arr, axes_sort[0]), *axes_sort[1:])
 
 
 def transpose(a: np.ndarray) -> np.ndarray:
@@ -93,7 +152,7 @@ def dagger(a: np.ndarray) -> np.ndarray:
     return transpose(a.conj())
 
 
-def col(a: np.ndarray) -> np.ndarray:
+def col(arr: np.ndarray) -> np.ndarray:
     """Treat multi-dim array as a stack of column vectors.
 
     Achieves this by inserting a singleton dimension in last slot.
@@ -102,16 +161,16 @@ def col(a: np.ndarray) -> np.ndarray:
 
     Parameters
     ----------
-    a : np.ndarray, (..., N)
+    arr : np.ndarray, (..., N)
 
     Returns
     -------
     expanded : np.ndarray, (..., N, 1)
     """
-    return a[..., None]
+    return expand_dims(arr, -1)
 
 
-def row(a: np.ndarray) -> np.ndarray:
+def row(arr: np.ndarray) -> np.ndarray:
     """Treat multi-dim array as a stack of row vectors.
 
     Achieves this by inserting a singleton dimension in second-to-last slot.
@@ -120,29 +179,29 @@ def row(a: np.ndarray) -> np.ndarray:
 
     Parameters
     ----------
-    a : np.ndarray, (..., N)
+    arr : np.ndarray, (..., N)
 
     Returns
     -------
     expanded : np.ndarray, (..., 1, N)
     """
-    return a[..., None, :]
+    return expand_dims(arr, -2)
 
 
-def scal(a: np.ndarray) -> np.ndarray:
+def scalar(arr: np.ndarray) -> np.ndarray:
     """Treat multi-dim array as a stack of scalars.
 
     Achieves this by inserting singleton dimensions in last two slots.
 
     Parameters
     ----------
-    a : np.ndarray, (...,)
+    arr : np.ndarray, (...,)
 
     Returns
     -------
     expanded : np.ndarray, (..., 1, 1)
     """
-    return a[..., None, None]
+    return expand_dims(arr, -2, -1)
 
 
 # =============================================================================

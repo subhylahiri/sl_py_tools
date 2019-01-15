@@ -170,27 +170,24 @@ class lnarray(np.ndarray):
         """Partial flattening.
 
         Flattens those axes in the range [start:stop)
+
+        See Also
+        --------
+        linalg.flattish
         """
-        newshape = self.shape[:start] + (-1,) + self.shape[stop:]
-        if len(newshape) > self.ndim + 1:
-            raise ValueError("start={} > stop={}".format(start, stop))
-        return self.reshape(newshape)
+        return la.flattish(self, start, stop)
 
     def expand_dims(self, *axis) -> 'lnarray':
         """Expand the shape of the array with length one axes
 
         Alias of `numpy.expand_dims` when `*axis` is a single `int`. If `axis`
         is a sequence of `int`, axis numbers are relative to the *final* shape.
+
+        See Also
+        --------
+        linalg.expand_dims
         """
-        if len(axis) == 0:
-            return self
-        if len(axis) == 1:
-            return np.expand_dims(self, axis[0]).view(type(self))
-        axes_sort = tuple(np.sort(np.mod(axis, self.ndim + len(axis))))
-        axes_same = np.flatnonzero(np.diff(axes_sort) == 0)
-        if axes_same.size > 0:
-            raise ValueError('repeated axes, arguments: {}'.format(axes_same))
-        return self.expand_dims(axes_sort[0]).expand_dims(*axes_sort[1:])
+        return la.expand_dims(self, *axis)
 
     @property
     def t(self) -> 'lnarray':
@@ -202,8 +199,12 @@ class lnarray(np.ndarray):
         Parameters/Results
         ------------------
         a : lnarray, (..., M, N) --> transposed : lnarray, (..., N, M)
+
+        See Also
+        --------
+        linalg.transpose
         """
-        return self.swapaxes(-1, -2)
+        return la.transpose(self)
 
     @property
     def h(self) -> 'lnarray':
@@ -215,8 +216,12 @@ class lnarray(np.ndarray):
         Parameters/Results
         ------------------
         a : lnarray, (..., M, N) --> transposed : lnarray, (..., N, M)
+
+        See Also
+        --------
+        linalg.dagger
         """
-        return self.conj().swapaxes(-1, -2)
+        return la.dagger(self)
 
     @property
     def r(self) -> 'lnarray':
@@ -227,8 +232,12 @@ class lnarray(np.ndarray):
         Parameters/Results
         ------------------
         a : lnarray, (..., N) --> expanded : lnarray, (..., 1, N)
+
+        See Also
+        --------
+        linalg.row
         """
-        return self.expand_dims(-2)
+        return la.row(self)
 
     @property
     def c(self) -> 'lnarray':
@@ -239,8 +248,12 @@ class lnarray(np.ndarray):
         Parameters/Results
         ------------------
         a : lnarray, (..., N) --> expanded : lnarray, (..., N, 1)
+
+        See Also
+        --------
+        linalg.col
         """
-        return self.expand_dims(-1)
+        return la.col(self)
 
     @property
     def s(self) -> 'lnarray':
@@ -251,8 +264,12 @@ class lnarray(np.ndarray):
         Parameters/Results
         ------------------
         a : lnarray, (...,) --> expanded : lnarray, (..., 1, 1)
+
+        See Also
+        --------
+        linalg.scalar
         """
-        return self.expand_dims(-1, -2)
+        return la.scalar(self)
 
     @property
     def ur(self) -> 'lnarray':
