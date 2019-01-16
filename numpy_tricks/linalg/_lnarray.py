@@ -425,6 +425,10 @@ class pinvarray(gf.LNArrayOperatorsMixin):
     being stored in a variable.
     Use `pinvarray()` to get the actual pseudoinverse.
 
+    This object contains a reference to the original array, so in place
+    modifications of a `pinvarray` object will affect the original `lnarray`
+    object.
+
     Methods
     -------
     self() -> lnarray
@@ -701,6 +705,10 @@ class invarray(pinvarray):
     It is intended to be ephemeral, appearing in larger expressions rather than
     being stored in a variable.
     Use `invarray()` to get the actual inverse.
+
+    This object contains a reference to the original array, so in place
+    modifications of a `pinvarray` object will affect the original `lnarray`
+    object.
 
     Methods
     -------

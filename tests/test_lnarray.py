@@ -46,6 +46,10 @@ class TestArray(TestNewClasses):
         v, w, x, y = self.v['d'], self.w['d'], self.x['d'], self.y['d']
         self.assertIsInstance(x @ y, la.lnarray)
         self.assertIsInstance(y @ x, la.lnarray)
+        xyout = np.empty((2, 5, 5), 'd')
+        xy = la.matmul(x, y, xyout)
+        self.assertIsInstance(xy, np.ndarray)
+        self.assertIsInstance(xyout, np.ndarray)
         self.assertIsInstance(np.matmul(x, y), np.ndarray)
         self.assertIsInstance(la.solve(w, y), la.lnarray)
         self.assertIsInstance(np.linalg.solve(w, y), np.ndarray)
@@ -80,15 +84,21 @@ class TestArray(TestNewClasses):
 
     @utn.loop_test(attr_inds=slice(4))
     def test_array_value(self, sctype):
-        """Check that operator returns the correct value
+        """Check that operators and functions return the correct value
         """
         w, x, z = self.w[sctype], self.x[sctype], self.z[sctype]
+        xwout = np.empty((2, 5, 3), sctype)
+        xw = la.matmul(x, w, xwout)
+        self.assertArrayAllClose(xw, xwout)
+        self.assertArrayAllClose(x @ w, np.matmul(x, w))
         self.assertArrayAllClose(x @ w, np.matmul(x, w))
         self.assertArrayAllClose(x @ z, np.matmul(x, z))
         self.assertArrayAllClose(gf.solve(w, z), np.linalg.solve(w, z))
         self.assertArrayAllClose(gf.lstsq(x.t[0], z),
                                  np.linalg.lstsq(x[0].t, z, rcond=None)[0])
         self.assertArrayAllClose(gf.rmatmul(w, x), np.matmul(x, w))
+        x @= w
+        self.assertArrayAllClose(xw, x)
 
 
 class TestPinvarray(TestNewClasses):
@@ -111,6 +121,10 @@ class TestPinvarray(TestNewClasses):
         self.assertIsInstance(p.pinv, la.lnarray)
         self.assertIsInstance(2 * p, la.pinvarray)
         self.assertIsInstance((2 * p).pinv, la.lnarray)
+        pout = la.pinvarray(la.empty_like(self.v['d']))
+        np.multiply(2, p, pout)
+        self.assertIsInstance(pout, la.pinvarray)
+        self.assertIsInstance(pout.pinv, la.lnarray)
         with self.assertRaises(AttributeError):
             p.inv
         with self.assertRaises(TypeError):
@@ -138,6 +152,10 @@ class TestPinvarray(TestNewClasses):
         u, v, x = self.u[sctype], self.v[sctype], self.x[sctype]
         self.assertArrayAllClose(gf.matmul(x.pinv, v), gf.lstsq(x, v))
         self.assertArrayAllClose(gf.matmul(u, x.pinv.t), gf.rlstsq(u, x.t))
+        xpout = la.pinvarray(la.empty_like(x))
+        xp = np.multiply(x.pinv, 2, out=xpout)
+        self.assertArrayAllClose(xp.pinv, xpout.pinv)
+        self.assertArrayAllClose(xp.pinv, x / 2)
         with self.assertRaises(TypeError):
             gf.matmul(x.pinv, u.pinv)
         self.assertArrayAllClose(gf.lstsq(u.pinv, v), gf.matmul(u, v))
@@ -201,6 +219,10 @@ class TestPinvarray(TestNewClasses):
             vs.pinv * x.pinv
         with self.assertRaises(TypeError):
             x.pinv + y
+        xold = 1. * x
+        xp = x.pinv
+        xp *= 2
+        self.assertArrayAllClose(x, xold / 2)
 
     @utn.loop_test()
     def test_inv_ops(self, sctype):
@@ -227,6 +249,10 @@ class TestPinvarray(TestNewClasses):
             vs.inv * xw.inv
         with self.assertRaises(TypeError):
             w + xw.inv
+        xwold = 1. * xw
+        xwi = xw.inv
+        xwi @= w.inv
+        self.assertArrayAllClose(xw, w @ xwold)
 
 
 if __name__ == '__main__':

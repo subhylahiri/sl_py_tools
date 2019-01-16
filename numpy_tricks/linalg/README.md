@@ -40,13 +40,18 @@ To get the actual inverse matrices you can call the objects:
     Provides interface for matrix division when it is matrix multiplied (@).
     Returned by `lnarray.pinv`. It calls `lstsq` behind the scenes.
     Does not actually pseudoinvert the matrix unless it is explicitly called.
-    Other operations, such as addition
+    Other operations, such as addition are not defined. This object contains a
+    reference to the original array, so in place modifications of a `pinvarray`
+    object will affect the original `lnarray` object.
     I think it is best not to store these objects in variables, and call on
     `lnarray.pinv` on the rhs instead.
 * `invarray`:  
     Provides interface for matrix division when it is matrix multiplied (@).
     Returned by `lnarray.inv`. It calls `solve` behind the scenes.
     Does not actually invert the matrix unless it is explicitly called.
+    Other operations, such as addition are not defined. This object contains a
+    reference to the original array, so in place modifications of a `pinvarray`
+    object will affect the original `lnarray` object.
     I think it is best not to store these objects in variables, and call on
     `lnarray.inv` on the rhs instead.
 * `lnmatrix`:  
