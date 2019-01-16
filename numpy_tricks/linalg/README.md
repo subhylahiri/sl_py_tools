@@ -1,5 +1,7 @@
 # Numpy linear algebra helpers
 
+[Instructions for building the CPython modules below](#building-the-cpython-modules)
+
 This package contains classes and functions that make the syntax for linear
 algebra in `numpy` cleaner, particularly with respect to broadcasting and
 matrix division. The main way of using this is via the `lnarray` class
