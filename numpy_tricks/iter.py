@@ -53,6 +53,8 @@ class DisplayNDIndex(_it.DisplayMixin):
 
     def __init__(self, *args: _it.DSliceArgs, **kwds: _it.KeyWords):
         name, shape = _it.extract_name(args, kwds)
+        if isinstance(shape[0], tuple):
+            shape = shape[0]
         self.offset = 1
         super().__init__(**kwds)
         if name:
@@ -115,6 +117,9 @@ class _DispNDIterBase(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
     --------
     numpy.nditer
     """
+
+    def __init_subclass__(cls):
+        pass
 
     def __init__(self, *args: _it.Args, **kwds: _it.KeyWords):
         super().__init__(*args, **kwds)
