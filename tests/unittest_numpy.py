@@ -4,16 +4,21 @@
 import unittest
 import contextlib
 import functools
-import types
-import sys
 import numpy as np
 import sl_py_tools.numpy_tricks.linalg._lnarray as la
 
 __all__ = [
         'TestCaseNumpy',
+        'loop_test',
         'miss_str',
         'asa',
-        'errstate'
+        'randn_asa',
+        'zeros_asa',
+        'ones_asa',
+        'errstate',
+        'broadcast_err',
+        'core_dim_err',
+        'invalid_err',
         ]
 # =============================================================================
 # %% Error specs for assertRaisesRegex
@@ -28,10 +33,6 @@ invalid_err = (FloatingPointError, 'invalid value encountered')
 __unittest = True
 
 
-def _fake_tb(lineno):
-    return types.TracebackType(None, sys._getframe(2), 1, lineno)
-
-
 class TestResultNumpy(unittest.TextTestResult):
     def _is_relevant_tb_level(self, tb):
         f_vars = tb.tb_frame.f_globals.copy()
@@ -44,7 +45,7 @@ class TestResultNumpy(unittest.TextTestResult):
 
 
 class TestCaseNumpy(unittest.TestCase):
-    """Test case mith methods for comparing numpy arrays.
+    """Test case with methods for comparing numpy arrays.
 
     Subclass this class to make your own unit test suite.
     It has several assertArray... methods that call numpy functions and
@@ -200,16 +201,16 @@ def miss_str(x, y, atol=1e-8, rtol=1e-5, equal_nan=True):
     shape = np.broadcast(x, y).shape
     thresh = atol + rtol * np.abs(np.broadcast_to(y, shape))
     mismatch = np.abs(x - y)
-    mis_frac = mismatch / thresh
+    mis_frac = np.log(mismatch) - np.log(thresh)
     ind = np.unravel_index(np.argmax(mis_frac), mis_frac.shape)
-    formatter = 'Should be zero: {:.2g}\nor: {:.2g} = {:.2g} * {:.1f} at {}'
+    formatter = 'Should be zero: {:.2g}\nor: {:.2g} = {:.2g} * 1e{:.1f} at {}'
     if equal_nan:
         worst = np.nanmax(mismatch)
     else:
         worst = np.amax(mismatch)
 
     return formatter.format(worst, mismatch[ind], thresh[ind],
-                            mis_frac[ind], ind)
+                            mis_frac[ind] / np.log(10), ind)
 
 
 cmplx = {'b': 0, 'h': 0, 'i': 0, 'l': 0, 'p': 0, 'q': 0,

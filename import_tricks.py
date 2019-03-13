@@ -30,7 +30,7 @@ __all__ = ['Reloader', 'reload']
 
 # frippery
 from collections.abc import Callable
-from typing import Tuple, Set
+from typing import Tuple, Set, AbstractSet
 # essential
 import sys
 import os
@@ -86,6 +86,10 @@ class Reloader(Callable):
     >>> reload.exclude_pkg('other_std_package','another_std_package')
     >>> reload(my_module)
     """
+
+    excluded_mods: Tuple[str, ...]
+    excluded_pkgs: Set[str, ...]
+
     def __init__(self,
                  also_exclude_mods: Tuple[str, ...] = (),
                  also_exclude_pkgs: Tuple[str, ...] = (),
@@ -94,24 +98,15 @@ class Reloader(Callable):
 
         self.excluded_mods = also_exclude_mods
         self.exclude_mod(*deepreload.reload.__defaults__[0])
-#        self.exclude_mod('typing', 'collections', 'collections.abc', 'abc')
-#        self.exclude_mod('types', 'numbers', 'io', 'contextlib', 'datetime')
-#        self.exclude_mod('itertools', 'functools', 'pkgutil')
 
         self.excluded_pkgs = set(also_exclude_pkgs)
         self.exclude_pkg('numpy', 'matplotlib', 'scipy', 'IPython', 'numba',
                          'llvmlite')
-#        self.exclude_pkg('importlib')
 
     def __call__(self, module, *args, **kwd):
         """Deep reload `module` with specified modules and packages excluded.
         """
-        if self.exclude_std:
-            context = replace_import_submodule_hook_std(self.excluded_pkgs)
-        else:
-            context = replace_import_submodule_hook(self.excluded_pkgs)
-
-        with context:
+        with replace_import_submodule(self.excluded_pkgs, self.exclude_std):
             deepreload.reload(module, *args, exclude=self.excluded_mods, **kwd)
 
     def exclude_mod(self, *modules):
@@ -154,13 +149,13 @@ def parent_names(fullname: str) -> Set[str]:
     return parents
 
 
-def package_check(fullname: str, packages: Set[str]) -> bool:
+def package_check(fullname: str, packages: AbstractSet[str]) -> bool:
     """Is it a submodule of any of the packages?
     """
     return not packages.isdisjoint(parent_names(fullname))
 
 
-def import_submodule_wrapper(excluded_pkgs):
+def import_submodule_wrap(excluded_pkgs: AbstractSet[str]):
     """Wrapper for deepreload.import_submodule that excludes entire packages.
     """
     @wraps(ORIGINAL_IMPORT_SUBMODULE)
@@ -170,20 +165,6 @@ def import_submodule_wrapper(excluded_pkgs):
             return sys.modules[fullname]
         return ORIGINAL_IMPORT_SUBMODULE(mod, subname, fullname)
     return my_import_submodule
-
-
-@contextmanager
-def replace_import_submodule_hook(excluded_pkgs):
-    """Temporarily replace import__submodule__ in IPython.lib.deepreload.
-
-    Our version excludes some entire packages.
-    """
-    saved_import_submodule = deepreload.import_submodule
-    deepreload.import_submodule = import_submodule_wrapper(excluded_pkgs)
-    try:
-        yield
-    finally:
-        deepreload.import_submodule = saved_import_submodule
 
 
 # =============================================================================
@@ -228,28 +209,37 @@ def stdlib_check(module):
     return False
 
 
-def import_submodule_wrapper_std(excluded_pkgs):
+def import_submodule_wrap_std(excluded_pkgs: AbstractSet[str]):
     """Wrapper for deepreload.import_submodule that excludes entire packages
     and anything in stdlib.
     """
-    @wraps(ORIGINAL_IMPORT_SUBMODULE)
+    basic_import_submodule = import_submodule_wrap(excluded_pkgs)
+
+    @wraps(basic_import_submodule)
     def my_import_submodule(mod, subname, fullname):
-        if ((package_check(fullname, excluded_pkgs) or stdlib_check(mod))
-                and fullname in sys.modules):
+        if stdlib_check(mod) and fullname in sys.modules:
             deepreload.found_now[fullname] = 1
             return sys.modules[fullname]
-        return ORIGINAL_IMPORT_SUBMODULE(mod, subname, fullname)
+        return basic_import_submodule(mod, subname, fullname)
     return my_import_submodule
 
 
+# =============================================================================
+# %%* Context manager to perform replacement
+# =============================================================================
+
 @contextmanager
-def replace_import_submodule_hook_std(excluded_pkgs):
-    """Temporarily replace import__submodule__ in IPython.lib.deepreload.
+def replace_import_submodule(excluded_pkgs: AbstractSet[str],
+                             exclude_std: bool = True):
+    """Temporarily replace import_submodule in IPython.lib.deepreload.
 
     Our version excludes some entire packages.
     """
     saved_import_submodule = deepreload.import_submodule
-    deepreload.import_submodule = import_submodule_wrapper_std(excluded_pkgs)
+    if exclude_std:
+        deepreload.import_submodule = import_submodule_wrap_std(excluded_pkgs)
+    else:
+        deepreload.import_submodule = import_submodule_wrap(excluded_pkgs)
     try:
         yield
     finally:
