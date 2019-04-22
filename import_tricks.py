@@ -88,7 +88,7 @@ class Reloader(Callable):
     """
 
     excluded_mods: Tuple[str, ...]
-    excluded_pkgs: Set[str, ...]
+    excluded_pkgs: Set[str]
 
     def __init__(self,
                  also_exclude_mods: Tuple[str, ...] = (),

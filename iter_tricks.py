@@ -205,7 +205,8 @@ class DisplayCount(_it.DisplayMixin, Sized):
     .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
+    closing the kernel.
 
     Construction
     ------------
@@ -370,7 +371,8 @@ class DisplayBatch(DisplayCount):
     .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
+    closing the kernel.
 
     Parameters
     ----------
@@ -441,7 +443,8 @@ class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):
     .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
+    closing the kernel.
 
     Parameters
     ----------
@@ -503,7 +506,8 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
     .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
+    closing the kernel.
 
     Parameters
     ----------
@@ -561,7 +565,7 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
 
 
 @_it.and_reverse
-def dcount(*args: _it.DSliceArgs, **kwargs)-> DisplayCount:
+def dcount(*args: _it.DSliceArgs, **kwargs) -> DisplayCount:
     """Produces iterator for displaying loop counters.
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -574,7 +578,8 @@ def dcount(*args: _it.DSliceArgs, **kwargs)-> DisplayCount:
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
+    closing the kernel.
 
     Parameters
     ----------
@@ -634,7 +639,7 @@ def dcount(*args: _it.DSliceArgs, **kwargs)-> DisplayCount:
 
 
 @_it.and_reverse
-def denumerate(*args: _it.DZipArgs, **kwds)-> DisplayEnumerate:
+def denumerate(*args: _it.DZipArgs, **kwds) -> DisplayEnumerate:
     """Like `zenumerate`, but using a `DisplayCount`.
 
     Reads maximum couter value from min length of Sized `sequences`.
@@ -649,7 +654,8 @@ def denumerate(*args: _it.DZipArgs, **kwds)-> DisplayEnumerate:
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
+    closing the kernel.
 
     Parameters
     ----------
@@ -690,7 +696,7 @@ def denumerate(*args: _it.DZipArgs, **kwds)-> DisplayEnumerate:
 
 
 @_it.and_reverse
-def dzip(*args: _it.DZipArgs, **kwds)-> DisplayZip:
+def dzip(*args: _it.DZipArgs, **kwds) -> DisplayZip:
     """Like `enumerate` + `zip`, but using a `DisplayCount`.
 
     Reads maximum couter value from min length of Sized `sequences`.
@@ -702,6 +708,10 @@ def dzip(*args: _it.DZipArgs, **kwds)-> DisplayZip:
         ' i: 3/5, j: 6/8, k:  7/10,'
 
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
+    Instead, use in a console connected to the same kernel:
+    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
+    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
+    closing the kernel.
 
     Parameters
     ----------
@@ -755,7 +765,8 @@ def dbatch(*args: _it.DSliceArgs, **kwargs) -> DisplayBatch:
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
+    closing the kernel.
 
     Parameters
     ----------

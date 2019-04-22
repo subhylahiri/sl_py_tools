@@ -53,6 +53,7 @@ import sys
 
 assert sys.version_info[:2] >= (3, 6)
 
+
 # =============================================================================
 # %%* Class
 # =============================================================================
@@ -90,7 +91,8 @@ class DisplayTemporary():
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
+    closing the kernel.
 
     Attributes
     ----------
@@ -260,7 +262,8 @@ def dtemp(msg: str = ''):
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
+    closing the kernel.
 
     Parameters
     ----------
@@ -289,7 +292,8 @@ def dcontext(msg: str):
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
+    closing the kernel.
 
     Prints message before entering context and deletes after.
 
@@ -321,7 +325,8 @@ def dexpr(msg: str, lambda_expr: Callable):
     .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
     Instead, use in a console connected to the same kernel:
     ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
+    closing the kernel.
 
     Prints message before running `lambda_expr` and deletes after.
 
