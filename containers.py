@@ -12,6 +12,8 @@ A = _ty.TypeVar('A')
 
 def default(optional: _ty.Optional[A], default_value: A):
     """Replace with default if None
+
+    Returns `optional` if it is not `None`, `default_value` if it is.
     """
     return default_value if optional is None else optional
 
@@ -19,14 +21,23 @@ def default(optional: _ty.Optional[A], default_value: A):
 class Interval(cn.abc.Container):
     """An interval of the real line.
 
-    For testing upper and lower bounds with ``in``.
+    For testing upper and lower bounds with ``x in Interval(a,b)``.
+
+    Parameters
+    ----------
+    start, stop : Real
+        Lower and upper bounds of the interval.
+    inclusive : {bool, Tuple[bool,bool]}, optional, default: (True, False)
+        Is the (lower,upper) bound inclusive? Scalars apply to both ends.
     """
     start: _num.Real
     stop: _num.Real
     inclusive: _ty.Tuple[bool, bool]
 
-    def __init__(self, start: _num.Real, stop: _num.Real,
-                 inclusive: _ty.Union[bool, _ty.Tuple[bool, bool]] = True):
+    def __init__(
+        self, start: _num.Real, stop: _num.Real,
+        inclusive: _ty.Union[bool, _ty.Tuple[bool, bool]] = (True, False)
+    ):
         if start > stop:
             raise ValueError(f"start={start} > stop={stop}")
         self.start = start
@@ -46,7 +57,7 @@ class Interval(cn.abc.Container):
 # ------------------------------------------------------------------------------
 
 def _eq_broadcast(siz0: int, siz1: int):
-    """Would axes of this length be considered broadcastable?
+    """Would axes of these lengths be considered broadcastable?
     """
     return (siz0 == siz1) or (siz0 == 1) or (siz1 == 1)
 
@@ -54,6 +65,13 @@ def _eq_broadcast(siz0: int, siz1: int):
 def same_shape(shape0: _ty.Tuple[int, ...], shape1: _ty.Tuple[int, ...],
                compr: _ty.Callable[[int, int], bool] = _op.eq):
     """Are the two array shapes equivalent, ignoring leading singleton axes?
+
+    Parameters
+    ----------
+    shape0, shape1 : Tuple[int,...]
+        Shapes of arrays
+    compr : Callable[(int, int) -> bool], optional, default: ==
+        Function used to compare tuple elements.
     """
     if isinstance(shape0, ShapeTuple) and isinstance(shape1, ShapeTuple):
         return same_shape(tuple(shape0), shape1, compr)
@@ -65,12 +83,22 @@ def same_shape(shape0: _ty.Tuple[int, ...], shape1: _ty.Tuple[int, ...],
 
 def broadcastable(shape0: _ty.Tuple[int, ...], shape1: _ty.Tuple[int, ...]):
     """Are the two array shapes broadcastable?
+
+    Parameters
+    ----------
+    shape0, shape1 : Tuple[int,...]
+        Shapes of arrays
     """
     return same_shape(shape0, shape1, _eq_broadcast)
 
 
 def identical_shape(shape0: _ty.Tuple[int, ...], shape1: _ty.Tuple[int, ...]):
     """Are the two array shapes eaxctly the same, considering all axes?
+
+    Parameters
+    ----------
+    shape0, shape1 : Tuple[int,...]
+        Shapes of arrays
     """
     return (len(shape0) == len(shape1)) and same_shape(shape0, shape1)
 
@@ -112,6 +140,9 @@ class ShapeTuple(tuple):
     def __reversed__(self):
         return _it.chain(reversed(tuple(self)), _it.repeat(1))
 
+    def __eq__(self, other):
+        return same_shape(self, other)
+
 
 # ------------------------------------------------------------------------------
 # %% Dictionaries
@@ -147,28 +178,32 @@ def pop_existing(to_update: dict, pop_from: dict):
 def invert_dict(to_invert: dict) -> dict:
     """Swap keys and values.
 
-    Assumes values are distinct."""
+    Assumes values are distinct.
+    """
     return {v: k for k, v in to_invert.items()}
 
 
 class PairedDict(dict):
     """One direction of bidirectional mapping
 
-    Stores a reference to its inverse mapping in pdict.`inverse`. If the
-    inverse is provided in the constructor, no effort is made to ensure that
-    they are inverses of each other. Instead, the instances should be built
-    using the classmethod `PairedDict.make_pairs`.
+    Stores a reference to its inverse mapping in `self.inverse`. If the
+    inverse is provided in the constructor and ``dict(*args,**kwds)`` is empty,
+    `self` will be updated with ``invert_dict(self.inverse)``. Otherwise, no
+    effort is made to ensure that they are inverses of each other. Instead, the
+    instances should be built using the class-method `PairedDict.make_pairs`.
 
-    Deleting an item also deletes the reversed item from `pdict.inverse`.
-    Setting an item with ``pdict[key1] = key2``, deletes `key1` from `pdict` as
-    above, deletes `key2` from `pdict.inverse`, adds item `(key1,key2)` to
-    `pdict`, and adds item `(key2,key1)` to `pdict.inverse`.
+    Deleting an item also deletes the reversed item from `self.inverse`.
+    Setting an item with ``self[key1] = key2``, deletes `key1` from `self` as
+    above, deletes `key2` from `self.inverse`, adds item `(key1,key2)` to
+    `self`, and adds item `(key2,key1)` to `self.inverse`.
     """
     inverse: PairedDict
 
     def __init__(self, *args, inverse=None, **kwds):
         super().__init__(*args, **kwds)
         self.inverse = inverse
+        if len(self) == 0 and self.inverse is not None:
+            super().update(invert_dict(self.inverse))
 
     def __delitem__(self, key):
         """Delete inverse map as well as forward map"""
@@ -187,7 +222,16 @@ class PairedDict(dict):
 
     @classmethod
     def make_pairs(cls, *args, **kwds):
-        """Create a pair of dicts that are inverses of each other"""
+        """Create a pair of dicts that are inverses of each other
+
+        Returns
+        -------
+        [fwd, bwd]
+            fwd : PairedDict
+                Dictionary built with other parameters.
+            bwd : PairedDict
+                Inverse of `fwd`
+        """
         fwd = cls(*args, **kwds)
         bwd = cls(invert_dict(fwd), inverse=fwd)
         fwd.inverse = bwd
@@ -199,9 +243,9 @@ class PairedDict(dict):
 class AssociativeMap(cn.ChainMap):
     """Bidirectional mapping
 
-    Similar to a ``dict``, except the statement ``amap.fwd[key1] == key2`` is
-    equivalent to ``amap.bwd[key2] == key1``. Both of these statements imply
-    that ``amap[key1] == key2`` and ``amap[key2] == key1``. Both keys must be
+    Similar to a ``dict``, except the statement ``self.fwd[key1] == key2`` is
+    equivalent to ``self.bwd[key2] == key1``. Both of these statements imply
+    that ``self[key1] == key2`` and ``self[key2] == key1``. Both keys must be
     unique and hashable.
 
     An unordered associative map arises when subscripting the object itself.
@@ -210,8 +254,8 @@ class AssociativeMap(cn.ChainMap):
 
     If an association is modified, in either direction, both mappings that the
     association comprises are deleted and a new association is created. (see
-    documentation for `PairedDict`). Setting ``amap[key1] = key2`` is always
-    applied to ``amap.fwd``, with ``amap.bwd`` modified appropriately.
+    documentation for `PairedDict`). Setting ``self[key1] = key2`` is always
+    applied to ``self.fwd``, with ``self.bwd`` modified appropriately.
 
     See Also
     --------
@@ -230,7 +274,7 @@ class AssociativeMap(cn.ChainMap):
         elif key in self.bwd.keys():
             del self.bwd[key]
         else:
-            raise KeyError(f"Key ''{key}' not found in either direction.")
+            raise KeyError(f"Key '{key}' not found in either direction.")
 
     @property
     def fwd(self) -> PairedDict:
