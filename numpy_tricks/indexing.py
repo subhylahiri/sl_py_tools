@@ -11,6 +11,9 @@ Tools for messing with array shapes
 """
 
 import numpy as np
+from sl_py_tools.containers import (same_shape, identical_shape, broadcastable,
+                                    ShapeTuple)
+assert all((same_shape, identical_shape, broadcastable, ShapeTuple))
 
 
 def mesh_stack(*arrays):

@@ -7,15 +7,7 @@ import itertools as _it
 import operator as _op
 import typing as _ty
 import numbers as _num
-A = _ty.TypeVar('A')
-
-
-def default(optional: _ty.Optional[A], default_value: A):
-    """Replace with default if None
-
-    Returns `optional` if it is not `None`, `default_value` if it is.
-    """
-    return default_value if optional is None else optional
+from .arg_tricks import defaults
 
 
 class Interval(cn.abc.Container):
@@ -42,28 +34,28 @@ class Interval(cn.abc.Container):
             raise ValueError(f"start={start} > stop={stop}")
         self.start = start
         self.stop = stop
-        if isinstance(inclusive, bool):
-            inclusive = (inclusive,) * 2
+        if not isinstance(inclusive, cn.abc.Sequence):
+            inclusive = (bool(inclusive),) * 2
         self.inclusive = inclusive
 
-    def __contains__(self, x):
+    def __contains__(self, x: _num.Real) -> bool:
         return ((self.start < x and x < self)
                 or (self.inclusive[0] and x == self.start)
                 or (self.inclusive[1] and x == self.stop))
 
 
 # ------------------------------------------------------------------------------
-# %% Shapes ans Tuples
+# %% Shapes and Tuples for broadcasting
 # ------------------------------------------------------------------------------
 
-def _eq_broadcast(siz0: int, siz1: int):
+def _eq_broadcast(siz0: int, siz1: int) -> bool:
     """Would axes of these lengths be considered broadcastable?
     """
     return (siz0 == siz1) or (siz0 == 1) or (siz1 == 1)
 
 
 def same_shape(shape0: _ty.Tuple[int, ...], shape1: _ty.Tuple[int, ...],
-               compr: _ty.Callable[[int, int], bool] = _op.eq):
+               compr: _ty.Callable[[int, int], bool] = _op.eq) -> bool:
     """Are the two array shapes equivalent, ignoring leading singleton axes?
 
     Parameters
@@ -74,14 +66,15 @@ def same_shape(shape0: _ty.Tuple[int, ...], shape1: _ty.Tuple[int, ...],
         Function used to compare tuple elements.
     """
     if isinstance(shape0, ShapeTuple) and isinstance(shape1, ShapeTuple):
-        return same_shape(tuple(shape0), shape1, compr)
+        return same_shape(tuple(shape0), tuple(shape1), compr)
     diff = len(shape0) - len(shape1)
-    pad0 = _it.chain(reversed(shape0), (-1,) * diff)
-    pad1 = _it.chain(reversed(shape1), (-1,) * -diff)
+    pad0 = _it.chain(reversed(shape0), (1,) * diff)
+    pad1 = _it.chain(reversed(shape1), (1,) * -diff)
     return all(compr(x, y) for x, y in zip(pad0, pad1))
 
 
-def broadcastable(shape0: _ty.Tuple[int, ...], shape1: _ty.Tuple[int, ...]):
+def broadcastable(shape0: _ty.Tuple[int, ...],
+                  shape1: _ty.Tuple[int, ...]) -> bool:
     """Are the two array shapes broadcastable?
 
     Parameters
@@ -92,7 +85,8 @@ def broadcastable(shape0: _ty.Tuple[int, ...], shape1: _ty.Tuple[int, ...]):
     return same_shape(shape0, shape1, _eq_broadcast)
 
 
-def identical_shape(shape0: _ty.Tuple[int, ...], shape1: _ty.Tuple[int, ...]):
+def identical_shape(shape0: _ty.Tuple[int, ...],
+                    shape1: _ty.Tuple[int, ...]) -> bool:
     """Are the two array shapes eaxctly the same, considering all axes?
 
     Parameters
@@ -107,7 +101,7 @@ class ShapeTuple(tuple):
     """Stores the shapes of array types that implement broadcasting.
 
     Gives 1 if you ask for elements before the start, either via negative
-    indexing, negative slicing or the reversed iterator.
+    indexing, negative slicing or the reversed iterator beyond its length.
     The reversed iterator will never stop iteration by itself.
     """
 
@@ -115,11 +109,10 @@ class ShapeTuple(tuple):
         if isinstance(ind, slice):
             out = super().__getitem__(ind)
             m, n = len(out), len(self)
-            start, stop, step = (default(ind.start, 0),
-                                 default(ind.stop, n),
-                                 default(ind.step, 1))
+            start, stop, step = defaults((ind.start, ind.stop, ind.step),
+                                         (0, n, 1))
             if step < 0:
-                start, stop = default(ind.stop, 0), default(ind.start, n)
+                start, stop = defaults((ind.stop, ind.start), (0, n))
             if start > n or start > stop:
                 return out
             if start > 0:
@@ -147,12 +140,6 @@ class ShapeTuple(tuple):
 # ------------------------------------------------------------------------------
 # %% Dictionaries
 # ------------------------------------------------------------------------------
-
-
-def dictify(**kwds):
-    """Build dict from key names
-    """
-    return kwds
 
 
 def update_existing(to_update: dict,
@@ -221,7 +208,7 @@ class PairedDict(dict):
         super(PairedDict, self.inverse).__setitem__(value, key)
 
     @classmethod
-    def make_pairs(cls, *args, **kwds):
+    def make_pairs(cls, *args, **kwds) -> _ty.Tuple[PairedDict, PairedDict]:
         """Create a pair of dicts that are inverses of each other
 
         Returns
@@ -252,8 +239,8 @@ class AssociativeMap(cn.ChainMap):
     An ordered associative map arises when subscripting the ``fwd`` and ``bwd``
     properties, which are both Mappings and inverses of each other.
 
-    If an association is modified, in either direction, both mappings that the
-    association comprises are deleted and a new association is created. (see
+    If an association is modified, in either direction, both the forward and
+    backward mappings are deleted and a new association is created. (see
     documentation for `PairedDict`). Setting ``self[key1] = key2`` is always
     applied to ``self.fwd``, with ``self.bwd`` modified appropriately.
 
