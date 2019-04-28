@@ -48,6 +48,7 @@ Examples
 """
 from typing import ClassVar, Callable, Optional
 import io
+import logging
 from contextlib import contextmanager
 import sys
 
@@ -350,3 +351,34 @@ def dexpr(msg: str, lambda_expr: Callable):
     with dcontext(msg):
         out = lambda_expr()
     return out
+
+
+@contextmanager
+def delay_warnings(collect=True, print_after=True):
+    """Context manager to temporarily suppress warnings
+
+    Parameters
+    ----------
+    collect : bool, optional, default: True
+        When it is `True`, any warnings are collected in a `StringIO` stream.
+        The stream can be accessed during the context as `warnlog` in:
+            ``with delay_warnings(True) as warnlog:``
+    print_after : bool, optional, default: True
+        When it is `True`, the accumulated warnings are printed to `sys.stderr`
+        when the context manager exits.
+    """
+    logging.captureWarnings(True)
+    warn_log_stream, warn_string = None, ""
+    if collect:
+        warn_log_stream = io.StringIO()
+        warnlogger = logging.getLogger("py.warnings")
+        warnlogger.addHandler(logging.StreamHandler(warn_log_stream))
+    try:
+        yield warn_log_stream
+    finally:
+        if collect:
+            warn_string = warn_log_stream.getvalue()
+            warn_log_stream.close()
+        if print_after and warn_string:
+            print(warn_string, file=sys.stderr)
+        logging.captureWarnings(False)
