@@ -5,7 +5,7 @@ import unittest
 import contextlib
 import functools
 import numpy as np
-import sl_py_tools.numpy_tricks.linalg._lnarray as la
+import numpy_linalg as la
 
 __all__ = [
         'TestCaseNumpy',

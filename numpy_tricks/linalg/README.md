@@ -1,5 +1,10 @@
 # Numpy linear algebra helpers
 
+This has been moved to [its own repo](https://github.com/subhylahiri/numpy_linalg_extras).
+Therefore, this subpackage is no longer being updated. It does contain some
+abandoned approaches that were not moved to the new repo.
+
+
 [Instructions for building the CPython modules below](#building-the-cpython-modules)
 
 This package contains classes and functions that make the syntax for linear
