@@ -365,20 +365,22 @@ def delay_warnings(collect=True, print_after=True):
             ``with delay_warnings(True) as warnlog:``
     print_after : bool, optional, default: True
         When it is `True`, the accumulated warnings are printed to `sys.stderr`
-        when the context manager exits.
+        when the context manager exits. Has no effect if `collect` is False.
     """
     logging.captureWarnings(True)
-    warn_log_stream, warn_string = None, ""
+    warn_log_stream = None
     if collect:
         warn_log_stream = io.StringIO()
+        warn_handler = logging.StreamHandler(warn_log_stream)
         warnlogger = logging.getLogger("py.warnings")
-        warnlogger.addHandler(logging.StreamHandler(warn_log_stream))
+        warnlogger.addHandler(warn_handler)
     try:
         yield warn_log_stream
     finally:
         if collect:
             warn_string = warn_log_stream.getvalue()
             warn_log_stream.close()
-        if print_after and warn_string:
-            print(warn_string, file=sys.stderr)
+            warnlogger.removeHandler(warn_handler)
+            if print_after and warn_string:
+                print(warn_string, file=sys.stderr)
         logging.captureWarnings(False)
