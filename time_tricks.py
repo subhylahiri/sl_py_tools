@@ -213,6 +213,8 @@ class Timer(object):
         ==========
         tz : Optional[datetime.tzinfo] = None
             Time zone to use. Passed to `datetime.datetime.now`.
+        absolute: bool, optional, default=True
+            Print current time before & after (duration is printed either way).
         """
         self.absolute = absolute
         self.begin = datetime.datetime.now(*args, **kwargs)
@@ -252,6 +254,8 @@ class Timer(object):
         tz : Optional[datetime.tzinfo] = None
             Time zone to use. Passed to `timeit.start` which passes it to
             `datetime.datetime.now`.
+        absolute: bool, optional, default=True
+            Print current time before & after (duration is printed either way).
         """
         obj = cls()
         obj.start(*args, **kwargs)
@@ -269,8 +273,15 @@ def time_with(subsec: bool = False, *args, **kwargs):
     Prints date & time before & after context, and elapsed time.
     Can also be used as a function decorator.
 
-    Example
-    -------
+    Parameters
+    ----------
+    subsec: bool, optional, default=False
+        Print sub-second timing.
+    absolute: bool, optional, default=True
+        Print current time before & after (duration is printed either way).
+
+    Examples
+    --------
     >>> with time_with():
     >>>     execute_fn(param1, param2)
 
@@ -297,6 +308,10 @@ def time_expr(lambda_expr: Callable, subsec: bool = False, *args, **kwargs):
         A `lambda` function with no parameters.
         Note that only the `lambda` has no prarmeters. One can pass parameters
         to the function executed in the `lambda`.
+    subsec: bool, optional, default=False
+        Print sub-second timing.
+    absolute: bool, optional, default=True
+        Print current time before & after (duration is printed either way).
 
     Returns
     -------
