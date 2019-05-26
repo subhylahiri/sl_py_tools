@@ -24,10 +24,8 @@ DisplayCount ends before the outer one is updated.
 Displays look like:
     ' i: 3/5, j: 6/8, k:  7/10,'
 
-.. warning:: Doesn't display properly on ``qtconsole``, and hence ``Spyder``.
-Instead, use in a console connected to the same kernel:
-``cd`` to the folder, then type: ``jupyter console --existing``, and run your
-code there.
+.. warning:: Displays improperly in some clients.
+See warning in `display_tricks` module.
 
 For convenience:
 
@@ -202,11 +200,8 @@ class DisplayCount(_it.DisplayMixin, Sized):
     Displays look like:
         ' i: 3/5, j: 6/8, k:  7/10,'
 
-    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
-    closing the kernel.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Construction
     ------------
@@ -347,14 +342,14 @@ class DisplayCount(_it.DisplayMixin, Sized):
             raise ValueError('Must specify stop to define len')
         return (self.stop - self.start) // self.step
 
-    def _check(self):
+    def _check(self) -> str:
         """Ensure that DisplayCount's are properly used"""
-        super()._check()
+        msg = super()._check()
         # raise error if ctr is outside range
         if self.counter > self.stop or self.counter < self.start:
-            msg1 = ' has value {} '.format(self.counter)
-            msg2 = 'when upper limit is {}.'.format(self.stop)
-            raise IndexError(self._state.name + msg1 + msg2)
+            msg = f'{self._state.name}: has value {self.counter} '
+            msg += f'when range is ({self.start}:{self.stop}:{self.step}).'
+        return msg
 
 
 class DisplayBatch(DisplayCount):
@@ -368,11 +363,8 @@ class DisplayBatch(DisplayCount):
     Displays look like:
         ' i: 3/5, j: 6/8(/2), k:  7/10(/5),'
 
-    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
-    closing the kernel.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Parameters
     ----------
@@ -440,11 +432,8 @@ class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):
         ' i: 3/5, j: 6/8, k:  7/10,'
     The output of `next` is a `tuple`: (counter, iter0, iter1, ...)
 
-    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
-    closing the kernel.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Parameters
     ----------
@@ -503,11 +492,8 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
     Displays look like:
         ' i: 3/5, j: 6/8, k:  7/10,'
 
-    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
-    closing the kernel.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Parameters
     ----------

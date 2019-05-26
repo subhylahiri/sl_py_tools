@@ -20,8 +20,17 @@ dexpr
     Display message during lambda execution.
 dwrap : function
     Decorate a function with a temporary printed message.
+get_display_options : function
+set_display_options : function
+display_options : context manager
+    Control the behaviour of `DisplayTemporary`: whether/where output is
+    displayed and safety checks.
+delay_warnings : context manager
+    Temporarily stop printing warnings, so they don't appear in the middle of
+    `DisplayTemporary` output resulting in the wrong things being deleted.
 
-.. warning:: Doesn't display properly on ``qtconsole``, and hence ``Spyder``.
+.. warning:: Does not display properly on ``qtconsole``, ``Spyder``,
+``jupyterlab``, ``nteract``.
 Instead, use in a console connected to the same kernel:
 ``cd`` to the folder, then type: ``jupyter console --existing``, and run your
 code there.
@@ -46,7 +55,7 @@ Examples
 >>>     smthng = do_something(param1, param2)
 >>>     return smthng
 """
-from typing import ClassVar, Callable, Optional
+from typing import ClassVar, Callable, Optional, Dict, Union
 import io
 import logging
 from contextlib import contextmanager
@@ -65,23 +74,40 @@ class _DisplayState():
     numchar: int
     nest_level: Optional[int]
     name: str
+    # used for debug
+    nactive: ClassVar[int] = 0
 
     def __init__(self, prev_state: Optional['_DisplayState'] = None):
         """Construct internal state"""
         self.nest_level = None
         self.numchar = 0
-        self.name = "DisplayTemporary({})"
+        self.name = "Display({})"
         if prev_state is not None:
             self.numchar = prev_state.numchar
             self.nest_level = prev_state.nest_level
 
-    def rename_self(self, *args, **kwds):
-        """Replace field(s) in name"""
-        self.name = self.name.format(*args, **kwds)
+    def begin(self, identifier: str):
+        """Setup for debugging
+        """
+        self.name = self.name.format(identifier)
+        self.nactive += 1
+        self.nest_level = self.nactive
+        self.check()
 
-    def rename_cls(self, name: str):
-        """Replace prefix in name"""
-        self.name = name + "({})"
+    def check(self, msg=''):
+        """Ensure that DisplayTemporaries used in correct order.
+        """
+        # raise error if ctr_dsp's are nested incorrectly
+        if self.nest_level != self.nactive:
+            msg += self.name
+            msg += f": used at {self.nactive}, nested at {self.nest_level}. "
+        if msg:
+            raise IndexError(msg)
+
+    def end(self):
+        """Clean up debugging state
+        """
+        self.nactive -= 1
 
 
 class DisplayTemporary():
@@ -89,11 +115,8 @@ class DisplayTemporary():
 
     Message erases when `end()` is called, or object is deleted.
 
-    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
-    closing the kernel.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Attributes
     ----------
@@ -132,8 +155,6 @@ class DisplayTemporary():
     file: ClassVar[Optional[io.TextIOBase]] = None
     # set debug to True to check that displays are properly nested
     debug: ClassVar[bool] = False
-    # used for debug
-    _nactive: ClassVar[int] = 0
 
     def __init__(self, **kwds):
         self._state = _DisplayState(**kwds)
@@ -153,14 +174,10 @@ class DisplayTemporary():
         """
         if self._state.numchar:
             raise AttributeError('begin() called more than once.')
-        self._state.rename_self(msg)
-        self._state.numchar = len(msg) + 1
         self._print(' ' + msg)
-#        self._state['clean'] = False
+        self._state.numchar = len(msg) + 1
         if self.debug:
-            self._nactive += 1
-            self._state.nest_level = self._nactive
-            self._check()
+            self._state.begin(msg)
 
     def update(self, msg: str = ''):
         """Erase previous message and display new message.
@@ -171,10 +188,10 @@ class DisplayTemporary():
             message to display
         """
         self._bksp(self._state.numchar)
-        self._state.numchar = len(msg) + 1
         self._print(' ' + msg)
+        self._state.numchar = len(msg) + 1
         if self.debug:
-            self._check()
+            self._state.check()
 
     def end(self):
         """Erase message.
@@ -182,7 +199,7 @@ class DisplayTemporary():
         self._erase(self._state.numchar)
         self._state.numchar = 0
         if self.debug:
-            self._nactive -= 1
+            self._state.end()
 
     def _print(self, text: str):
         """Print with customisations: same line and immediate output
@@ -216,19 +233,6 @@ class DisplayTemporary():
         self._print(' ' * num)
         self._bksp(num)
 
-    def _check(self):
-        """Ensure that DisplayTemporaries are properly used
-        """
-        # raise error if ctr_dsp's are nested incorrectly
-        if self._state.nest_level != self._nactive:
-            msg1 = 'used at level {} '.format(self._nactive)
-            msg2 = 'instead of level {}.'.format(self._state.nest_level)
-            raise IndexError(self._state.name + msg1 + msg2)
-
-    def rename_cls(self, name):
-        """Change name in debug message"""
-        self._state.rename_cls(name)
-
     @classmethod
     def show(cls, msg: str) -> 'DisplayTemporary':
         """Show message and return class instance.
@@ -260,11 +264,8 @@ class DisplayTemporary():
 def dtemp(msg: str = ''):
     """Temporarily display a message.
 
-    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
-    closing the kernel.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Parameters
     ----------
@@ -290,11 +291,8 @@ def dtemp(msg: str = ''):
 def dcontext(msg: str):
     """Display message during context.
 
-    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
-    closing the kernel.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Prints message before entering context and deletes after.
 
@@ -323,11 +321,8 @@ def dcontext(msg: str):
 def dexpr(msg: str, lambda_expr: Callable):
     """Display message during lambda execution.
 
-    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
-    closing the kernel.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Prints message before running `lambda_expr` and deletes after.
 
@@ -351,6 +346,54 @@ def dexpr(msg: str, lambda_expr: Callable):
     with dcontext(msg):
         out = lambda_expr()
     return out
+
+
+def get_display_options() -> Dict[str, Union[bool, Optional[io.TextIOBase]]]:
+    """Current behaviour of DisplayTemporary
+
+    Returns
+    -------
+    options: dict
+        output: bool
+            Is the output displayed? default: True
+        file: io.TextIOBase or None
+            Where the output is displayed, default: None (i.e. sys.stdout)
+        debug: bool
+            Do we check that they are used in the correct order? default: False
+    """
+    options = {}
+    for opt in ["output", "file", "debug"]:
+        options[opt] = getattr(DisplayTemporary, opt)
+    return options
+
+
+def set_display_options(**new_options):
+    """Set behaviour of DisplayTemporary
+
+    Parameters
+    ----------
+    output: bool, optional
+        Is the output displayed? default: True
+    file: io.TextIOBase, optional
+        Where the output is displayed, default: None (i.e. sys.stdout)
+    debug: bool, optional
+        Do we check that they are used in the correct order? default: False
+    """
+    old_options = get_display_options()
+    for opt in (old_options.keys() & new_options.keys()):
+        setattr(DisplayTemporary, opt, new_options[opt])
+    return old_options
+
+
+@contextmanager
+def display_options(**new_options):
+    """Control behaviour of DisplayTemporary
+    """
+    old_options = set_display_options(**new_options)
+    try:
+        yield
+    finally:
+        set_display_options(**old_options)
 
 
 @contextmanager

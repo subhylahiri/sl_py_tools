@@ -114,11 +114,12 @@ class DisplayCntState(DisplayState):
 
     def begin(self):
         """Display prefix"""
-        self.rename_self(self.prefix)
+        super().begin(self.prefix)
         self.prefix = DisplayTemporary.show(self.prefix)
 
     def end(self):
         """Display prefix"""
+        super().end()
         self.prefix.end()
 
     def format(self, *args, **kwds) -> str:
@@ -146,7 +147,6 @@ class DisplayMixin(DisplayTemporary, Iterator):
         super().__init__(**kwds)
         self._state = DisplayCntState(self._state)
         self.counter = None
-        self.rename_cls(type(self).__name__)
 
     @abstractmethod
     def __next__(self):
@@ -165,6 +165,8 @@ class DisplayMixin(DisplayTemporary, Iterator):
         """Erase previous counter and display new one."""
         dsp = self._str(self.counter)
         super().update(dsp + msg)
+        if self.debug:
+            self._state.check(self._check())
 
     def end(self):
         """Erase previous counter and prefix."""
@@ -175,16 +177,35 @@ class DisplayMixin(DisplayTemporary, Iterator):
         """String for display of counter, e.g.' 7/12,'."""
         return self._state.format(*(n + self.offset for n in ctrs))
 
+    def _check(self) -> str:
+        """Ensure that DisplayCount's are used in the correct order"""
+        return ''
+
 
 class AddDisplayToIterables(Iterator):
     """Wraps iterator to display progress.
 
-    This is an ABC. Only implements `begin`, `disp` and `end`, as well as
-    __init__ and __reversed__. Subclasses must implement `iter` and `next`.
+    This is an ABC. Only implements `begin`, `update` and `end` methods, as
+    well as `__init__`, `__reversed__` and `__len__`. Subclasses must implement
+    `__iter__` and `__next__`.
 
-    Specify ``displayer`` in keyword arguments of class definition to customise
-    display. No default, but ``DisplayCount`` is suggested.
-    The constructor signature is ``displayer(name, self._get_len(), **kwds)``.
+    Specify ``displayer`` in keyword arguments of subclass definition to
+    customise display. There is no default, but ``iter_tricks.DisplayCount`` is
+    suggested. It must implement the ``DisplayMixin`` interface with
+    constructor signature ``displayer(name, len(self), **kwds)``, with `self`
+    an instance of the subclass being defined.
+
+    Subclasses of subclasses will also have to specify a ``displayer`` unless
+    the first subclass redefines `__init_subclass__`.
+
+    Parameters
+    ----------
+    name: str
+        Name to be used for display. See `extract_name`.
+    iterable1, ...
+        The iterables being wrapped.
+    **kwds
+        Keywords other than `name` are passed to the ``displayer`` constructor.
     """
     _iterables: ZipArgs
     display: DisplayMixin
@@ -194,15 +215,23 @@ class AddDisplayToIterables(Iterator):
         cls.displayer = displayer
 
     def __init__(self, *args: DZipArgs, **kwds):
-        """Construct non-iterator machinery"""
+        """Construct the displayer"""
         name, self._iterables = extract_name(args, kwds)
-        self.display = self.displayer(name, self._get_len(), **kwds)
-        self.display.rename_cls(type(self).__name__)
+        self.display = self.displayer(name, len(self), **kwds)
 
     def __reversed__(self):
-        """Prepare to display fina; counter with prefix."""
-        self.display = reversed(self.display)
-        self._iterables = tuple(reversed(seq) for seq in self._iterables)
+        """Prepare to display final counter with prefix.
+
+        Assumes `self.display` and all iterables have `__reversed__` methods.
+        """
+        try:
+            self.display = reversed(self.display)
+        except AttributeError as exc:
+            raise AttributeError('The displayer is not reversible.') from exc
+        try:
+            self._iterables = tuple(reversed(seq) for seq in self._iterables)
+        except AttributeError as exc:
+            raise AttributeError('Some iterables are not reversible.') from exc
         return self
 
     @abstractmethod
@@ -213,7 +242,7 @@ class AddDisplayToIterables(Iterator):
     def __iter__(self):
         pass
 
-    def _get_len(self) -> Optional[int]:
+    def __len__(self):
         """Length of shortest sequence.
         """
         return min((len(seq) for seq in

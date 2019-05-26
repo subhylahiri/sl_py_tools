@@ -20,10 +20,8 @@ class DisplayNDIndex(_it.DisplayMixin):
     Displays look like:
         ' ii: (3/5, 6/8,  7/10),'
 
-    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Construction
     ------------
@@ -95,10 +93,8 @@ class _DispNDIterBase(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
     Displays look like:
         ' ii: (3/5, 6/8,  7/10),'
 
-    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Construction
     ------------
@@ -124,7 +120,7 @@ class _DispNDIterBase(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
     def __init__(self, *args: _it.Args, **kwds: _it.KeyWords):
         super().__init__(*args, **kwds)
 
-    def _get_len(self):
+    def __len__(self):
         return self._iterables[0].shape
 
     def __iter__(self):
@@ -159,10 +155,8 @@ class DisplayNDIter(_DispNDIterBase):
     Displays look like:
         ' ii: (3/5, 6/8,  7/10),'
 
-    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Construction
     ------------
@@ -200,10 +194,8 @@ class DisplayNDEnumerate(_DispNDIterBase):
     Displays look like:
         ' ii: (3/5, 6/8,  7/10),'
 
-    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Construction
     ------------
@@ -246,10 +238,8 @@ def dndindex(*args: _it.DSliceArgs, **kwds: _it.KeyWords) -> DisplayNDIndex:
     Displays look like:
         ' ii: (3/5, 6/8,  7/10),'
 
-    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Construction
     ------------
@@ -284,10 +274,8 @@ def dnditer(*args: _it.Args, **kwds: _it.KeyWords) -> DisplayNDIter:
     Displays look like:
         ' ii: (3/5, 6/8,  7/10),'
 
-    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Construction
     ------------
@@ -321,14 +309,12 @@ def dndenumerate(*args: _it.Args, **kwds: _it.KeyWords) -> DisplayNDEnumerate:
     Displays look like:
         ' ii: (3/5, 6/8,  7/10),'
 
-    .. warning:: Displays improperly on ``qtconsole``, and hence ``Spyder``.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Construction
     ------------
-    DisplayNDEnumerate(name:str, ...)
+    DisplayNDEnumerate(name: str, ...)
     DisplayNDEnumerate(...)
 
     Parameters
