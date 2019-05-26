@@ -142,8 +142,21 @@ class ShapeTuple(tuple):
 # ------------------------------------------------------------------------------
 
 
+def update_new(to_update: dict,
+               update_from: _ty.Union[cn.abc.Mapping, _ty.Iterable]):
+    """Update new keys only
+    """
+    if isinstance(update_from, cn.abc.Mapping):
+        for k in update_from.keys():
+            to_update.setdefault(k, update_from[k])
+    else:
+        for k, v in update_from:
+            if k not in to_update.keys():
+                to_update[k] = v
+
+
 def update_existing(to_update: dict,
-                    update_from: _ty.Union[dict, _ty.Iterable]):
+                    update_from: _ty.Union[cn.abc.Mapping, _ty.Iterable]):
     """Update existing keys only
     """
     if isinstance(update_from, cn.abc.Mapping):
