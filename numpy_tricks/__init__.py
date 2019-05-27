@@ -21,3 +21,11 @@ def anyclose(x, y, *args, **kwds) -> bool:
     Like numpy.allclose but with any instead of all.
     """
     return np.isclose(x, y, *args, **kwds).any()
+
+
+def tri_low_rank(array, *args, **kwds):
+    """Check for low rank triangular matrix
+
+    Returns `True` if any diagonal element is close to 0.
+    """
+    return anyclose(np.diagonal(array), 0., *args, **kwds)
