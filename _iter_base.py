@@ -10,25 +10,29 @@ Base classes and behind the scenes work for modules ``display_tricks`` and
 """
 from abc import abstractmethod
 from collections.abc import Sized, Iterator
-from typing import Optional, Union, Any, Tuple, Iterable, Dict, Callable
+from typing import Optional, Union, Tuple, Iterable, Dict, Callable
 from functools import wraps
 
 from .display_tricks import _DisplayState as DisplayState
 from .display_tricks import DisplayTemporary
 
-Args = Tuple[Any]
-KeyWords = Dict[str, Any]
 NameArg = Optional[str]
-SliceArgs = Tuple[Optional[int], ...]
-ZipArgs = Tuple[Iterable, ...]
-DSliceArgs = Tuple[NameArg, SliceArgs]
-DZipArgs = Tuple[NameArg, ZipArgs]
+SliceArg = Optional[int]
+DZipArg = Union[NameArg, Iterable]
+DSliceArg = Union[NameArg, SliceArg]
+Arg = Union[SliceArg, Iterable]
+DArg = Union[NameArg, Arg]
+SliceArgs = Tuple[SliceArg, ...]
+Args = Tuple[Union[SliceArg, Iterable], ...]
+DArgs = Tuple[DArg, ...]
+KeyWords = Dict[str, SliceArg]
+DKeyWords = Dict[str, DArgs]
 # =============================================================================
 # %%* Convenience functions
 # =============================================================================
 
 
-def extract_name(args: Args, kwds: KeyWords) -> (NameArg, Args):
+def extract_name(args: DArgs, kwds: DKeyWords) -> (NameArg, Args):
     """Extract name from other args
 
     If name is in kwds, assume all of args is others, pop name from kwds.
@@ -44,7 +48,7 @@ def extract_name(args: Args, kwds: KeyWords) -> (NameArg, Args):
     return name, others
 
 
-def extract_slice(args: SliceArgs, kwargs: Dict[str, Any]) -> SliceArgs:
+def extract_slice(args: SliceArgs, kwargs: KeyWords) -> SliceArgs:
     """Extract slice indices from args/kwargs
 
     Returns
@@ -104,27 +108,19 @@ def and_reverse(it_func: Callable):
 class DisplayCntState(DisplayState):
     """Internal state of a DisplayCount, etc."""
     prefix: Union[str, DisplayTemporary]
-    formatter: str
 
     def __init__(self, prev_state: Optional[DisplayState] = None):
         """Construct internal state"""
         super().__init__(prev_state)
         self.prefix = ''
-        self.formatter = '{:d}'
 
-    def begin(self):
+    def show(self, *args, **kwds):
         """Display prefix"""
-        super().begin(self.prefix)
         self.prefix = DisplayTemporary.show(self.prefix)
 
-    def end(self):
-        """Display prefix"""
-        super().end()
+    def hide(self, *args, **kwds):
+        """Delete prefix"""
         self.prefix.end()
-
-    def format(self, *args, **kwds) -> str:
-        """Use formatter on counters"""
-        return self.formatter.format(*args, **kwds)
 
 
 # =============================================================================
@@ -140,6 +136,7 @@ class DisplayMixin(DisplayTemporary, Iterator):
     """
     counter: Optional[int]
     offset: int
+    formatter: str
     _state: DisplayCntState
 
     def __init__(self, **kwds):
@@ -147,6 +144,7 @@ class DisplayMixin(DisplayTemporary, Iterator):
         super().__init__(**kwds)
         self._state = DisplayCntState(self._state)
         self.counter = None
+        self.formatter = '{:d}'
 
     @abstractmethod
     def __next__(self):
@@ -158,28 +156,22 @@ class DisplayMixin(DisplayTemporary, Iterator):
 
     def begin(self, msg: str = ''):
         """Display initial counter with prefix."""
-        self._state.begin()
-        super().begin(self._str(self.counter) + msg)
+        self._state.show()
+        super().begin(self.format(self.counter) + msg)
 
     def update(self, msg: str = ''):
         """Erase previous counter and display new one."""
-        dsp = self._str(self.counter)
+        dsp = self.format(self.counter)
         super().update(dsp + msg)
-        if self.debug:
-            self._state.check(self._check())
 
     def end(self):
         """Erase previous counter and prefix."""
         super().end()
-        self._state.end()
+        self._state.hide()
 
-    def _str(self, *ctrs: int) -> str:
+    def format(self, *ctrs: int) -> str:
         """String for display of counter, e.g.' 7/12,'."""
-        return self._state.format(*(n + self.offset for n in ctrs))
-
-    def _check(self) -> str:
-        """Ensure that DisplayCount's are used in the correct order"""
-        return ''
+        return self.formatter.format(*(n + self.offset for n in ctrs))
 
 
 class AddDisplayToIterables(Iterator):
@@ -207,14 +199,14 @@ class AddDisplayToIterables(Iterator):
     **kwds
         Keywords other than `name` are passed to the ``displayer`` constructor.
     """
-    _iterables: ZipArgs
+    _iterables: Tuple[Iterable, ...]
     display: DisplayMixin
 
     def __init_subclass__(cls, displayer, **kwargs):
         super().__init_subclass__(**kwargs)
         cls.displayer = displayer
 
-    def __init__(self, *args: DZipArgs, **kwds):
+    def __init__(self, *args: DZipArg, **kwds):
         """Construct the displayer"""
         name, self._iterables = extract_name(args, kwds)
         self.display = self.displayer(name, len(self), **kwds)

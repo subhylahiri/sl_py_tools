@@ -122,7 +122,7 @@ assert sys.version_info[:2] >= (3, 6)
 # =============================================================================
 
 
-def zenumerate(*iterables: _it.ZipArgs, start=0, step=1) -> zip:
+def zenumerate(*iterables: _it.Iterable, start=0, step=1) -> zip:
     """Combination of enumerate and unpacked zip.
 
     Behaves like `enumerate`, but accepts multiple iterables.
@@ -142,7 +142,7 @@ def zenumerate(*iterables: _it.ZipArgs, start=0, step=1) -> zip:
     return zip(itertools.count(start, step), *iterables)
 
 
-def batch(*sliceargs: _it.SliceArgs, **kwargs: _it.KeyWords):
+def batch(*sliceargs: _it.SliceArg, **kwargs: _it.SliceArg):
     """Iterate over batches
 
     Similar to `range` object, except at each iteration it yields a `slice`
@@ -293,7 +293,7 @@ class DisplayCount(_it.DisplayMixin, Sized):
     stop: Optional[int]
     step: int
 
-    def __init__(self, *args: _it.DSliceArgs, **kwargs):
+    def __init__(self, *args: _it.DSliceArg, **kwargs):
         name, sliceargs = _it.extract_name(args, kwargs)
         self.start, self.stop, self.step = _it.extract_slice(sliceargs, kwargs)
         # offset for display of counter, default: 1 if start==0, 0 otherwise
@@ -306,8 +306,8 @@ class DisplayCount(_it.DisplayMixin, Sized):
 
         if self.stop:
             self.stop = self.start + self.step * len(self)
-            self._state.formatter = _it.counter_format(self.stop)
-        self._state.formatter += ','
+            self.formatter = _it.counter_format(self.stop)
+        self.formatter += ','
 
     def __iter__(self):
         """Display initial counter with prefix."""
@@ -342,14 +342,19 @@ class DisplayCount(_it.DisplayMixin, Sized):
             raise ValueError('Must specify stop to define len')
         return (self.stop - self.start) // self.step
 
-    def _check(self) -> str:
+    def _check_ctr(self) -> str:
         """Ensure that DisplayCount's are properly used"""
-        msg = super()._check()
         # raise error if ctr is outside range
         if self.counter > self.stop or self.counter < self.start:
             msg = f'{self._state.name}: has value {self.counter} '
             msg += f'when range is ({self.start}:{self.stop}:{self.step}).'
         return msg
+
+    def update(self, msg: str = ''):
+        """Erase previous counter and display new one."""
+        super().update(msg)
+        if self.debug:
+            self._state.check(self._check_ctr())
 
 
 class DisplayBatch(DisplayCount):
@@ -397,21 +402,21 @@ class DisplayBatch(DisplayCount):
     >>>     y[s] = np.linalg.eigvals(x[s])
     """
 
-    def __init__(self, *args: _it.DSliceArgs, **kwargs):
+    def __init__(self, *args: _it.DSliceArg, **kwargs):
         super().__init__(*args, **kwargs)
 
         if self.stop is None:
-            self._state.formatter = '{:d}-{:d}'
+            self.formatter = '{:d}-{:d}'
         else:
             frmt = _it.counter_format(self.stop)
-            self._state.formatter = frmt[:frmt.find('/')] + '-' + frmt
-        self._state.formatter += ','
+            self.formatter = frmt[:frmt.find('/')] + '-' + frmt
+        self.formatter += ','
 
-    def _str(self, *ctrs: int) -> str:
+    def format(self, *ctrs: int) -> str:
         """String for display of counter, e.g.' 7/12,'."""
 #        return self._frmt.format(ctr)
-        return super()._str(*itertools.chain(*((n, n + abs(self.step) - 1)
-                                               for n in ctrs)))
+        return super().format(*itertools.chain(*((n, n + abs(self.step) - 1)
+                                                 for n in ctrs)))
 
     def __next__(self):
         """Increment counter, erase previous counter and display new one."""
@@ -551,7 +556,7 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
 
 
 @_it.and_reverse
-def dcount(*args: _it.DSliceArgs, **kwargs) -> DisplayCount:
+def dcount(*args: _it.DSliceArg, **kwargs) -> DisplayCount:
     """Produces iterator for displaying loop counters.
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -561,11 +566,8 @@ def dcount(*args: _it.DSliceArgs, **kwargs) -> DisplayCount:
     Displays look like:
         ' i: 3/5, j: 6/8, k:  7/10,'
 
-    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
-    closing the kernel.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Parameters
     ----------
@@ -625,7 +627,7 @@ def dcount(*args: _it.DSliceArgs, **kwargs) -> DisplayCount:
 
 
 @_it.and_reverse
-def denumerate(*args: _it.DZipArgs, **kwds) -> DisplayEnumerate:
+def denumerate(*args: _it.DZipArg, **kwds) -> DisplayEnumerate:
     """Like `zenumerate`, but using a `DisplayCount`.
 
     Reads maximum couter value from min length of Sized `sequences`.
@@ -637,11 +639,8 @@ def denumerate(*args: _it.DZipArgs, **kwds) -> DisplayEnumerate:
         ' i: 3/5, j: 6/8, k:  7/10,'
     The output of `next` is a `tuple`: (counter, iter0, iter1, ...)
 
-    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
-    closing the kernel.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Parameters
     ----------
@@ -682,7 +681,7 @@ def denumerate(*args: _it.DZipArgs, **kwds) -> DisplayEnumerate:
 
 
 @_it.and_reverse
-def dzip(*args: _it.DZipArgs, **kwds) -> DisplayZip:
+def dzip(*args: _it.DZipArg, **kwds) -> DisplayZip:
     """Like `enumerate` + `zip`, but using a `DisplayCount`.
 
     Reads maximum couter value from min length of Sized `sequences`.
@@ -693,11 +692,8 @@ def dzip(*args: _it.DZipArgs, **kwds) -> DisplayZip:
     Displays look like:
         ' i: 3/5, j: 6/8, k:  7/10,'
 
-    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
-    closing the kernel.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Parameters
     ----------
@@ -737,7 +733,7 @@ def dzip(*args: _it.DZipArgs, **kwds) -> DisplayZip:
 
 
 @_it.and_reverse
-def dbatch(*args: _it.DSliceArgs, **kwargs) -> DisplayBatch:
+def dbatch(*args: _it.DSliceArg, **kwargs) -> DisplayBatch:
     """Iterate over batches, with counter display
 
     Similar to `dcount`, except at each iteration it yields a
@@ -748,11 +744,8 @@ def dbatch(*args: _it.DSliceArgs, **kwargs) -> DisplayBatch:
     Displays look like:
         ' i: 3/5, j: 3-4/8k:  6-10/10,'
 
-    .. warning:: Doesn't display properly on ``qtconsole``, and hence Spyder.
-    Instead, use in a console connected to the same kernel:
-    ``cd`` to the folder, then type: ``jupyter console --existing``, and run
-    your code there. Afterwards, use ``exit(keep_kernel=True)`` to exit without
-    closing the kernel.
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
 
     Parameters
     ----------

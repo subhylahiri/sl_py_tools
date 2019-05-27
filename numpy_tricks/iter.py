@@ -61,7 +61,7 @@ class DisplayNDIndex(_it.DisplayMixin):
         self.ndim = len(shape)
         self._it = np.ndindex(*shape)
         frmt = ', '.join([_it.counter_format(n) for n in shape])
-        self._state.formatter = '(' + frmt + '),'
+        self.formatter = '(' + frmt + '),'
 
     def __iter__(self):
         self._it = iter(self._it)
@@ -79,9 +79,9 @@ class DisplayNDIndex(_it.DisplayMixin):
         else:
             return self.counter
 
-    def _str(self, *ctrs: int) -> str:
+    def format(self, *ctrs: int) -> str:
         """String for display of counter, e.g.' 7/12,'."""
-        return super()._str(*ctrs[0])
+        return super().format(*ctrs[0])
 
 
 class _DispNDIterBase(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
@@ -116,9 +116,6 @@ class _DispNDIterBase(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
 
     def __init_subclass__(cls):
         pass
-
-    def __init__(self, *args: _it.Args, **kwds: _it.KeyWords):
-        super().__init__(*args, **kwds)
 
     def __len__(self):
         return self._iterables[0].shape
