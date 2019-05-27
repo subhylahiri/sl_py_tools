@@ -62,11 +62,13 @@ Examples
 
 import datetime
 from contextlib import contextmanager
-from typing import Union, Optional, Callable, ClassVar
+from typing import Union, Optional, Callable, ClassVar, Any
 import io
 import sys
 
 assert sys.version_info[:2] >= (3, 6)
+
+Expression = Callable[[], Any]
 
 # =============================================================================
 # %%* Formatting functions
@@ -297,14 +299,14 @@ def time_with(subsec: bool = False, *args, **kwargs):
         dtmp.time(subsec=subsec)
 
 
-def time_expr(lambda_expr: Callable, subsec: bool = False, *args, **kwargs):
+def time_expr(lambda_expr: Expression, subsec: bool = False, *args, **kwargs):
     """Time a lambda expression.
 
     Prints date & time before & after running `lambda_expr` and elapsed time.
 
     Parameters
     ----------
-    lambda_expr : Callable
+    lambda_expr : Callable[[], Any]
         A `lambda` function with no parameters.
         Note that only the `lambda` has no prarmeters. One can pass parameters
         to the function executed in the `lambda`.

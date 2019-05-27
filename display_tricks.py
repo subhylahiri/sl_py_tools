@@ -55,7 +55,7 @@ Examples
 >>>     smthng = do_something(param1, param2)
 >>>     return smthng
 """
-from typing import ClassVar, Callable, Optional, Dict, Union
+from typing import ClassVar, Callable, Optional, Dict, Union, Any
 import io
 import logging
 from contextlib import contextmanager
@@ -86,7 +86,7 @@ class _DisplayState():
             self.numchar = prev_state.numchar
             self.nest_level = prev_state.nest_level
 
-    def begin(self, identifier: str):
+    def begin(self, identifier: str, *args, **kwds):
         """Setup for debugging
         """
         self.name = self.name.format(identifier)
@@ -104,9 +104,10 @@ class _DisplayState():
         if msg:
             raise IndexError(msg)
 
-    def end(self):
+    def end(self, *args, **kwds):
         """Clean up debugging state
         """
+        self.check()
         self.nactive -= 1
 
 
@@ -318,7 +319,7 @@ def dcontext(msg: str):
         dtmp.end()
 
 
-def dexpr(msg: str, lambda_expr: Callable):
+def dexpr(msg: str, lambda_expr: Callable[[], Any]):
     """Display message during lambda execution.
 
     .. warning:: Displays improperly in some clients.
@@ -330,7 +331,7 @@ def dexpr(msg: str, lambda_expr: Callable):
     ----------
     msg : str
         message to display
-    lambda_expr : Callable
+    lambda_expr : Callable[[], Any]
         A `lambda` function with no parameters.
         Note that only the `lambda` has no prarmeters. One can pass parameters
         to the function executed in the `lambda`.
