@@ -10,6 +10,28 @@ import numbers as _num
 from .arg_tricks import defaults
 
 
+def tuplify(arg):
+    """Make argument a tuple.
+
+    If it is an iterable, it is converted to a tuple.
+    Otherwise, it is placed in a list.
+    """
+    if isinstance(arg, cn.abc.Iterable):
+        return tuple(arg)
+    return (arg,)
+
+
+def listify(arg):
+    """Make argument a list.
+
+    If it is an iterable, it is converted to a list.
+    Otherwise, it is placed in a list.
+    """
+    if isinstance(arg, cn.abc.Iterable):
+        return list(arg)
+    return [arg]
+
+
 class Interval(cn.abc.Container):
     """An interval of the real line.
 
@@ -44,9 +66,10 @@ class Interval(cn.abc.Container):
                 or (self.inclusive[1] and x == self.stop))
 
 
-# ------------------------------------------------------------------------------
-# %% Shapes and Tuples for broadcasting
-# ------------------------------------------------------------------------------
+# =============================================================================
+# %%* Shapes and Tuples for broadcasting
+# =============================================================================
+
 
 def _eq_broadcast(siz0: int, siz1: int) -> bool:
     """Would axes of these lengths be considered broadcastable?
@@ -137,9 +160,9 @@ class ShapeTuple(tuple):
         return same_shape(self, other)
 
 
-# ------------------------------------------------------------------------------
-# %% Dictionaries
-# ------------------------------------------------------------------------------
+# =============================================================================
+# %%* Dictionaries
+# =============================================================================
 
 
 def update_new(to_update: dict,

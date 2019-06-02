@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """Tools for making matplotlib nicer
 """
+import typing as _ty
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+from . import arg_tricks as _ag
+from . import containers as _cn
 
 
 def rc_fonts():
@@ -52,3 +55,49 @@ def plot_equality(axs: plt.Axes, line: mpl.lines.Line2D = None, npt=2, **kwds):
         line.set_ydata(eq_vals)
         line.update(kwds)
     return line
+
+
+def common_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
+                cmin: _ty.Optional[float] = None,
+                cmax: _ty.Optional[float] = None):  # set all clims equal
+    """
+    Make the color limits for each image in sequence the same
+
+    Parameters
+    ----------
+    imh : Sequence[pcolormesh]
+        sequence of pcolormesh objects with heatmaps
+    cmin : optional
+        Fixed lower end of clim. If `None`, use min of `imh.clim[0]`.
+    cmax : optional
+        fixed upper end of clim. If `None`, use max of `imh.clim[1]`.
+    """
+    imh = _cn.listify(imh)
+    old_clim = np.array([im.get_clim() for im in imh])
+
+    cmin = _ag.default(cmin, np.amin(old_clim[:, 0]))
+    cmax = _ag.default(cmax, np.amax(old_clim[:, 1]))
+
+    for im in imh:
+        im.set_clim((cmin, cmax))
+
+
+def centre_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
+                centre: float = 0.):  # set all clims equal
+    """
+    Make the color limits for each image in sequence the same
+
+    Parameters
+    ----------
+    imh : Sequence[pcolormesh]
+        sequence of pcolormesh objects with heatmaps
+    cmin : optional
+        Fixed lower end of clim. If `None`, use min of `imh.clim[0]`.
+    cmax : optional
+        fixed upper end of clim. If `None`, use max of `imh.clim[1]`.
+    """
+    imh = _cn.listify(imh)
+    for img in imh:
+        old_clim = img.get_clim()
+        cdiff = max(old_clim[1] - centre, centre - old_clim[0])
+        img.set_clim((centre - cdiff, centre + cdiff))
