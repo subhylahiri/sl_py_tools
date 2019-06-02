@@ -117,7 +117,9 @@ from typing import Optional
 import sys
 
 from . import _iter_base as _it
+from .display_tricks import delay_warnings
 
+assert delay_warnings
 assert sys.version_info[:2] >= (3, 6)
 
 # =============================================================================

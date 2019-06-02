@@ -178,7 +178,7 @@ def pop_existing(to_update: dict, pop_from: dict):
 def invert_dict(to_invert: dict) -> dict:
     """Swap keys and values.
 
-    Assumes values are distinct.
+    Assumes values are distinct and hashable.
     """
     return {v: k for k, v in to_invert.items()}
 
