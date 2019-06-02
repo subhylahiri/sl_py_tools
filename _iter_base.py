@@ -100,6 +100,27 @@ def and_reverse(it_func: Callable):
     return it_func
 
 
+def without_disp(it_func: Callable):
+    """Create iterator factory with non displaying version
+
+    Parameters
+    ----------
+    it_func : Callable
+        The iterator creating function to use instead
+
+    Returns
+    -------
+    no_disp_it_func : Callable
+        wrapper for `it_func` that eats the name argument and passes the rest.
+    """
+    @wraps(it_func)
+    def no_disp_it_func(*args, **kwds):
+        _, no_disp_args = extract_name(args, kwds)
+        return it_func(*no_disp_args, **kwds)
+
+    return no_disp_it_func
+
+
 # =============================================================================
 # %%* Client class
 # =============================================================================

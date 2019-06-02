@@ -45,6 +45,9 @@ batch
     Generator that yields `slice` objects covering batches of indices.
 rdcount, rdbatch, rdenumerate, rdzip
     Aliases of `dcount.rev`, `dbatch.rev`, `denumerate.rev`, `dzip.rev`.
+undcount, undbatch, undenumerate, undzip
+    Wrappers around of `range`, `batch`, `zenumerate`, `zip` that remove the
+    `name` argument.
 You can set `start` and `stop` in `zenumerate`, `denumerate`, `dzip`, etc,
 but only via keyword arguments.
 
@@ -790,3 +793,11 @@ rdcount = dcount.rev
 rdbatch = dbatch.rev
 rdenumerate = denumerate.rev
 rdzip = dzip.rev
+
+# ==============================================================================
+# %%* Non-displaying iterator functions
+# ==============================================================================
+undcount = _it.without_disp(range)
+undbatch = _it.without_disp(batch)
+undenumerate = _it.without_disp(zenumerate)
+undzip = _it.without_disp(zip)
