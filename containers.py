@@ -9,27 +9,46 @@ import typing as _ty
 import numbers as _num
 from .arg_tricks import defaults
 
+A = _ty.TypeVar('A')
 
-def tuplify(arg):
+
+def tuplify(arg: _ty.Union[A, _ty.Iterable[A]],
+            num: int = 1) -> _ty.Tuple[A, ...]:
     """Make argument a tuple.
 
     If it is an iterable, it is converted to a tuple.
-    Otherwise, it is placed in a list.
+    Otherwise, it is placed in a tuple.
+
+    Parameters
+    ----------
+    arg
+        Thing to be turned / put into a tuple.
+    num : int, optional
+        Number of times to put `arg` in tuple, default: 1. Not used for
+        conversion of iterables.
     """
     if isinstance(arg, cn.abc.Iterable):
         return tuple(arg)
-    return (arg,)
+    return (arg,) * num
 
 
-def listify(arg):
+def listify(arg: _ty.Union[A, _ty.Iterable[A]], num: int = 1) -> _ty.List[A]:
     """Make argument a list.
 
     If it is an iterable, it is converted to a list.
     Otherwise, it is placed in a list.
+
+    Parameters
+    ----------
+    arg
+        Thing to be turned / put into a list.
+    num : int, optional
+        Number of times to put `arg` in tuple, default: 1. Not used for
+        conversion of iterables.
     """
     if isinstance(arg, cn.abc.Iterable):
         return list(arg)
-    return [arg]
+    return [arg] * num
 
 
 class Interval(cn.abc.Container):
@@ -64,6 +83,11 @@ class Interval(cn.abc.Container):
         return ((self.start < x and x < self)
                 or (self.inclusive[0] and x == self.start)
                 or (self.inclusive[1] and x == self.stop))
+
+    def clip(self, val: _num.Real):
+        """Clip value to lie in interval
+        """
+        return min(max(val, self.start), self.stop)
 
 
 # =============================================================================
