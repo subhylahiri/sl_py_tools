@@ -226,7 +226,7 @@ def invert_dict(to_invert: dict) -> dict:
     return {v: k for k, v in to_invert.items()}
 
 
-class PairedDict(dict):
+class PairedDict(cn.UserDict):
     """One direction of bidirectional mapping
 
     Stores a reference to its inverse mapping in `self.inverse`. If the
@@ -248,16 +248,26 @@ class PairedDict(dict):
     Parameters
     ----------
     Positional arguments
-        Passed to the `dict` constructor.
+        Passed to the `UserDict` constructor.
     inverse
         The inverse dictionary. Can only be given as a keyword argument.
     Other keword arguments
-        Passed to the `dict` constructor.
+        Passed to the `UserDict` constructor.
+
+    See Also
+    --------
+    dict
+    collections.UserDict
+    collections.ChainMap
+    AssociativeMap
     """
-    inverse: _ty.Optional[PairedDict]
+    inverse: _ty.Optional[PairedDict] = None
+    _formed: bool = False
 
     def __init__(self, *args, inverse=None, **kwds):
+        self._formed = False
         super().__init__(*args, **kwds)
+        self.inverse = None
         if len(args) > 0 or len(kwds) > 0 or inverse is not None:
             self.inverse = type(self)()
             self.inverse.inverse = self
@@ -267,20 +277,24 @@ class PairedDict(dict):
                 super().update(invert_dict(self.inverse))
         elif len(self) > 0:
             super(PairedDict, self.inverse).update(invert_dict(self))
+        self._formed = True
 
     def __delitem__(self, key):
         """Delete inverse map as well as forward map"""
-        if self.inverse is not None:
+        if self._formed and self.inverse is not None:
             super(PairedDict, self.inverse).__delitem__(self[key])
         super().__delitem__(key)
 
     def __setitem__(self, key, value):
         """Delete inverse & forward maps, then create new foward & inverse map
         """
-        if key in self.keys():
-            del self[key]
-        if self.inverse is not None and value in self.inverse.keys():
-            del self.inverse[value]
+        if self._formed:
+            # not in constructor, assume self.inverse is good
+            if key in self.keys():
+                del self[key]
+            if (self.inverse is not None) and (value in self.inverse.keys()):
+                super(PairedDict, self.inverse).__delitem__(value)
+        # maybe in constructor, make no assumptions
         super().__setitem__(key, value)
         if self.inverse is not None:
             super(PairedDict, self.inverse).__setitem__(value, key)
@@ -303,7 +317,7 @@ class PairedDict(dict):
             If 'inverse' is supplied as a keyword argument, or values are not
             unique.
         """
-        if 'inverse' in kwds.keys:
+        if 'inverse' in kwds.keys():
             raise ValueError("Cannot use 'inverse' as a keyword here")
         fwd = cls(*args, **kwds)
         bwd = fwd.inverse
@@ -332,6 +346,7 @@ class AssociativeMap(cn.ChainMap):
     See Also
     --------
     dict
+    collections.UserDict
     collections.ChainMap
     PairedDict
     """
