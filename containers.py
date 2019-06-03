@@ -10,10 +10,12 @@ import numbers as _num
 from .arg_tricks import defaults
 
 A = _ty.TypeVar('A')
+B = _ty.TypeVar('B')
+InstanceOrIterable = _ty.Union[A, _ty.Iterable[A]]
+Dictable = _ty.Union[_ty.Mapping[A, B], _ty.Iterable[_ty.Tuple[A, B]]]
 
 
-def tuplify(arg: _ty.Union[A, _ty.Iterable[A]],
-            num: int = 1) -> _ty.Tuple[A, ...]:
+def tuplify(arg: InstanceOrIterable, num: int = 1) -> _ty.Tuple[A, ...]:
     """Make argument a tuple.
 
     If it is an iterable, it is converted to a tuple.
@@ -32,7 +34,7 @@ def tuplify(arg: _ty.Union[A, _ty.Iterable[A]],
     return (arg,) * num
 
 
-def listify(arg: _ty.Union[A, _ty.Iterable[A]], num: int = 1) -> _ty.List[A]:
+def listify(arg: InstanceOrIterable, num: int = 1) -> _ty.List[A]:
     """Make argument a list.
 
     If it is an iterable, it is converted to a list.
@@ -60,24 +62,20 @@ class Interval(cn.abc.Container):
     ----------
     start, stop : Real
         Lower and upper bounds of the interval.
-    inclusive : {bool, Tuple[bool,bool]}, optional, default: (True, False)
+    inclusive : {bool, Sequence[bool,bool]}, optional, default: (True, False)
         Is the (lower,upper) bound inclusive? Scalars apply to both ends.
     """
     start: _num.Real
     stop: _num.Real
-    inclusive: _ty.Tuple[bool, bool]
+    inclusive: _ty.List[bool]
 
-    def __init__(
-        self, start: _num.Real, stop: _num.Real,
-        inclusive: _ty.Union[bool, _ty.Tuple[bool, bool]] = (True, False)
-    ):
+    def __init__(self, start: _num.Real, stop: _num.Real,
+                 inclusive: InstanceOrIterable[bool] = (True, False)):
         if start > stop:
             raise ValueError(f"start={start} > stop={stop}")
         self.start = start
         self.stop = stop
-        if not isinstance(inclusive, cn.abc.Sequence):
-            inclusive = (bool(inclusive),) * 2
-        self.inclusive = inclusive
+        self.inclusive = listify(inclusive, 2)
 
     def __contains__(self, x: _num.Real) -> bool:
         return ((self.start < x and x < self)
@@ -91,7 +89,7 @@ class Interval(cn.abc.Container):
 
 
 # =============================================================================
-# %%* Shapes and Tuples for broadcasting
+# %%* Shapes and Tuples for array broadcasting
 # =============================================================================
 
 
@@ -189,8 +187,7 @@ class ShapeTuple(tuple):
 # =============================================================================
 
 
-def update_new(to_update: dict,
-               update_from: _ty.Union[cn.abc.Mapping, _ty.Iterable]):
+def update_new(to_update: dict, update_from: Dictable):
     """Update new keys only
     """
     if isinstance(update_from, cn.abc.Mapping):
@@ -202,8 +199,7 @@ def update_new(to_update: dict,
                 to_update[k] = v
 
 
-def update_existing(to_update: dict,
-                    update_from: _ty.Union[cn.abc.Mapping, _ty.Iterable]):
+def update_existing(to_update: dict, update_from: Dictable):
     """Update existing keys only
     """
     if isinstance(update_from, cn.abc.Mapping):
@@ -235,26 +231,47 @@ class PairedDict(dict):
 
     Stores a reference to its inverse mapping in `self.inverse`. If the
     inverse is provided in the constructor and ``dict(*args,**kwds)`` is empty,
-    `self` will be updated with ``invert_dict(self.inverse)``. Otherwise, no
-    effort is made to ensure that they are inverses of each other. Instead, the
-    instances should be built using the class-method `PairedDict.make_pairs`.
+    `self` will be updated with ``invert_dict(self.inverse)``. If the
+    inverse is not provided in the constructor and ``dict(*args,**kwds)`` is
+    non-empty, `self.inverse` will be created with ``invert_dict(self)``.
+    Otherwise, no effort is made to ensure that they are inverses of each
+    other. Instead, the instances should be built using the class-method
+    `PairedDict.make_pairs`.
 
     Deleting an item also deletes the reversed item from `self.inverse`.
     Setting an item with ``self[key1] = key2``, deletes `key1` from `self` as
     above, deletes `key2` from `self.inverse`, adds item `(key1,key2)` to
     `self`, and adds item `(key2,key1)` to `self.inverse`.
+
+    Both keys and values must be unique and hashable.
+
+    Parameters
+    ----------
+    Positional arguments
+        Passed to the `dict` constructor.
+    inverse
+        The inverse dictionary. Can only be given as a keyword argument.
+    Other keword arguments
+        Passed to the `dict` constructor.
     """
-    inverse: PairedDict
+    inverse: _ty.Optional[PairedDict]
 
     def __init__(self, *args, inverse=None, **kwds):
         super().__init__(*args, **kwds)
-        self.inverse = inverse
-        if len(self) == 0 and self.inverse is not None:
-            super().update(invert_dict(self.inverse))
+        if len(args) > 0 or len(kwds) > 0 or inverse is not None:
+            self.inverse = type(self)()
+            self.inverse.inverse = self
+        if inverse is not None:
+            super(PairedDict, self.inverse).update(inverse)
+            if len(self) == 0 and len(self.inverse) > 0:
+                super().update(invert_dict(self.inverse))
+        elif len(self) > 0:
+            super(PairedDict, self.inverse).update(invert_dict(self))
 
     def __delitem__(self, key):
         """Delete inverse map as well as forward map"""
-        super(PairedDict, self.inverse).__delitem__(self[key])
+        if self.inverse is not None:
+            super(PairedDict, self.inverse).__delitem__(self[key])
         super().__delitem__(key)
 
     def __setitem__(self, key, value):
@@ -262,10 +279,11 @@ class PairedDict(dict):
         """
         if key in self.keys():
             del self[key]
-        if value in self.inverse.keys():
+        if self.inverse is not None and value in self.inverse.keys():
             del self.inverse[value]
         super().__setitem__(key, value)
-        super(PairedDict, self.inverse).__setitem__(value, key)
+        if self.inverse is not None:
+            super(PairedDict, self.inverse).__setitem__(value, key)
 
     @classmethod
     def make_pairs(cls, *args, **kwds) -> _ty.Tuple[PairedDict, PairedDict]:
@@ -278,10 +296,17 @@ class PairedDict(dict):
                 Dictionary built with other parameters.
             bwd : PairedDict
                 Inverse of `fwd`
+
+        Raises
+        ------
+        ValueError
+            If 'inverse' is supplied as a keyword argument, or values are not
+            unique.
         """
+        if 'inverse' in kwds.keys:
+            raise ValueError("Cannot use 'inverse' as a keyword here")
         fwd = cls(*args, **kwds)
-        bwd = cls(invert_dict(fwd), inverse=fwd)
-        fwd.inverse = bwd
+        bwd = fwd.inverse
         if len(fwd) != len(bwd):
             raise ValueError("Repeated keys/values")
         return [fwd, bwd]
@@ -297,7 +322,7 @@ class AssociativeMap(cn.ChainMap):
 
     An unordered associative map arises when subscripting the object itself.
     An ordered associative map arises when subscripting the ``fwd`` and ``bwd``
-    properties, which are both Mappings and inverses of each other.
+    properties, which are both `PairedDict`s and inverses of each other.
 
     If an association is modified, in either direction, both the forward and
     backward mappings are deleted and a new association is created. (see
