@@ -226,6 +226,18 @@ def invert_dict(to_invert: dict) -> dict:
     return {v: k for k, v in to_invert.items()}
 
 
+def is_inverse_dict(map1: _ty.Mapping, map2: _ty.Mapping):
+    """Test if two dicts are each others inverses.
+    """
+    if len(map1) != len(map2):
+        return False
+    if not all(a == b for a, b in zip(map2.keys(), map1.values())):
+        return False
+    if not all(a == b for a, b in zip(map1.keys(), map2.values())):
+        return False
+    return True
+
+
 class PairedDict(cn.UserDict):
     """One direction of bidirectional mapping
 
@@ -235,7 +247,8 @@ class PairedDict(cn.UserDict):
     inverse is not provided in the constructor and ``dict(*args,**kwds)`` is
     non-empty, `self.inverse` will be created with ``invert_dict(self)``.
     Otherwise, no effort is made to ensure that they are inverses of each
-    other. Instead, the instances should be built using the class-method
+    other. We recommend running `self.fix_inverse()` after construction.
+    Instead, the instances could be built using the class-method
     `PairedDict.make_pairs`.
 
     Deleting an item also deletes the reversed item from `self.inverse`.
@@ -266,22 +279,22 @@ class PairedDict(cn.UserDict):
 
     def __init__(self, *args, inverse=None, **kwds):
         self._formed = False
-        super().__init__(*args, **kwds)
         self.inverse = None
+        super().__init__(*args, **kwds)
         if len(args) > 0 or len(kwds) > 0 or inverse is not None:
             self.inverse = type(self)()
             self.inverse.inverse = self
         if inverse is not None:
-            super(PairedDict, self.inverse).update(inverse)
+            self.inverse.update(inverse)
             if len(self) == 0 and len(self.inverse) > 0:
-                super().update(invert_dict(self.inverse))
+                self.update(invert_dict(self.inverse))
         elif len(self) > 0:
-            super(PairedDict, self.inverse).update(invert_dict(self))
+            self.inverse.update(invert_dict(self))
         self._formed = True
 
     def __delitem__(self, key):
         """Delete inverse map as well as forward map"""
-        if self._formed and self.inverse is not None:
+        if self._formed:
             super(PairedDict, self.inverse).__delitem__(self[key])
         super().__delitem__(key)
 
@@ -294,10 +307,9 @@ class PairedDict(cn.UserDict):
                 del self[key]
             if value in self.inverse.keys():
                 del self.inverse[value]
+            super(PairedDict, self.inverse).__setitem__(value, key)
         # maybe in constructor, make no assumptions
         super().__setitem__(key, value)
-        if self.inverse is not None:
-            super(PairedDict, self.inverse).__setitem__(value, key)
 
     def check_inverse(self) -> bool:
         """Check that inverse is well formed"""
@@ -305,13 +317,7 @@ class PairedDict(cn.UserDict):
             return False
         if self.inverse.inverse is not self:
             return False
-        if len(self) != len(self.inverse):
-            return False
-        if not all(a == b for a, b in zip(self.inverse.keys(), self.values())):
-            return False
-        if not all(a == b for a, b in zip(self.keys(), self.inverse.values())):
-            return False
-        return True
+        return is_inverse_dict(self, self.inverse)
 
     def fix_inverse(self):
         """Set inverse using self
