@@ -292,12 +292,52 @@ class PairedDict(cn.UserDict):
             # not in constructor, assume self.inverse is good
             if key in self.keys():
                 del self[key]
-            if (self.inverse is not None) and (value in self.inverse.keys()):
-                super(PairedDict, self.inverse).__delitem__(value)
+            if value in self.inverse.keys():
+                del self.inverse[value]
         # maybe in constructor, make no assumptions
         super().__setitem__(key, value)
         if self.inverse is not None:
             super(PairedDict, self.inverse).__setitem__(value, key)
+
+    def check_inverse(self) -> bool:
+        """Check that inverse is well formed"""
+        if self.inverse is None:
+            return False
+        if self.inverse.inverse is not self:
+            return False
+        if len(self) != len(self.inverse):
+            return False
+        if not all(a == b for a, b in zip(self.inverse.keys(), self.values())):
+            return False
+        if not all(a == b for a, b in zip(self.keys(), self.inverse.values())):
+            return False
+        return True
+
+    def fix_inverse(self):
+        """Set inverse using self
+
+        If `self.inverse` has not been set, it is created by inverting `self`.
+        If they are not inverses of each other, first we try updating
+        `self.inverse` with the inverse of `self`. Then we try updating `self`
+        with the inverse of `self.inverse`. If they are still not inverses, we
+        raise a `ValueError`.
+        """
+        if self.inverse is None:
+            self.inverse = type(self)()
+            self.inverse._formed = False
+            self.inverse.update(invert_dict(self))
+            self.inverse._formed = True
+        self.inverse.inverse = self
+        if not self.check_inverse():
+            self.inverse._formed = False
+            self.inverse.update(invert_dict(self))
+            self.inverse._formed = True
+        if not self.check_inverse():
+            self._formed = False
+            self.update(invert_dict(self.inverse))
+            self._formed = True
+        if not self.check_inverse():
+            raise ValueError("Unable to fix inverse")
 
     @classmethod
     def make_pairs(cls, *args, **kwds) -> _ty.Tuple[PairedDict, PairedDict]:
@@ -320,6 +360,7 @@ class PairedDict(cn.UserDict):
         if 'inverse' in kwds.keys():
             raise ValueError("Cannot use 'inverse' as a keyword here")
         fwd = cls(*args, **kwds)
+        fwd.fix_inverse()
         bwd = fwd.inverse
         if len(fwd) != len(bwd):
             raise ValueError("Repeated keys/values")

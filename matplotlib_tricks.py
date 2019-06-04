@@ -19,22 +19,69 @@ def rc_fonts():
     mpl.rcParams['font.family'] = 'serif'
 
 
-def clean_axes(axs: plt.Axes, fontsize=20, **kwds):
-    """Make axes look prettier
+# =============================================================================
+# %%* Axes lines, etc
+# =============================================================================
+
+
+def calc_axlim(data, err=None, log=False, buffer=0.05):
+    """Calculate axes limits that will show all data
     """
+    if err is not None:
+        lim = np.array([np.nanmin(data - err), np.nanmax(data + err)])
+    else:
+        lim = np.array([np.nanmin(data), np.nanmax(data)])
+    if log:
+        lim = np.log(lim)
+    diff = lim[1] - lim[0]
+    lim += np.array([-1, 1]) * buffer * diff
+    if log:
+        lim = np.exp(lim)
+    return tuple(lim)
+
+
+def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
+    """Make axes look prettier
+
+    All kewwords default to `True`. This can be changed with keyword `all`.
+
+    Parameters
+    ----------
+    axs : plt.Axes
+        Axes object to modify
+    fontsize : number, str, default: 20
+        Font size for axes labels & title.
+    fontfamily : str, default: sans-serif
+        Font family for axes labels & title.
+    box : bool, keyword
+        Remove axes box?
+    axisfont : bool, keyword only
+        Change axes font size?
+    titlefont : bool, keyword only
+        Change title font size?
+    legendbox : bool, keyword only
+        Remove legend box?
+    legendfont : bool, keyword only
+        Change legend font size?
+    """
+    allopts = kwds.pop('all', True)
     if axs is None:
         axs = plt.gca()
-    if kwds.pop('box', True):
+    if kwds.pop('box', allopts):
         axs.spines['top'].set_visible(False)
         axs.spines['right'].set_visible(False)
-    if kwds.pop('axisfont', True):
+    if kwds.pop('axisfont', allopts):
+        axs.get_xaxis().get_label().set_fontsize(fontsize)
         axs.get_yaxis().get_label().set_fontsize(fontsize)
-    if kwds.pop('titlefont', True):
+        axs.get_xaxis().get_label().set_fontfamily(fontfamily)
+        axs.get_yaxis().get_label().set_fontfamily(fontfamily)
+    if kwds.pop('titlefont', allopts):
         axs.title.set_fontsize(fontsize)
+        axs.title.set_fontfamily(fontfamily)
     if axs.legend_ is not None:
-        if kwds.pop('legendbox', True):
+        if kwds.pop('legendbox', allopts):
             axs.legend_.set_frame_on(False)
-        if kwds.pop('legendfont', True):
+        if kwds.pop('legendfont', allopts):
             for x in axs.legend_.get_texts():
                 x.set_fontsize(fontsize)
     axs.set(**kwds)
@@ -113,75 +160,6 @@ def centre_spines(axs: _ty.Optional[plt.Axes] = None,
                      textcoords='offset points', ha='right', va='top')
 
 
-class CentredFormatter(mpl.ticker.ScalarFormatter):
-    """Acts exactly like the default Scalar Formatter, but yields an empty
-    label for ticks at "centre".
-
-    From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
-    """
-    centre = 0
-
-    def __init__(self, centre=0, **kwds):
-        super().__init__(**kwds)
-        self.centre = centre
-
-    def __call__(self, value, pos=None):
-        if value == self.centre:
-            return ''
-        else:
-            return super().__call__(value, pos)
-
-
-# Note: I'm implementing the arrows as a path effect rather than a custom
-#       Spines class. In the long run, a custom Spines class would be a better
-#       way to go. One of the side effects of this is that the arrows aren't
-#       reversed when the axes are reversed! (Joe Kington)
-
-
-class EndArrow(mpl.patheffects._Base):
-    """A matplotlib patheffect to add arrows at the end of a path.
-
-    From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
-    """
-
-    def __init__(self, headwidth=5, headheight=5, facecolor=(0, 0, 0), **kwds):
-        super(mpl.patheffects._Base, self).__init__()
-        self.width, self.height = headwidth, headheight
-        self._gc_args = kwds
-        self.facecolor = facecolor
-
-        self.trans = mpl.transforms.Affine2D()
-
-        self.arrowpath = mpl.path.Path(
-                np.array([[-0.5, -0.2], [0.0, 0.0], [0.5, -0.2],
-                          [0.0, 1.0], [-0.5, -0.2]]),
-                np.array([1, 2, 2, 2, 79]))
-
-    def draw_path(self, renderer, gc, tpath, affine, rgbFace=None):
-        scalex = renderer.points_to_pixels(self.width)
-        scaley = renderer.points_to_pixels(self.height)
-
-        x0, y0 = tpath.vertices[-1]
-        dx, dy = tpath.vertices[-1] - tpath.vertices[-2]
-        azi = np.arctan2(dy, dx) - np.pi / 2.0
-        trans = affine + self.trans.clear().scale(scalex, scaley
-                                                  ).rotate(azi
-                                                           ).translate(x0, y0)
-
-        gc0 = renderer.new_gc()
-        gc0.copy_properties(gc)
-        self._update_gc(gc0, self._gc_args)
-
-        if self.facecolor is None:
-            color = rgbFace
-        else:
-            color = self.facecolor
-
-        renderer.draw_path(gc0, self.arrowpath, trans, color)
-        renderer.draw_path(gc, tpath, affine, rgbFace)
-        gc0.restore()
-
-
 def add_axes_arrows(axs: _ty.Optional[plt.Axes] = None,
                     to_xaxis: bool = True, to_yaxis: bool = True):
     """Add arrows to axes.
@@ -222,6 +200,11 @@ def plot_equality(axs: plt.Axes, line: mpl.lines.Line2D = None, npt=2, **kwds):
         line.set_ydata(eq_vals)
         line.update(kwds)
     return line
+
+
+# =============================================================================
+# %%* Colour limits, etc
+# =============================================================================
 
 
 def common_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
@@ -268,3 +251,77 @@ def centre_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
         old_clim = img.get_clim()
         cdiff = max(old_clim[1] - centre, centre - old_clim[0])
         img.set_clim((centre - cdiff, centre + cdiff))
+
+
+# =============================================================================
+# %%* Helper classes
+# =============================================================================
+
+
+class CentredFormatter(mpl.ticker.ScalarFormatter):
+    """Acts exactly like the default Scalar Formatter, but yields an empty
+    label for ticks at "centre".
+
+    From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
+    """
+    centre = 0
+
+    def __init__(self, centre=0, **kwds):
+        super().__init__(**kwds)
+        self.centre = centre
+
+    def __call__(self, value, pos=None):
+        if value == self.centre:
+            return ''
+        else:
+            return super().__call__(value, pos)
+
+
+# Note: I'm implementing the arrows as a path effect rather than a custom
+#       Spines class. In the long run, a custom Spines class would be a better
+#       way to go. One of the side effects of this is that the arrows aren't
+#       reversed when the axes are reversed! (Joe Kington)
+
+
+class EndArrow(mpl.patheffects.AbstractPathEffect):
+    """A matplotlib patheffect to add arrows at the end of a path.
+
+    From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
+    """
+
+    def __init__(self, headwidth=5, headheight=5, facecolor=(0, 0, 0), **kwds):
+        super(mpl.patheffects._Base, self).__init__()
+        self.width, self.height = headwidth, headheight
+        self._gc_args = kwds
+        self.facecolor = facecolor
+
+        self.trans = mpl.transforms.Affine2D()
+
+        self.arrowpath = mpl.path.Path(
+                np.array([[-0.5, -0.2], [0.0, 0.0], [0.5, -0.2],
+                          [0.0, 1.0], [-0.5, -0.2]]),
+                np.array([1, 2, 2, 2, 79]))
+
+    def draw_path(self, renderer, gc, tpath, affine, rgbFace=None):
+        scalex = renderer.points_to_pixels(self.width)
+        scaley = renderer.points_to_pixels(self.height)
+
+        x0, y0 = tpath.vertices[-1]
+        dx, dy = tpath.vertices[-1] - tpath.vertices[-2]
+        azi = np.arctan2(dy, dx) - np.pi / 2.0
+        trans = affine + self.trans.clear().scale(scalex, scaley
+                                                  ).rotate(azi
+                                                           ).translate(x0, y0)
+
+        gc0 = renderer.new_gc()
+        gc0.copy_properties(gc)
+        self._update_gc(gc0, self._gc_args)
+
+        if self.facecolor is None:
+            color = rgbFace
+        else:
+            color = self.facecolor
+
+        renderer.draw_path(gc0, self.arrowpath, trans, color)
+        renderer.draw_path(gc, tpath, affine, rgbFace)
+        gc0.restore()
