@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """Utilities for Markov processes
 """
+import typing as _ty
 import numpy as np
 import numpy_linalg as la
 from .markov import stochastify_c
+Sized = _ty.Union[int, np.ndarray]
 
 
 def offdiag_inds(nst: int) -> la.lnarray:
@@ -69,7 +71,7 @@ def ring_inds(nst: int) -> la.lnarray:
                       np.arange(nst, nst**2, nst+1)))
 
 
-def param_inds(nst: int, serial=False, ring=False) -> la.lnarray:
+def param_inds(nst: int, serial: bool = False, ring=False) -> la.lnarray:
     """Ravel indices of independent parameters of transition matrix.
 
     Parameters
@@ -98,12 +100,12 @@ def param_inds(nst: int, serial=False, ring=False) -> la.lnarray:
     return offdiag_inds(nst)
 
 
-def num_param(states, serial=False, ring=False, uniform=False):
+def num_param(states: Sized, serial=False, ring=False, uniform=False) -> int:
     """Number of independent rates
 
     Parameters
     ----------
-    states : int or la.lnarray (n,...)
+    states : int or np.ndarray (n,...)
         Number of states, or array over states.
     serial : bool, optional, default: False
         Is the rate vector meant for `serial_params_to_mat` or
@@ -131,7 +133,7 @@ def num_param(states, serial=False, ring=False, uniform=False):
     return states * (states - 1)
 
 
-def num_state(params, serial=False, ring=False):
+def num_state(params: Sized, serial: bool = False, ring: bool = False) -> int:
     """Number of states from rate vector
 
     Parameters
@@ -162,7 +164,7 @@ def num_state(params, serial=False, ring=False):
     return (0.5 + np.sqrt(0.25 + params)).astype(int)
 
 
-def mat_type(params, states):
+def mat_type(params: Sized, states: Sized) -> _ty.Tuple[bool, ...]:
     """Is it a (uniform) ring
 
     Parameters
@@ -194,7 +196,7 @@ def mat_type(params, states):
     return serial, ring, uniform
 
 
-def gen_params_to_mat(params):
+def gen_params_to_mat(params: np.ndarray) -> la.lnarray:
     """Transition matrix from independent parameters.
 
     Parameters
@@ -216,7 +218,7 @@ def gen_params_to_mat(params):
     return mat
 
 
-def serial_params_to_mat(params):
+def serial_params_to_mat(params: np.ndarray) -> la.lnarray:
     """Serial transition matrix from independent parameters.
 
     Parameters
@@ -237,7 +239,7 @@ def serial_params_to_mat(params):
     return mat
 
 
-def uni_serial_params_to_mat(params, num_st):
+def uni_serial_params_to_mat(params: np.ndarray, num_st: int) -> la.lnarray:
     """Uniform serial transition matrix from independent parameters.
 
     Parameters
@@ -259,7 +261,7 @@ def uni_serial_params_to_mat(params, num_st):
     return serial_params_to_mat(serial_params)
 
 
-def ring_params_to_mat(params):
+def ring_params_to_mat(params: np.ndarray) -> la.lnarray:
     """Ring transition matrix from independent parameters.
 
     Parameters
@@ -282,7 +284,7 @@ def ring_params_to_mat(params):
     return mat
 
 
-def uni_ring_params_to_mat(params, num_st):
+def uni_ring_params_to_mat(params: np.ndarray, num_st: int) -> la.lnarray:
     """Ring transition matrix from independent parameters.
 
     Parameters
@@ -304,7 +306,9 @@ def uni_ring_params_to_mat(params, num_st):
     return ring_params_to_mat(ring_params)
 
 
-def params_to_mat(params, serial=False, ring=False, uniform=False, nst=2):
+def params_to_mat(params: np.ndarray,
+                  serial: bool = False, ring: bool = False,
+                  uniform: bool = False, nst: int = 2) -> la.lnarray:
     """Transition matrix from independent parameters.
 
     Parameters
@@ -339,7 +343,7 @@ def params_to_mat(params, serial=False, ring=False, uniform=False, nst=2):
     return gen_params_to_mat(params)
 
 
-def gen_mat_to_params(mat):
+def gen_mat_to_params(mat: np.ndarray) -> la.lnarray:
     """Independent parameters of transition matrix.
 
     Parameters
@@ -360,7 +364,7 @@ def gen_mat_to_params(mat):
     return param[offdiag_inds(nst)]
 
 
-def serial_mat_to_params(mat):
+def serial_mat_to_params(mat: np.ndarray) -> la.lnarray:
     """Independent parameters of serial transition matrix.
 
     Parameters
@@ -380,7 +384,7 @@ def serial_mat_to_params(mat):
     return param[serial_inds(nst)]
 
 
-def uni_serial_mat_to_params(mat, grad=True):
+def uni_serial_mat_to_params(mat: np.ndarray, grad: bool = True) -> la.lnarray:
     """Independent parameters of uniform serial transition matrix.
 
     Parameters
@@ -389,7 +393,7 @@ def uni_serial_mat_to_params(mat, grad=True):
         Continuous time stochastic matrix.
     grad : bool, optional, default: True
         Is the output for a gradient (True) or a transition matrix (False).
-        If True, return sum of (anti)clockwise transitions.
+        If True, return sum of left/right transitions.
         If False, return the mean.
 
     Returns
@@ -410,7 +414,7 @@ def uni_serial_mat_to_params(mat, grad=True):
     return params
 
 
-def ring_mat_to_params(mat):
+def ring_mat_to_params(mat: np.ndarray) -> la.lnarray:
     """Independent parameters of ring transition matrix.
 
     Parameters
@@ -430,7 +434,7 @@ def ring_mat_to_params(mat):
     return param[ring_inds(nst)]
 
 
-def uni_ring_mat_to_params(mat, grad=True):
+def uni_ring_mat_to_params(mat: np.ndarray, grad: bool = True) -> la.lnarray:
     """Independent parameters of ring transition matrix.
 
     Parameters
@@ -460,7 +464,9 @@ def uni_ring_mat_to_params(mat, grad=True):
     return params
 
 
-def mat_to_params(mat, serial=False, ring=False, uniform=False, grad=True):
+def mat_to_params(mat: np.ndarray,
+                  serial: bool = False, ring: bool = False,
+                  uniform: bool = False, grad: bool = True) -> la.lnarray:
     """Independent parameters of transition matrix.
 
     Parameters
@@ -476,6 +482,10 @@ def mat_to_params(mat, serial=False, ring=False, uniform=False, grad=True):
     uniform : bool, optional, default: False
         Is the rate vector meant for `ring_params_to_mat` or
         `uni_ring_params_to_mat`?
+    grad : bool, optional, default: True
+        Is the output for a gradient (True) or a transition matrix (False).
+        If True, return sum of each group of equal transitions.
+        If False, return the mean.
 
     Returns
     -------
@@ -493,7 +503,9 @@ def mat_to_params(mat, serial=False, ring=False, uniform=False, grad=True):
     return gen_mat_to_params(mat)
 
 
-def tens_to_mat(tens, serial=False, ring=False, uniform=False, grad=True):
+def tens_to_mat(tens: np.ndarray,
+                serial: bool = False, ring: bool = False,
+                uniform: bool = False, grad: bool = True) -> la.lnarray:
     """Independent parameters of 4th rank tensor.
 
     Parameters
@@ -509,6 +521,10 @@ def tens_to_mat(tens, serial=False, ring=False, uniform=False, grad=True):
     uniform : bool, optional, default: False
         Is the rate vector meant for `ring_params_to_mat` or
         `uni_ring_params_to_mat`?
+    grad : bool, optional, default: True
+        Is the output for a gradient (True) or a transition matrix (False).
+        If True, return sum of each group of equal transitions.
+        If False, return the mean.
 
     Returns
     -------
