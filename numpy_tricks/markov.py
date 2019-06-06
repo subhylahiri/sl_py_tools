@@ -106,6 +106,26 @@ def calc_peq(rates: np.ndarray) -> Tuple[la.lnarray, Tuple[la.lnarray, ...]]:
     return peq.ur, (z_lu, ipv)
 
 
+def calc_peq_d(jump: np.ndarray) -> Tuple[la.lnarray, Tuple[la.lnarray, ...]]:
+    """Calculate steady state distribution.
+
+    Parameters
+    ----------
+    jump : np.ndarray (n,n) or tuple(np.ndarray) ((n,n), (n,))
+        Discrete time stochastic matrix or LU factors of inverse fundamental.
+
+    Returns
+    -------
+    peq : la.lnarray (n,)
+        Steady-state distribution.
+    (z_lu, ipv) : tuple(la.lnarray) ((n,n),(n,))
+        LU factors of inverse fundamental matrix.
+    """
+    if isinstance(jump, tuple):
+        return calc_peq(jump)
+    return calc_peq(jump - la.eye(jump.shape[-1]))
+
+
 def adjoint(tensor: la.lnarray, measure: la.lnarray) -> la.lnarray:
     """Adjoint with respect to L2 inner product with measure
 
@@ -147,6 +167,39 @@ def mean_dwell(rates: np.ndarray, peq: Optional[np.ndarray] = None) -> float:
     return 1. / (peq / dwell).sum()
 
 
+def sim_markov_d(jump: la.lnarray, peq: Optional[np.ndarray] = None,
+                 num_jump: int = 10) -> Tuple[la.lnarray, ...]:
+    """Simulate Markov process trajectory.
+
+    Parameters
+    ----------
+    jump : la.lnarray (n,n)
+        Discrete time stochastic matrix.
+    peq : la.lnarray (n,), optional
+        Initial-state distribution, default: use steady-state.
+    num_jump : int, optional, default: 10
+        Stop after this many jumps.
+
+    Returns
+    -------
+    states : la.lnarray (w,)
+        Vector of states visited.
+    """
+    jump = la.asanyarray(jump)
+    if peq is None:
+        peq = calc_peq_d(jump)[0]
+
+    state_inds = la.arange(len(peq))
+    states_from = la.array([la.random.choice(state_inds,
+                                             size=num_jump-1,
+                                             p=p) for p in jump])
+    states = la.empty(num_jump)
+    states[0] = la.random.choice(state_inds, p=peq)
+    for num in range(num_jump-1):
+        states[num+1] = states_from[states[num], num]
+    return states
+
+
 def sim_markov(rates: la.lnarray, peq: Optional[np.ndarray] = None,
                num_jump: Optional[int] = None,
                max_time: Optional[float] = None) -> Tuple[la.lnarray, ...]:
@@ -168,41 +221,36 @@ def sim_markov(rates: la.lnarray, peq: Optional[np.ndarray] = None,
     states : la.lnarray (w,)
         Vector of states visited.
     dwells : la.lnarray (w,)
+        Time spent in each state.
     """
     rates = la.asanyarray(rates)
     if peq is None:
         peq = calc_peq(rates)[0]
     num_states = len(peq)
-    state_inds = la.arange(num_states)
     dwell = -1. / np.diagonal(rates)
     jump = rates * dwell.c
     jump[np.diag_indices(num_states)] = 0.
 
+    est_num = num_jump
     if num_jump is None:
         if max_time is None:
             raise ValueError("Must specify either num_jump or max_time")
         est_num = int(5 * max_time / mean_dwell(rates, peq))
-        num_jump = est_num
     if max_time is None:
-        est_num = num_jump
         max_time = np.inf
     est_num = max(est_num, 1)
 
-    states_from = la.array([la.random.choice(state_inds, size=est_num-1, p=p)
-                            for p in jump])
     dwells_from = - dwell.c * np.log(la.random.rand(est_num))
-    states = [la.random.choice(state_inds, p=peq)]
-    dwells = [dwells_from[states[-1], 0]]
-    num = 1
-    time = dwells[-1]
-    while num < num_jump and time < max_time:
-        states.append(states_from[states[-1], num - 1])
-        dwells.append(dwells_from[states[-1], num])
-        num += 1
-        time += dwells[-1]
-        # if num >= est_num:
-        #     msg = f"n/N/N^ {num}/{num_jump}/{est_num}, t/T {time}/{max_time}"
-        #     raise IndexError(msg)
-    if time > max_time:
-        dwells[-1] -= time - max_time
-    return la.array(states), la.array(dwells)
+    states = sim_markov_d(jump, peq, est_num)
+    dwells = dwells_from[states, la.arange(est_num)]
+
+    states, dwells = states[slice(num_jump)], dwells[slice(num_jump)]
+    cum_dwell = np.cumsum(dwells)
+    mask = cum_dwell < max_time
+    if not mask[-1]:
+        ind = np.nonzero(~mask)[0][0]
+        mask[ind] = True
+        dwells[ind] -= cum_dwell[ind] - max_time
+    states, dwells = states[mask], dwells[mask]
+
+    return states, dwells
