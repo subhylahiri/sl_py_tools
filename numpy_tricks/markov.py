@@ -60,7 +60,7 @@ def rand_trans(nst: int, npl: int = 1, sparsity: float = 1.) -> la.lnarray:
     n : int
         total number of states
     npl : int
-        number of plasticity types
+        number of matrices
     sparsity : float
         sparsity
 
