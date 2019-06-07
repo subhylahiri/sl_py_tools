@@ -1,5 +1,20 @@
 # -*- coding: utf-8 -*-
-"""Utilities for Markov processes
+"""Utilities for parametrising Markov processes
+
+For general topology, the parameters are:
+    mat_01, mat_02, ..., mat_0n-1, mat10, mat_12, ..., mat_n-2,n-1.
+For a serial topology:
+    mat_01, mat_12, ..., mat_n-2,n-1,
+    mat_10, mat_21, ..., mat_n-1,n-2.
+For a ring topology:
+    mat_01, mat_12, ..., mat_n-2,n-1, mat_n-1,0,
+    mat_0,n-1, mat_10, mat_21, ..., mat_n-1,n-2.
+If `drn` is positive/negative, we only consider the upper/lower triangle.
+If `drn == 0`, we consider both.
+
+When `uniform`, we assume that all non-zero elements in the upper/lower
+triangle are equal. When extracting parameters we average them, unless
+`grad` is True when we take the sum.
 """
 import typing as _ty
 import numpy as np
@@ -9,7 +24,7 @@ Sized = _ty.Union[int, np.ndarray]
 
 
 def offdiag_inds(nst: int, drn: int = 0) -> la.lnarray:
-    """Ravel indices of independent parameters of transition matrix.
+    """Indices of independent parameters of transition matrix.
 
     Parameters
     ----------
@@ -24,16 +39,16 @@ def offdiag_inds(nst: int, drn: int = 0) -> la.lnarray:
         Vector of ravel indices of off-diagonal elements, in order:
         mat_01, mat_02, ..., mat_0n-1, mat10, mat_12, ..., mat_n-2,n-1.
     """
+    if drn > 0:
+        return np.ravel_multi_index(np.triu_indices(nst, 1), (nst, nst))
+    if drn < 0:
+        return np.ravel_multi_index(np.tril_indices(nst, -1), (nst, nst))
     # when put into groups of size nst+1:
     # M[0,0], M[0,1], M[0,2], ..., M[0,n-1], M[1,0],
     # M[1,1], M[1,2], ..., M[1,n-1], M[2,0], M[2,1],
     # ...
     # M[n-2,n-2], M[n-2,n-1], M[n-1,0], ..., M[n-1,n-2],
     # unwanted elements are 1st in each group
-    if drn > 0:
-        return np.triu_indices(nst, 1)
-    if drn < 0:
-        return np.tril_indices(nst, -1)
     k_1st = la.arange(0, nst**2, nst+1)  # ravel ind of 1st element in group
     k = la.arange(nst**2)
     return la.delete(k, k_1st)
@@ -54,7 +69,7 @@ def serial_inds(nst: int, drn: int = 0) -> la.lnarray:
     K : la.lnarray (2(n-1),)
         Vector of ravel indices of off-diagonal elements, in order:
         mat_01, mat_12, ..., mat_n-2,n-1,
-        mat_10, mat_21, ..., mat_n-2,n-1.
+        mat_10, mat_21, ..., mat_n-1,n-2.
     """
     pos = np.arange(1, nst**2, nst+1)
     if drn > 0:
@@ -91,6 +106,15 @@ def ring_inds(nst: int, drn: int = 0) -> la.lnarray:
     return la.hstack((pos, neg))
 
 
+def _ind_fun(serial, ring):
+    """which index function to use"""
+    if serial:
+        return serial_inds
+    if ring:
+        return ring_inds
+    return offdiag_inds
+
+
 def param_inds(nst: int, serial: bool = False, ring=False,
                drn: int = 0) -> la.lnarray:
     """Ravel indices of independent parameters of transition matrix.
@@ -114,13 +138,14 @@ def param_inds(nst: int, serial: bool = False, ring=False,
     Returns
     -------
     mat : la.lnarray (k,k), k in (n(n-1), 2(n-1), 2n, 2)
-        Matrix of independent elements, each axis in order of `mat_to_params`.
+        Indices of independent elements. For the order, see docs for `*_inds`.
     """
-    if serial:
-        return serial_inds(nst, drn)
-    if ring:
-        return ring_inds(nst, drn)
-    return offdiag_inds(nst, drn)
+    return _ind_fun(serial, ring)(nst, drn)
+    # if serial:
+    #     return serial_inds(nst, drn)
+    # if ring:
+    #     return ring_inds(nst, drn)
+    # return offdiag_inds(nst, drn)
 
 
 def num_param(states: Sized, serial=False, ring=False, uniform=False,
@@ -244,7 +269,7 @@ def _params_to_mat(fun, params, nst, drn):
     return mat
 
 
-def _uni_params(params, npar):
+def _uni_params(params, nst, serial: bool = False, ring: bool = False):
     """Helper for uni_*_params_to_mat
 
     Parameters
@@ -252,6 +277,7 @@ def _uni_params(params, npar):
     npar
         Number of parameters when `dir=+/-1.`
     """
+    npar = num_param(nst, serial=serial, ring=ring, drn=1, uniform=False)
     if len(params) == 1:
         return np.full(npar, params[0])
     return la.hstack((np.full(npar, params[0]), np.full(npar, params[1])))
@@ -318,7 +344,7 @@ def uni_serial_params_to_mat(params: np.ndarray, num_st: int,
     mat : la.lnarray (n,n)
         Continuous time stochastic matrix.
     """
-    return serial_params_to_mat(_uni_params(params, num_st-1), drn)
+    return serial_params_to_mat(_uni_params(params, num_st, serial=True), drn)
 
 
 def ring_params_to_mat(params: np.ndarray, drn: int = 0) -> la.lnarray:
@@ -362,7 +388,7 @@ def uni_ring_params_to_mat(params: np.ndarray, num_st: int,
     mat : la.lnarray (n,n)
         Continuous time stochastic matrix.
     """
-    return ring_params_to_mat(_uni_params(params, num_st), drn)
+    return ring_params_to_mat(_uni_params(params, num_st, ring=True), drn)
 
 
 def params_to_mat(params: np.ndarray,
@@ -374,6 +400,7 @@ def params_to_mat(params: np.ndarray,
     ----------
     params : np.ndarray (n(n-1),) or (2(n-1),) or (2n,) or (2,)
         Vector of independent elements, in order that depends on flags below.
+        See docs for `*_inds` for details.
     serial : bool, optional, default: False
         Is the rate vector meant for `serial_params_to_mat` or
         `gen_params_to_mat`?
@@ -393,15 +420,20 @@ def params_to_mat(params: np.ndarray,
     mat : la.lnarray (n,n)
         Continuous time stochastic matrix.
     """
-    if serial:
-        if uniform:
-            return uni_serial_params_to_mat(params, nst, drn)
-        return serial_params_to_mat(params, drn)
-    if ring:
-        if uniform:
-            return uni_ring_params_to_mat(params, nst, drn)
-        return ring_params_to_mat(params, drn)
-    return gen_params_to_mat(params, drn)
+    if uniform:
+        params = _uni_params(params, nst, serial=serial, ring=ring)
+    else:
+        nst = num_state(params, serial=serial, ring=ring, drn=drn)
+    return _params_to_mat(_ind_fun(serial, ring), params, nst, drn)
+    # if serial:
+    #     if uniform:
+    #         return uni_serial_params_to_mat(params, nst, drn)
+    #     return serial_params_to_mat(params, drn)
+    # if ring:
+    #     if uniform:
+    #         return uni_ring_params_to_mat(params, nst, drn)
+    #     return ring_params_to_mat(params, drn)
+    # return gen_params_to_mat(params, drn)
 
 
 def _mat_to_params(fun, mat, drn):
@@ -578,18 +610,22 @@ def mat_to_params(mat: np.ndarray,
 
     Returns
     -------
-    params : la.lnarray (n(n-1),) or (2(n-1),) or (2n,) or (2,)
-        Vector of independent elements. For the order, see `*_mat_to_params`.
+    params : la.lnarray (n(n-1),) or (2(n-1),) or (2n,) or (2,) or half of them
+        Vector of independent elements. For the order, see docs for `*_inds`.
     """
-    if serial:
-        if uniform:
-            return uni_serial_mat_to_params(mat, grad, drn)
-        return serial_mat_to_params(mat, drn)
-    if ring:
-        if uniform:
-            return uni_ring_mat_to_params(mat, grad, drn)
-        return ring_mat_to_params(mat, drn)
-    return gen_mat_to_params(mat, drn)
+    params = _mat_to_params(_ind_fun(serial, ring), mat, drn)
+    if uniform:
+        return _uni_mat(params, drn, grad)
+    return params
+    # if serial:
+    #     if uniform:
+    #         return uni_serial_mat_to_params(mat, grad, drn)
+    #     return serial_mat_to_params(mat, drn)
+    # if ring:
+    #     if uniform:
+    #         return uni_ring_mat_to_params(mat, grad, drn)
+    #     return ring_mat_to_params(mat, drn)
+    # return gen_mat_to_params(mat, drn)
 
 
 def mat_update_params(mat: np.ndarray, params: np.ndarray,
@@ -600,6 +636,8 @@ def mat_update_params(mat: np.ndarray, params: np.ndarray,
     ----------
     mat : np.ndarray (n,n)
         Continuous time stochastic matrix.
+    params : np.ndarray (n(n-1),) or (2(n-1),) or (2n,) or (2,) or half of them
+        Vector of independent elements. For the order, see docs for `*_inds`.
     serial : bool, optional, default: False
         Is the rate vector meant for `serial_params_to_mat` or
         `gen_params_to_mat`?
@@ -629,7 +667,7 @@ def mat_update_params(mat: np.ndarray, params: np.ndarray,
 
 
 def tens_to_mat(tens: np.ndarray,
-                serial: bool = False, ring: bool = False, drn: int = 0,
+                serial: bool = False, ring: bool = False, drn: int = (0, 0),
                 uniform: bool = False, grad: bool = True) -> la.lnarray:
     """Independent parameters of 4th rank tensor.
 
@@ -660,12 +698,15 @@ def tens_to_mat(tens: np.ndarray,
     """
     nst = tens.shape[0]
     mat = tens.reshape((nst**2, nst**2))
-    inds = param_inds(nst, serial=serial, ring=ring, drn=drn)
-    mat = mat[np.ix_(inds, inds)]
+    inds = [param_inds(nst, serial=serial, ring=ring, drn=d) for d in drn]
+    mat = mat[np.ix_(inds[0], inds[1])]
     if uniform:
-        nind = len(inds) // 2
+        nind = len(inds[0]) // 2
         mat = la.block([[mat[:nind, :nind].sum(), mat[:nind, nind:].sum()],
                         [mat[nind:, :nind].sum(), mat[nind:, nind:].sum()]])
+        if drn[0]:
+            mat = mat.sum()
+            nind = len(inds[0])
         if not grad:
-            mat /= nind
+            mat /= nind**2
     return mat
