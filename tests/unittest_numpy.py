@@ -54,20 +54,19 @@ class NosortTestLoader(unittest.TestLoader):
             testFunc = getattr(testCaseClass, attrname)
             if not callable(testFunc):
                 return False
-            fullName = '%s.%s' % (testCaseClass.__module__,
-                                  testFunc.__qualname__)
-            return self.testNamePatterns is None or \
-                any(fnmatchcase(fullName, pattern)
-                    for pattern in self.testNamePatterns)
+            if self.testNamePatterns is None:
+                return True
+            fullName = f'{testCaseClass.__module__}.{testFunc.__qualname__}'
+            return any(fnmatchcase(fullName, pattern)
+                       for pattern in self.testNamePatterns)
         try:
-            testFnNames = list(filter(shouldIncludeMethod,
-                                      testCaseClass.__dir__(testCaseClass)))
-            testFnNames = unique_unsorted(testFnNames)
+            testFnNames = testCaseClass.get_names()
         except AttributeError:
-            testFnNames = list(filter(shouldIncludeMethod, dir(testCaseClass)))
+            testFnNames = dir(testCaseClass)
+        testFnNames = list(filter(shouldIncludeMethod, testFnNames))
         if self.sortTestMethodsUsing:
-            testFnNames.sort(key=functools.cmp_to_key(
-                                            self.sortTestMethodsUsing))
+            key_fn = functools.cmp_to_key(self.sortTestMethodsUsing)
+            testFnNames.sort(key=key_fn)
         return testFnNames
 
 
@@ -291,11 +290,16 @@ class TestCaseNumpy(unittest.TestCase):
         for array, shape in zip(arrays, shapes):
             self.assertEqual(array.shape, shape, msg)
 
-    def __dir__(self):
+    @classmethod
+    def get_names(cls):
         my_attr = []
-        for base in self.__bases__:
-            my_attr += TestCaseNumpy.__dir__(base)
-        return my_attr + list(self.__dict__.keys())
+        for base in cls.__bases__:
+            try:
+                my_attr += base.get_names()
+            except AttributeError:
+                my_attr += dir(base)
+        my_attr.extend(cls.__dict__)
+        return unique_unsorted(my_attr)
 
 
 # =============================================================================
@@ -356,11 +360,11 @@ def miss_str(x, y, atol=1e-8, rtol=1e-5, equal_nan=True):
     mis_frac = (np.log(mismatch) - np.log(thresh)) / np.log(10)
 
     if equal_nan:
-        a_ind = np.unravel_index(np.nanargmax(mismatch), mismatch.shape)
-        r_ind = np.unravel_index(np.nanargmax(mis_frac), mis_frac.shape)
+        argmax = np.nanargmax
     else:
-        a_ind = np.unravel_index(np.argmax(mismatch), mismatch.shape)
-        r_ind = np.unravel_index(np.argmax(mis_frac), mis_frac.shape)
+        argmax = np.argmax
+    a_ind = np.unravel_index(argmax(mismatch), mismatch.shape)
+    r_ind = np.unravel_index(argmax(mis_frac), mis_frac.shape)
 
     a_worst, r_worst = mismatch[a_ind], mismatch[r_ind]
     thresh, mis_frac = thresh[r_ind], mis_frac[r_ind]
@@ -447,6 +451,6 @@ def errstate(*args, **kwds):
 def unique_unsorted(sequence):
     """remove repetitions without changing the order"""
     sequence = np.asarray(sequence)
-    inds = np.unique(sequence, return_index=True)[1]
+    _, inds = np.unique(sequence, return_index=True)
     inds.sort()
     return sequence[inds].tolist()
