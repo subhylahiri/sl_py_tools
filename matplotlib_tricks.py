@@ -27,10 +27,12 @@ def rc_fonts():
 def calc_axlim(data, err=None, log=False, buffer=0.05):
     """Calculate axes limits that will show all data
     """
-    if err is not None:
-        lim = np.array([np.nanmin(data - err), np.nanmax(data + err)])
-    else:
+    if err is None:
         lim = np.array([np.nanmin(data), np.nanmax(data)])
+    elif err.ndim == data.ndim + 1:
+        lim = np.array([np.nanmin(data - err[0]), np.nanmax(data + err[1])])
+    else:
+        lim = np.array([np.nanmin(data - err), np.nanmax(data + err)])
     if log:
         lim = np.log(lim)
     diff = lim[1] - lim[0]
@@ -194,7 +196,7 @@ def plot_equality(axs: plt.Axes, line: mpl.lines.Line2D = None, npt=2, **kwds):
         kwds.setdefault('label', "equality")
         kwds.setdefault('color', "k")
         kwds.setdefault('linestyle', "-")
-        line = axs.plot(eq_vals, eq_vals, **kwds)
+        line = axs.plot(eq_vals, eq_vals, **kwds)[0]
     else:
         line.set_xdata(eq_vals)
         line.set_ydata(eq_vals)
