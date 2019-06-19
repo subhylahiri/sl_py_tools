@@ -20,12 +20,40 @@ def rc_fonts():
 
 
 # =============================================================================
+# %%* Figures
+# =============================================================================
+
+
+def fig_square(fig: mpl.figure.Figure):
+    """Adjust figure width so that it is square, and tight layout
+
+    Parameters
+    ----------
+    fig
+        instance of matplotlib.figure.Figure
+    """
+    fig.set_size_inches(mpl.figure.figaspect(1))
+    fig.tight_layout()
+
+
+# =============================================================================
 # %%* Axes lines, etc
 # =============================================================================
 
 
 def calc_axlim(data, err=None, log=False, buffer=0.05):
     """Calculate axes limits that will show all data
+
+    Parameters
+    ----------
+    data : np.ndarray (n)
+        array of numbers plotted along the axis
+    err : None or np.ndarray (n) or (2,n), optional
+        error bars for data, default: None
+    log : bool, optional
+        is it a log scale? default: False
+    buffer : float, optional
+        fractional padding around data
     """
     if err is None:
         lim = np.array([np.nanmin(data), np.nanmax(data)])
@@ -42,20 +70,38 @@ def calc_axlim(data, err=None, log=False, buffer=0.05):
     return tuple(lim)
 
 
-def calc_new_axlim(axlim, data, err=None, log=False, buffer=0.05):
-    """Calculate axes limits that will show all data
+def set_new_axlim(ax: plt.Axes, data, err=None, yaxis=True, reset=False,
+                  log=False, buffer=0.05):
+    """Calculate axes limits that will show all data, including existing
+
+    Parameters
+    ----------
+    ax : mpl.axes.Axes
+        axes instance whose limits are to be adjusted
+    data : np.ndarray (n)
+        array of numbers plotted along the axis
+    err : None or np.ndarray (n) or (2,n), optional
+        error bars for data, default: None
+    yaxis : bool, optional
+        are we modifying the y axis? default: True
+    reset : bool, optional
+        do we ignore the existing axeis limits? default: False
+    log : bool, optional
+        is it a log scale? default: False
+    buffer : float, optional
+        fractional padding around data
     """
-    if err is not None:
-        lim = np.array([np.nanmin(data - err), np.nanmax(data + err)])
+    lim = calc_axlim(data, err, log, buffer)
+    if not reset:
+        if yaxis:
+            axlim = ax.get_ylim()
+        else:
+            axlim = ax.get_xlim()
+        lim = min(lim[0], axlim[0]), max(lim[1], axlim[1])
+    if yaxis:
+        ax.set_ylim(lim)
     else:
-        lim = np.array([np.nanmin(data), np.nanmax(data)])
-    if log:
-        lim = np.log(lim)
-    diff = lim[1] - lim[0]
-    lim += np.array([-1, 1]) * buffer * diff
-    if log:
-        lim = np.exp(lim)
-    return min(lim[0], axlim[0]), max(lim[1], axlim[1])
+        ax.set_xlim(lim)
 
 
 def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
@@ -104,13 +150,19 @@ def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
     axs.set(**kwds)
 
 
-def adjust_legend_font(leg, **kwds):
+def adjust_legend_font(leg: mpl.legend.Legend, **kwds):
     """Adjust font properties of legend text
 
-    see `matplotlib.font_manager.FontProperties`.
+    Parameters
+    ----------
+    leg
+        legend instance
+    **kwds
+        keyword arguments passed to font properties manager.
+    see `matplotlib.font_manager.FontProperties` for a list of keywords.
     """
     for x in leg.get_texts():
-        x.set_fontproperties(**kwds)
+        x.set_fontproperties(mpl.font_manager.FontProperties(**kwds))
 
 
 def centre_spines(axs: _ty.Optional[plt.Axes] = None,
@@ -190,6 +242,8 @@ def add_axes_arrows(axs: _ty.Optional[plt.Axes] = None,
                     to_xaxis: bool = True, to_yaxis: bool = True):
     """Add arrows to axes.
 
+    From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
+
     Parameters
     ----------
     axs : plt.Axes, optional
@@ -198,8 +252,6 @@ def add_axes_arrows(axs: _ty.Optional[plt.Axes] = None,
         Whether we add arrow to x-axis, default: True.
     to_yaxis : bool, optional
         Whether we add arrow to y-axis, default: True.
-
-    From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
     """
     if axs is None:
         axs = plt.gca()
