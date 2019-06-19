@@ -42,6 +42,22 @@ def calc_axlim(data, err=None, log=False, buffer=0.05):
     return tuple(lim)
 
 
+def calc_new_axlim(axlim, data, err=None, log=False, buffer=0.05):
+    """Calculate axes limits that will show all data
+    """
+    if err is not None:
+        lim = np.array([np.nanmin(data - err), np.nanmax(data + err)])
+    else:
+        lim = np.array([np.nanmin(data), np.nanmax(data)])
+    if log:
+        lim = np.log(lim)
+    diff = lim[1] - lim[0]
+    lim += np.array([-1, 1]) * buffer * diff
+    if log:
+        lim = np.exp(lim)
+    return min(lim[0], axlim[0]), max(lim[1], axlim[1])
+
+
 def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
     """Make axes look prettier
 
@@ -84,9 +100,17 @@ def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
         if kwds.pop('legendbox', allopts):
             axs.legend_.set_frame_on(False)
         if kwds.pop('legendfont', allopts):
-            for x in axs.legend_.get_texts():
-                x.set_fontsize(fontsize)
+            adjust_legend_font(axs.legend_, size=fontsize)
     axs.set(**kwds)
+
+
+def adjust_legend_font(leg, **kwds):
+    """Adjust font properties of legend text
+
+    see `matplotlib.font_manager.FontProperties`.
+    """
+    for x in leg.get_texts():
+        x.set_fontproperties(**kwds)
 
 
 def centre_spines(axs: _ty.Optional[plt.Axes] = None,

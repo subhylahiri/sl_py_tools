@@ -4,11 +4,15 @@
 import unittest
 import contextlib
 import functools
+from fnmatch import fnmatchcase
 import numpy as np
-import numpy_linalg as la
 
 __all__ = [
         'TestCaseNumpy',
+        'NosortTestLoader',
+        'TestResultStopTB',
+        'TestRunnerStopTB',
+        'main',
         'loop_test',
         'miss_str',
         'asa',
@@ -16,28 +20,142 @@ __all__ = [
         'zeros_asa',
         'ones_asa',
         'errstate',
+        'unique_unsorted',
         'broadcast_err',
         'core_dim_err',
         'invalid_err',
+        'num_dim_err',
         ]
 # =============================================================================
 # %% Error specs for assertRaisesRegex
 # =============================================================================
 broadcast_err = (ValueError, 'operands could not be broadcast')
 core_dim_err = (ValueError, 'mismatch in its core dimension')
+num_dim_err = (ValueError, 'does not have enough dimensions')
 invalid_err = (FloatingPointError, 'invalid value encountered')
 
 # =============================================================================
-# %% Trying to customise traceback display
+# %% Customise test & traceback display
 # =============================================================================
 __unittest = True
 
 
-class TestResultNumpy(unittest.TextTestResult):
+class NosortTestLoader(unittest.TestLoader):
+    """Test loader that does not sort if class overrides dir
+    """
+    sortTestMethodsUsing = None
+
+    def getTestCaseNames(self, testCaseClass):
+        """Return an unsorted sequence of method names found in testCaseClass
+        """
+        def shouldIncludeMethod(attrname):
+            if not attrname.startswith(self.testMethodPrefix):
+                return False
+            testFunc = getattr(testCaseClass, attrname)
+            if not callable(testFunc):
+                return False
+            if self.testNamePatterns is None:
+                return True
+            fullName = f'{testCaseClass.__module__}.{testFunc.__qualname__}'
+            return any(fnmatchcase(fullName, pattern)
+                       for pattern in self.testNamePatterns)
+        try:
+            testFnNames = testCaseClass.get_names()
+        except AttributeError:
+            testFnNames = dir(testCaseClass)
+        testFnNames = list(filter(shouldIncludeMethod, testFnNames))
+        if self.sortTestMethodsUsing:
+            key_fn = functools.cmp_to_key(self.sortTestMethodsUsing)
+            testFnNames.sort(key=key_fn)
+        return testFnNames
+
+
+nosortTestLoader = NosortTestLoader()
+
+
+class TestResultStopTB(unittest.TextTestResult):
+    """TestResult that does not print beyond certain frames in tracebacks
+
+    Use in place of `unittest.TextTestResult`.
+
+    You can stop traceback display at any particular point by writing
+    ``__unittest = True``. This can be done at the function level or at the
+    module level. If ``__unittest = True`` appears at the module level, it can
+    be overridden in specific functions by writing ``__unittest = False``.
+
+    Checks if there is a variable name ending with `__unittest` in the frame
+    and if that variable evaluates as True. Only the last variable satisfying
+    the first criterion is tested for the second, with locals added after
+    globals and otherwise appearing in the order they were added to the dicts.
+    """
+
+    def addSubTest(self, test, subtest, err):
+        """Called at the end of a subtest.
+        'err' is None if the subtest ended successfully, otherwise it's a
+        tuple of values as returned by sys.exc_info().
+        """
+        super().addSubTest(test, subtest, err)
+        if err is not None:
+            if issubclass(err[0], test.failureException):
+                super().addFailure(test, err)
+                del self.failures[-1]
+            else:
+                super().addError(test, err)
+                del self.errors[-1]
+
     def _is_relevant_tb_level(self, tb):
         f_vars = tb.tb_frame.f_globals.copy()
-        f_vars.update(tb.tb_frame.f_locals)
-        return '__unittest' in f_vars and f_vars['__unittest']
+        f_vars.update(tb.tb_frame.f_locals)  # locals after/overwrite globals
+        flags = [v for k, v in f_vars.items() if k.endswith('__unittest')]
+        # locals have precedence over globals, so we look at last element.
+        # is flags nonempty and is the last corresponding frame variable True?
+        return flags and flags[-1]
+        # This would fail because key in f_locals is '_TestCase????__unittest':
+        # return '__unittest' in f_vars and f_vars['__unittest']
+
+
+class TestRunnerStopTB(unittest.TextTestRunner):
+    """TestRunner that does not print certain frames in tracebacks
+
+    Use in place of `unittest.TextTestRunner`. It uses `TestResultStopTB` by
+    default.
+
+    You can stop traceback display at any particular point by writing
+    ``__unittest = True``. This can be done at the function level or at the
+    module level. If ``__unittest = True`` appears at the module level, it can
+    be overridden in specific functions by writing ``__unittest = False``.
+
+    Checks if there is a variable name ending with `__unittest` in the frame
+    and if that variable evaluates as True. Only the last variable satisfying
+    the first criterion is tested for the second, with locals appearing after
+    globals and otherwise appearing in the order they were added to the dicts.
+    """
+
+    def __init__(self, resultclass=None, **kwargs):
+        if resultclass is None:
+            resultclass = TestResultStopTB
+        super().__init__(resultclass=resultclass, **kwargs)
+
+
+def main(testLoader=nosortTestLoader, testRunner=None, **kwds):
+    """Run tests without printing certain frames in tracebacks.
+
+    Use in place of `unittest.main`. It uses `TestRunnerStopTB` by default.
+
+    You can stop traceback display at any particular point by writing
+    ``__unittest = True``. This can be done at the function level or at the
+    module level. If ``__unittest = True`` appears at the module level, it can
+    be overridden in specific functions by writing ``__unittest = False``.
+
+    Checks if there is a variable name ending with `__unittest` in the frame
+    and if that variable evaluates as True. Only the last variable satisfying
+    the first criterion is tested for the second, with locals appearing after
+    globals and otherwise appearing in the order they were added to the dicts.
+    """
+    if testRunner is None:
+        testRunner = TestRunnerStopTB
+    unittest.main(testLoader=testLoader, testRunner=testRunner, **kwds)
+
 
 # =============================================================================
 # %% TestCaseNumpy base class
@@ -75,19 +193,26 @@ class TestCaseNumpy(unittest.TestCase):
 
     def setUp(self):
         # Scalar types:
+        self.varnames = []
         self.sctype = ['f', 'd', 'F', 'D']
         self.all_close_opts = {'atol': 1e-5, 'rtol': 1e-5, 'equal_nan': False}
         self.addTypeEqualityFunc(np.ndarray, self.assertArrayAllClose)
-        self.addTypeEqualityFunc(la.lnarray, self.assertArrayAllClose)
 
-#    def defaultTestResult(self):
-#        return TestResultNumpy
+    def pick_var_type(self, sctype):
+        """Set scalar types of member variables.
+
+        If `self.varnames` is `['a', 'b', ...]`, it sets `self.a, self.b, ...`
+        to `self._a[sctype], self._b[sctype], ...`.
+        """
+        for var in self.varnames:
+            setattr(self, var, getattr(self, '_' + var)[sctype])
 
     def assertArrayAllClose(self, actual, desired, msg=None):
         """Calls numpy.allclose (so it broadcasts, unlike
         numpy.testing.assert_allclose) and processes the results like a
         unittest.TestCase method.
         """
+        # __unittest = True
         if not np.allclose(actual, desired, **self.all_close_opts):
             if msg is None:
                 msg = miss_str(actual, desired, **self.all_close_opts)
@@ -97,6 +222,7 @@ class TestCaseNumpy(unittest.TestCase):
         """Calls numpy.all(numpy.equal(...)) and processes the results like a
         unittest.TestCase method.
         """
+        # __unittest = True
         if np.any(actual != desired):
             self.fail(msg)
 
@@ -104,6 +230,7 @@ class TestCaseNumpy(unittest.TestCase):
         """Calls numpy.all(numpy.less(...)) and processes the results like a
         unittest.TestCase method.
         """
+        # __unittest = True
         if np.any(actual >= desired):
             self.fail(msg)
 
@@ -111,6 +238,7 @@ class TestCaseNumpy(unittest.TestCase):
         """Calls numpy.all(numpy.greater(...)) and processes the results like a
         unittest.TestCase method.
         """
+        # __unittest = True
         if np.any(actual <= desired):
             self.fail(msg)
 
@@ -119,6 +247,7 @@ class TestCaseNumpy(unittest.TestCase):
         numpy.testing.assert_allclose), negates and processes the results like
         a unittest.TestCase method.
         """
+        # __unittest = True
         if np.allclose(actual, desired, **self.all_close_opts):
             if msg is None:
                 msg = miss_str(actual, desired, **self.all_close_opts)
@@ -128,6 +257,7 @@ class TestCaseNumpy(unittest.TestCase):
         """Calls numpy.all(numpy.not_equal(...)) and processes the results like
         a unittest.TestCase method.
         """
+        # __unittest = True
         if np.any(actual == desired):
             self.fail(msg)
 
@@ -135,6 +265,7 @@ class TestCaseNumpy(unittest.TestCase):
         """Calls numpy.all(numpy.greater_equal(...)) and processes the results
         like a unittest.TestCase method.
         """
+        # __unittest = True
         if np.any(actual < desired):
             self.fail(msg)
 
@@ -142,8 +273,33 @@ class TestCaseNumpy(unittest.TestCase):
         """Calls numpy.all(numpy.less_equal(...)) and processes the results
         like a unittest.TestCase method.
         """
+        # __unittest = True
         if np.any(actual > desired):
             self.fail(msg)
+
+    def assertArrayShaped(self, array, shape, msg=None):
+        """Calls self.assertEqual(array.shape, shape).
+        """
+        # __unittest = True
+        self.assertEqual(array.shape, shape, msg)
+
+    def assertArrayShapesAre(self, arrays, shapes, msg=None):
+        """Calls self.assertEqual(array.shape, shape).
+        """
+        # __unittest = True
+        for array, shape in zip(arrays, shapes):
+            self.assertEqual(array.shape, shape, msg)
+
+    @classmethod
+    def get_names(cls):
+        my_attr = []
+        for base in cls.__bases__:
+            try:
+                my_attr += base.get_names()
+            except AttributeError:
+                my_attr += dir(base)
+        my_attr.extend(cls.__dict__)
+        return unique_unsorted(my_attr)
 
 
 # =============================================================================
@@ -201,16 +357,20 @@ def miss_str(x, y, atol=1e-8, rtol=1e-5, equal_nan=True):
     shape = np.broadcast(x, y).shape
     thresh = atol + rtol * np.abs(np.broadcast_to(y, shape))
     mismatch = np.abs(x - y)
-    mis_frac = np.log(mismatch) - np.log(thresh)
-    ind = np.unravel_index(np.argmax(mis_frac), mis_frac.shape)
-    formatter = 'Should be zero: {:.2g}\nor: {:.2g} = {:.2g} * 1e{:.1f} at {}'
-    if equal_nan:
-        worst = np.nanmax(mismatch)
-    else:
-        worst = np.amax(mismatch)
+    mis_frac = (np.log(mismatch) - np.log(thresh)) / np.log(10)
 
-    return formatter.format(worst, mismatch[ind], thresh[ind],
-                            mis_frac[ind] / np.log(10), ind)
+    if equal_nan:
+        argmax = np.nanargmax
+    else:
+        argmax = np.argmax
+    a_ind = np.unravel_index(argmax(mismatch), mismatch.shape)
+    r_ind = np.unravel_index(argmax(mis_frac), mis_frac.shape)
+
+    a_worst, r_worst = mismatch[a_ind], mismatch[r_ind]
+    thresh, mis_frac = thresh[r_ind], mis_frac[r_ind]
+
+    return f"""Should be zero: {a_worst:.2g} at {a_ind},
+    or: {r_worst:.2g} = {thresh:.2g} * 1e{mis_frac:.1f} at {r_ind}."""
 
 
 cmplx = {'b': 0, 'h': 0, 'i': 0, 'l': 0, 'p': 0, 'q': 0,
@@ -246,7 +406,7 @@ def randn_asa(shape, sctype):
 
 
 def zeros_asa(shape, sctype):
-    """standard normal array with scalar type
+    """array of zeros with scalar type
 
     Parameters
     ----------
@@ -259,7 +419,7 @@ def zeros_asa(shape, sctype):
 
 
 def ones_asa(shape, sctype):
-    """standard normal array with scalar type
+    """array of ones with scalar type
 
     Parameters
     ----------
@@ -286,3 +446,11 @@ def errstate(*args, **kwds):
         np.seterr(**old_errstate)
         if call is not None:
             np.seterrcall(old_call)
+
+
+def unique_unsorted(sequence):
+    """remove repetitions without changing the order"""
+    sequence = np.asarray(sequence)
+    _, inds = np.unique(sequence, return_index=True)
+    inds.sort()
+    return sequence[inds].tolist()

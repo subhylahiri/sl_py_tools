@@ -29,3 +29,73 @@ def tri_low_rank(array, *args, **kwds):
     forms of lu/qr factors.
     """
     return anyclose(np.diagonal(array), 0., *args, **kwds)
+
+
+def indarg(array, argfn):
+    """Unravelled index of argmax, etc
+
+    Parameters
+    ----------
+    array
+        array being searched
+    argfn
+        callable that returns ravel index of an element
+
+    Returns
+    -------
+    ind
+        tuple of ints indexing the element
+    """
+    return np.unravel_index(argfn(array), array.shape)
+
+
+def indmax(array, ignore_nan=True):
+    """Unravelled index of argmax
+
+    Parameters
+    ----------
+    array
+        array being searched
+    ignore_nan
+        do we ignore nans?
+
+    Returns
+    -------
+    ind
+        tuple of ints indexing the max
+    """
+    if ignore_nan:
+        argmax = np.nanargmax
+    else:
+        argmax = np.argmax
+    return indarg(array, argmax)
+
+
+def indmin(array, ignore_nan=True):
+    """Unravelled index of argmin
+
+    Parameters
+    ----------
+    array
+        array being searched
+    ignore_nan
+        do we ignore nans?
+
+    Returns
+    -------
+    ind
+        tuple of ints indexing the min
+    """
+    if ignore_nan:
+        argmin = np.nanargmin
+    else:
+        argmin = np.argmin
+    return indarg(array, argmin)
+
+
+def unique_unsorted(sequence):
+    """remove repetitions without changing the order"""
+    sequence = np.asanyarray(sequence)
+    _, inds = np.unique(sequence, return_index=True)
+    inds.sort()
+    return sequence[inds]
