@@ -23,8 +23,8 @@ __all__ = [
         'unique_unsorted',
         'broadcast_err',
         'core_dim_err',
-        'invalid_err',
         'num_dim_err',
+        'invalid_err',
         ]
 # =============================================================================
 # %% Error specs for assertRaisesRegex
@@ -41,7 +41,9 @@ __unittest = True
 
 
 class NosortTestLoader(unittest.TestLoader):
-    """Test loader that does not sort if class overrides dir
+    """Test loader that does not sort test methods by default
+
+    Use in place of `unittest.TestLoader` or `unittest.defaultTestLoader`.
     """
     sortTestMethodsUsing = None
 
@@ -68,6 +70,28 @@ class NosortTestLoader(unittest.TestLoader):
             key_fn = functools.cmp_to_key(self.sortTestMethodsUsing)
             testFnNames.sort(key=key_fn)
         return testFnNames
+
+    def loadTestsFromModule(self, module, *args, pattern=None, **kws):
+        """Return a suite of all test cases contained in the given module
+
+        If module has an `__all__` attribute but no `load_tests` function,
+        `TesCase`s will be loaded in the order they appear there.
+        """
+        tests = super().loadTestsFromModule(self, module, *args, pattern=None,
+                                            **kws)
+        all_names = getattr(module, '__all__', None)
+        if all_names is not None and not hasattr(module, 'load_tests'):
+            tests = []
+            for name in all_names:
+                obj = getattr(module, name)
+                if isinstance(obj, type) and issubclass(obj, unittest.TestCase):
+                    tests.append(self.loadTestsFromTestCase(obj))
+            tests = self.suiteClass(tests)
+        return tests
+
+    def copy_from(self, other):
+        """Copy instance attributes from other loader"""
+        self._loading_packages = other._loading_packages
 
 
 nosortTestLoader = NosortTestLoader()
@@ -108,7 +132,7 @@ class TestResultStopTB(unittest.TextTestResult):
         f_vars.update(tb.tb_frame.f_locals)  # locals after/overwrite globals
         flags = [v for k, v in f_vars.items() if k.endswith('__unittest')]
         # locals have precedence over globals, so we look at last element.
-        # is flags nonempty and is the last corresponding frame variable True?
+        # any matches & is the last match's frame variable True?
         return flags and flags[-1]
         # This would fail because key in f_locals is '_TestCase????__unittest':
         # return '__unittest' in f_vars and f_vars['__unittest']
@@ -138,9 +162,10 @@ class TestRunnerStopTB(unittest.TextTestRunner):
 
 
 def main(testLoader=nosortTestLoader, testRunner=None, **kwds):
-    """Run tests without printing certain frames in tracebacks.
+    """Run tests in order without printing certain frames in tracebacks.
 
-    Use in place of `unittest.main`. It uses `TestRunnerStopTB` by default.
+    Use in place of `unittest.main`. It uses `nosortTestLoader` and
+    `TestRunnerStopTB` by default.
 
     You can stop traceback display at any particular point by writing
     ``__unittest = True``. This can be done at the function level or at the
@@ -192,9 +217,13 @@ class TestCaseNumpy(unittest.TestCase):
     """
 
     def setUp(self):
-        # Scalar types:
+        # Variables used in testing:
         self.varnames = []
-        self.sctype = ['f', 'd', 'F', 'D']
+        # Scalar types:
+        # can be extended in Subclass: assign before calling super().setUp()
+        extra_sctypes = getattr(self, 'sctype', [])
+        self.sctype = ['f', 'd', 'F', 'D'] + extra_sctypes
+        # testing ndarray values
         self.all_close_opts = {'atol': 1e-5, 'rtol': 1e-5, 'equal_nan': False}
         self.addTypeEqualityFunc(np.ndarray, self.assertArrayAllClose)
 
@@ -277,7 +306,7 @@ class TestCaseNumpy(unittest.TestCase):
         if np.any(actual > desired):
             self.fail(msg)
 
-    def assertArrayShaped(self, array, shape, msg=None):
+    def assertArrayShape(self, array, shape, msg=None):
         """Calls self.assertEqual(array.shape, shape).
         """
         # __unittest = True
@@ -327,12 +356,19 @@ def loop_test(msg=None, attr_name='sctype', attr_inds=slice(None)):
     def loop_dec(func):
         @functools.wraps(func)
         def loop_func(self, *args, **kwds):
-            the_attr = getattr(self, attr_name)
-#                __unittest = False
-            for val in the_attr[attr_inds]:
-                opts = {attr_name: val}
-                with self.subTest(msg=msg, **opts):
-                    func(self, *args, **opts, **kwds)
+            if isinstance(attr_name, str):
+                the_attr = getattr(self, attr_name)
+    #                __unittest = False
+                for val in the_attr[attr_inds]:
+                    opts = {attr_name: val}
+                    with self.subTest(msg=msg, **opts):
+                        func(self, *args, **opts, **kwds)
+            else:
+                the_attr = [getattr(self, nam)[attr_inds] for nam in attr_name]
+                for vals in zip(*the_attr):
+                    opts = {name: val for name, val in zip(attr_name, vals)}
+                    with self.subTest(msg=msg, **opts):
+                        func(self, *args, **opts, **kwds)
         return loop_func
     return loop_dec
 
