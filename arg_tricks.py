@@ -5,7 +5,7 @@ A = _ty.TypeVar('A')
 
 
 def default(optional: _ty.Optional[A], default_value: A) -> A:
-    """Replace argument with default if it is None
+    """Replace optional with default value if it is None
 
     Parameters
     ----------
@@ -23,24 +23,27 @@ def default(optional: _ty.Optional[A], default_value: A) -> A:
     return default_value if (optional is None) else optional
 
 
-def default_eval(optional: _ty.Optional[A], def_ex: _ty.Callable[[], A]) -> A:
-    """Replace argument with default if it is None, with delayed evaluation
+def default_eval(optional: _ty.Optional[A],
+                 default_fn: _ty.Callable[[], A]) -> A:
+    """Replace optional with evaluation of default function if it is None
 
     Parameters
     ----------
     optional : A or None
         The optional argument, where `None` indicates that the default value
         should be used instead.
-    def_ex : Callable[()->A]
+    default_fn : Callable[()->A]
         Evaluates to default value for the argument, only evaluated and used
-        when `optional` is `None`.
+        when `optional` is `None`. Does not take any arguments.
 
     Returns
     -------
     use_value : A
-        Either `optional`, if it is not `None` or `default_value` if it is.
+        Either `optional`, if it is not `None` or `default_fn()` if it is.
     """
-    return def_ex() if (optional is None) else optional
+    if optional is None:
+        return default_fn()
+    return optional
 
 
 def defaults(optionals: _ty.Iterable[_ty.Optional[A]],
