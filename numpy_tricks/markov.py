@@ -76,13 +76,16 @@ def rand_trans(nst: int, npl: int = 1, sparsity: float = 1.) -> la.lnarray:
     return mat
 
 
-def calc_peq(rates: np.ndarray) -> Tuple[la.lnarray, Tuple[la.lnarray, ...]]:
+def calc_peq(rates: np.ndarray,
+             luf: bool = False) -> Tuple[la.lnarray, Tuple[la.lnarray, ...]]:
     """Calculate steady state distribution.
 
     Parameters
     ----------
     rates : np.ndarray (n,n) or tuple(np.ndarray) ((n,n), (n,))
         Continuous time stochastic matrix or LU factors of inverse fundamental.
+    luf : bool, optional
+        Return LU factorisation of inverse fundamental as well? default: True
 
     Returns
     -------
@@ -94,19 +97,22 @@ def calc_peq(rates: np.ndarray) -> Tuple[la.lnarray, Tuple[la.lnarray, ...]]:
     if isinstance(rates, tuple):
         z_lu, ipv = rates
         evc = la.ones(z_lu[0].shape[0])
-        peq = la.gufuncs.rlu_solve(evc.r, z_lu, ipv)
+        peq = la.gufuncs.rlu_solve(evc.r, z_lu, ipv).ur
     else:
         evc = la.ones(rates.shape[0])
         fund_inv = la.ones_like(rates) - rates
         peq, z_lu, ipv = la.gufuncs.rsolve_lu(evc.r, fund_inv)
+        peq = peq.ur
     # check for singular matrix
     if not lgc.allfinite(z_lu) or lgc.tri_low_rank(z_lu):
-        return la.full_like(evc, np.nan), (z_lu, ipv)
+        peq = la.full_like(evc, np.nan)
+    if luf:
+        return peq, (z_lu, ipv)
+    return peq
 
-    return peq.ur, (z_lu, ipv)
 
-
-def calc_peq_d(jump: np.ndarray) -> Tuple[la.lnarray, Tuple[la.lnarray, ...]]:
+def calc_peq_d(jump: np.ndarray,
+               luf: bool = False) -> Tuple[la.lnarray, Tuple[la.lnarray, ...]]:
     """Calculate steady state distribution.
 
     Parameters
@@ -122,8 +128,8 @@ def calc_peq_d(jump: np.ndarray) -> Tuple[la.lnarray, Tuple[la.lnarray, ...]]:
         LU factors of inverse fundamental matrix.
     """
     if isinstance(jump, tuple):
-        return calc_peq(jump)
-    return calc_peq(jump - la.eye(jump.shape[-1]))
+        return calc_peq(jump, luf)
+    return calc_peq(jump - la.eye(jump.shape[-1]), luf)
 
 
 def adjoint(tensor: la.lnarray, measure: la.lnarray) -> la.lnarray:
