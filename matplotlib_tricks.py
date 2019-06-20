@@ -41,6 +41,45 @@ def fig_square(fig: mpl.figure.Figure):
 # =============================================================================
 
 
+def equal_axlim(ax: mpl.axes.Axes, mode: str = 'union'):
+    """Make x/y axes limits the same
+
+    Parameters
+    ----------
+    ax : mpl.axes.Axes
+        axes instance whose limits are to be adjusted
+    mode : str
+        How do we adjust the limits? Options:
+            'union'
+                Limits include old ranges of both x and y axes, *default*.
+            'intersect'
+                Limits only include values in both ranges.
+            'x'
+                Set y limits to x limits.
+            'y'
+                Set x limits to y limits.
+    Raises
+    ------
+    ValueError
+        If `mode` is not one of the options above.
+    """
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    if mode == 'union':
+        new_lim = (min(xlim[0], ylim[0]), max(xlim[1], ylim[1]))
+    elif mode == 'intersect':
+        new_lim = (max(xlim[0], ylim[0]), min(xlim[1], ylim[1]))
+    elif mode == 'x':
+        new_lim = xlim
+    elif mode == 'y':
+        new_lim = ylim
+    else:
+        raise ValueError(f"Unknown mode '{mode}'. Shoulde be one of: "
+                         "'union', 'intersect', 'x', 'y'.")
+    ax.set_xlim(new_lim)
+    ax.set_ylim(new_lim)
+
+
 def calc_axlim(data, err=None, log=False, buffer=0.05):
     """Calculate axes limits that will show all data
 
@@ -70,8 +109,10 @@ def calc_axlim(data, err=None, log=False, buffer=0.05):
     return tuple(lim)
 
 
-def set_new_axlim(ax: plt.Axes, data, err=None, yaxis=True, reset=False,
-                  log=False, buffer=0.05):
+def set_new_axlim(ax: plt.Axes,
+                  data: np.ndarray, err: _ty.Optional[np.ndarray] = None,
+                  yaxis: bool = True, reset: bool = False, log: bool = False,
+                  buffer: float = 0.05):
     """Calculate axes limits that will show all data, including existing
 
     Parameters
@@ -127,6 +168,8 @@ def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
         Remove legend box?
     legendfont : bool, keyword only
         Change legend font size?
+    all : bool, keyword only
+        Choice for any of the above that is unspecified, default: True
     """
     allopts = kwds.pop('all', True)
     if axs is None:
@@ -159,7 +202,7 @@ def adjust_legend_font(leg: mpl.legend.Legend, **kwds):
         legend instance
     **kwds
         keyword arguments passed to font properties manager.
-    see `matplotlib.font_manager.FontProperties` for a list of keywords.
+    see `mpl.font_manager.FontProperties` for a list of keywords.
     """
     for x in leg.get_texts():
         x.set_fontproperties(mpl.font_manager.FontProperties(**kwds))
@@ -170,10 +213,19 @@ def centre_spines(axs: _ty.Optional[plt.Axes] = None,
     """Centres the axis spines at <centrex, centrey> on the axis "axs", and
     places arrows at the end of the axis spines.
 
+    From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
+
     Parameters
     ----------
     axs : plt.Axes, optional
-        Axes to be centred, default: plt.gca.
+        Axes to be centred, default: plt.gca().
+    centrex : float, optional
+        x-coordinate of centre, where y axis is drawn, default: 0
+    centrey : float, optional
+        y-coordinate of centre, where x axis is drawn, default: 0
+
+    Keyword only
+    ------------
     in_bounds : {bool, Sequence[bool]}
         Ensure that spines are within axes limits? If it is a scalar, it
         applies to both axes. If it is a sequence, `in_bounds[0/1]` applies to
@@ -188,13 +240,14 @@ def centre_spines(axs: _ty.Optional[plt.Axes] = None,
             y:
                 Use y-coordinate of centre.
             both:
-                Use both coordinates of centre as (x, y).
+                Use both coordinates of centre as 'x,y'.
+            paren:
+                Use both coordinates of centre as '(x,y)'.
             none:
                 Do not label.
         Any other value interpreted as 'none', default: 'both'.
-
-    From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
     """
+    axs = _ag.default_eval(axs, plt.gca)
     if axs is None:
         axs = plt.gca()
 
@@ -232,13 +285,15 @@ def centre_spines(axs: _ty.Optional[plt.Axes] = None,
     # (Should probably make these update when the plot is redrawn...)
     centre_tick = kwds.pop('centre_tick', 'both').lower()  # {both,x,y,none}
     xlab, ylab = map(formatter.format_data, [centrex, centrey])
-    ctr_lab = {'x': f"{xlab}", 'y': f"{ylab}", 'both': f"({xlab}, {ylab})"}
-    if centre_tick in ctr_lab.keys():
-        axs.annotate(ctr_lab[centre_tick], (centrex, centrey), xytext=(-4, -4),
+    centre_labs = {'none': "", 'x': f"{xlab}", 'y': f"{ylab}",
+                   'both': f"{xlab},{ylab}", 'paren': f"({xlab},{ylab})"}
+    centre_label = centre_labs.get(centre_tick, "")
+    if centre_label:
+        axs.annotate(centre_label, (centrex, centrey), xytext=(-4, -4),
                      textcoords='offset points', ha='right', va='top')
 
 
-def add_axes_arrows(axs: _ty.Optional[plt.Axes] = None,
+def add_axes_arrows(axs: _ty.Optional[mpl.axes.Axes] = None,
                     to_xaxis: bool = True, to_yaxis: bool = True):
     """Add arrows to axes.
 
@@ -262,8 +317,21 @@ def add_axes_arrows(axs: _ty.Optional[plt.Axes] = None,
         axs.spines['bottom'].set_path_effects([EndArrow()])
 
 
-def plot_equality(axs: plt.Axes, line: mpl.lines.Line2D = None, npt=2, **kwds):
+def plot_equality(axs: mpl.axes.Axes,
+                  line: _ty.Optional[mpl.lines.Line2D] = None,
+                  npt=2, **kwds):
     """Plot the equality line on Axes
+
+    Parameters
+    ----------
+    axs : mpl.axes.Axes
+        Axes on which we draw the equality line
+    line : mpl.lines.Line2D or None, optional
+        Previous line object, default: None
+    npt : int, optional
+        number of points to use for equality line
+    **kwds
+        Passed to `plt.plot`.
     """
     xlim = axs.get_xlim()
     ylim = axs.get_ylim()
@@ -387,9 +455,8 @@ class EndArrow(mpl.patheffects.AbstractPathEffect):
         x0, y0 = tpath.vertices[-1]
         dx, dy = tpath.vertices[-1] - tpath.vertices[-2]
         azi = np.arctan2(dy, dx) - np.pi / 2.0
-        trans = affine + self.trans.clear().scale(scalex, scaley
-                                                  ).rotate(azi
-                                                           ).translate(x0, y0)
+        trans = affine + self.trans.clear(
+                        ).scale(scalex, scaley).rotate(azi).translate(x0, y0)
 
         gc0 = renderer.new_gc()
         gc0.copy_properties(gc)
