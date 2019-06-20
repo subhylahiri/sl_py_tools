@@ -297,12 +297,14 @@ class DisplayCount(_it.DisplayMixin, Sized):
     start: int
     stop: Optional[int]
     step: int
+    disp_step: int
 
     def __init__(self, *args: _it.DSliceArg, **kwargs):
         name, sliceargs = _it.extract_name(args, kwargs)
         self.start, self.stop, self.step = _it.extract_slice(sliceargs, kwargs)
         # offset for display of counter, default: 1 if start==0, 0 otherwise
         self.offset = kwargs.pop('offset', int(self.start == 0))
+        self.disp_step = kwargs.pop('disp_step', 1)
 
         super().__init__(**kwargs)
 
@@ -347,6 +349,10 @@ class DisplayCount(_it.DisplayMixin, Sized):
             raise ValueError('Must specify stop to define len')
         return (self.stop - self.start) // self.step
 
+    def __contains__(self, val):
+        """Is val a valid counter value?"""
+        return (val - self.start) % self.step == 0
+
     def _check_ctr(self) -> str:
         """Ensure that DisplayCount's are properly used"""
         # raise error if ctr is outside range
@@ -357,9 +363,17 @@ class DisplayCount(_it.DisplayMixin, Sized):
 
     def update(self, msg: str = ''):
         """Erase previous counter and display new one."""
-        super().update(msg)
+        if self.count_steps() % self.disp_step == 0:
+            super().update(msg)
         if self.debug:
             self._state.check(self._check_ctr())
+
+    def count_steps(self, counter=None):
+        """How many steps have been taken?
+        """
+        if counter is None:
+            counter = self.counter
+        return (counter - self.start) // self.step
 
 
 class DisplayBatch(DisplayCount):
