@@ -249,6 +249,36 @@ def mat_type(params: Sized, states: Sized) -> _ty.Tuple[bool, ...]:
     return serial, ring, drn, uniform
 
 
+def mat_type_dict(params: Sized, states: Sized) -> _ty.Tuple[bool, ...]:
+    """Is it a (uniform) ring
+
+    Parameters
+    ----------
+    params : int or np.ndarray (np,)
+        Number of rate parameters, or vector of rates.
+    states : int or np.ndarray (n,...)
+        Number of states, or array over states.
+
+    Returns
+    -------
+    dict containing:
+        serial : bool
+            Is the rate vector meant for `serial_params_to_mat` or
+            `gen_params_to_mat`?
+        ring : bool
+            Is the rate vector meant for `ring_params_to_mat` or
+            `gen_params_to_mat`?
+        drn: bool
+            If nonzero, only include transitions in direction `i->i+sgn(drn)`.
+            Can only determine `|drn|`, not its sign.
+        uniform : bool
+            Is the rate vector meant for `*_params_to_mat` or
+            `uni_*_params_to_mat`? * = serial or ring.
+    """
+    serial, ring, drn, uniform = mat_type(params, states)
+    return {'serial': serial, 'ring': ring, 'drn': drn, 'uniform': uniform}
+
+
 def _params_to_mat(fun, params, nst, drn):
     """Helper function for *_params_to_mat
 
@@ -720,6 +750,27 @@ def mat_to_params(mat: np.ndarray,
     if uniform:
         return _uni_mat(params, drn, grad)
     return params
+
+
+def paramify(params_or_mat: np.ndarray, *args, **kwds) -> np.ndarray:
+    """Independent parameters of transition matrix, if not already so.
+
+    Parameters
+    ----------
+    params_or_mat : np.ndarray (np,) or (n,n)
+        Either vector of independent elements (in order that depends on flags,
+        see docs for `params_to_mat`) or continuous time stochastic matrix.
+    other arguments passed to `mat_to_params`
+
+    Returns
+    -------
+    params : np.ndarray (np,)
+        Vector of independent elements (in order that depends on flags,
+        see docs for `*_inds` for details).
+    """
+    if params_or_mat.ndim >= 2:
+        return params_or_mat
+    return mat_to_params(params_or_mat, *args, **kwds)
 
 
 def mat_update_params(mat: np.ndarray, params: np.ndarray,
