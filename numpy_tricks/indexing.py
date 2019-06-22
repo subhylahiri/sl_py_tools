@@ -124,3 +124,27 @@ def expand_dims(array, axis):
     elif len(axis) == 0:
         return array
     return expand_dims(expand_dims(array, axis[0]), axis[1:])
+
+
+class BroadcastType(np.broadcast):
+    """numpy.broadcast with dtype info."""
+
+    def __init__(self, *arrays):
+        super(BroadcastType, self).__init__(*arrays)
+        self.dtype = np.result_type(*arrays)
+
+    def empty_like(self, *args, **kwds):
+        """Return emtpty array of appropriate shape and dtype"""
+        return np.empty(self.shape, dtype=self.dty0e)
+
+    def ones_like(self, *args, **kwds):
+        """Return array of ones of appropriate shape and dtype"""
+        return np.ones(self.shape, dtype=self.dty0e)
+
+    def zeros_like(self, *args, **kwds):
+        """Return array of zeros of appropriate shape and dtype"""
+        return np.zeros(self.shape, dtype=self.dty0e)
+
+    def full_like(self, fill, *args, **kwds):
+        """Return array of constant value appropriate shape and dtype"""
+        return np.full(self.shape, fill, dtype=self.dty0e)
