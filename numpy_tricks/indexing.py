@@ -126,25 +126,89 @@ def expand_dims(array, axis):
     return expand_dims(expand_dims(array, axis[0]), axis[1:])
 
 
-class BroadcastType(np.broadcast):
-    """numpy.broadcast with dtype info."""
+class BroadcastType():
+    """numpy.broadcast with dtype info.
 
-    def __init__(self, *arrays):
-        super(BroadcastType, self).__init__(*arrays)
-        self.dtype = np.result_type(*arrays)
+    Parameters
+    ----------
+    *arrays: array_like
+        Arrays to be broadcast
 
-    def empty_like(self, *args, **kwds):
-        """Return emtpty array of appropriate shape and dtype"""
-        return np.empty(self.shape, dtype=self.dty0e)
+    Keyword only
+    ------------
+    shape: Tuple[int] or int
+        Minimum shape of result (as if it were included in broadcasting).
+    dtype: dtype or dtype specifier
+        Minimum scalar type of result (as if it were included in upcasting).
 
-    def ones_like(self, *args, **kwds):
-        """Return array of ones of appropriate shape and dtype"""
-        return np.ones(self.shape, dtype=self.dty0e)
+    Attributes
+    ----------
+    dtype : np.dtype
+        Scalar type of result.
+    bcast : np.broadcast
+        Object encapsulating shape of broadcast result.
+    shape, ndim, size, etc
+        Obtained from `self.bcast`.
 
-    def zeros_like(self, *args, **kwds):
-        """Return array of zeros of appropriate shape and dtype"""
-        return np.zeros(self.shape, dtype=self.dty0e)
+    See Also
+    --------
+    `np.broadcast` : used for broadcasting
+    `np.result_type` : used for type promotion/upcasting.
+    """
+    bcast: np.broadcast
+    dtype: np.dtype
 
-    def full_like(self, fill, *args, **kwds):
-        """Return array of constant value appropriate shape and dtype"""
-        return np.full(self.shape, fill, dtype=self.dty0e)
+    def __init__(self, *arrays, shape=None, dtype='?'):
+        self.bcast = np.broadcast(*arrays, np.empty(shape))
+        self.dtype = np.result_type(*arrays, dtype)
+
+    def __getattr__(self, name):
+        return getattr(self.bcast, name)
+
+    def __repr__(self):
+        return f"BroadcastType(shape={self.shape}, dtype='{self.dtype}')"
+
+    def empty_like(self, **kwds):
+        """Return emtpty array of appropriate shape and dtype
+
+        See Also
+        --------
+        `np.empty`, `np.empty_like`
+        """
+        kwds.setdefault('shape', self.shape)
+        kwds.setdefault('dtype', self.dtype)
+        return np.empty(**kwds)
+
+    def ones_like(self, **kwds):
+        """Return array of ones of appropriate shape and dtype
+
+        See Also
+        --------
+        `np.ones`, `np.ones_like`
+        """
+        kwds.setdefault('shape', self.shape)
+        kwds.setdefault('dtype', self.dtype)
+        return np.ones(**kwds)
+
+    def zeros_like(self, **kwds):
+        """Return array of zeros of appropriate shape and dtype
+
+        See Also
+        --------
+        `np.zeros`, `np.zeros_like`
+        """
+        kwds.setdefault('shape', self.shape)
+        kwds.setdefault('dtype', self.dtype)
+        return np.zeros(**kwds)
+
+    def full_like(self, fill, **kwds):
+        """Return array with constant value of appropriate shape and dtype
+
+        See Also
+        --------
+        `np.full`, `np.full_like`
+        """
+        kwds.setdefault('shape', self.shape)
+        kwds.setdefault('fill', fill)
+        kwds.setdefault('dtype', self.dtype)
+        return np.full(**kwds)
