@@ -148,7 +148,8 @@ def set_new_axlim(ax: plt.Axes,
 def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
     """Make axes look prettier
 
-    All kewwords default to `True`. This can be changed with keyword `all`.
+    All non-font size kewwords default to `True`.
+    This can be changed with the keyword `all`.
 
     Parameters
     ----------
@@ -158,6 +159,9 @@ def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
         Font size for axes labels & title.
     fontfamily : str, default: sans-serif
         Font family for axes labels & title.
+
+    Keyword only
+    ------------
     box : bool, keyword
         Remove axes box?
     axisfont : bool, keyword only
@@ -170,6 +174,10 @@ def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
         Change legend font size?
     all : bool, keyword only
         Choice for any of the above that is unspecified, default: True
+    titlefontsize : number, str, default: `fontsize`
+        Font size for title.
+    legendfontsize : number, str, default: `fontsize`
+        Font size for legend entries.
     """
     allopts = kwds.pop('all', True)
     if axs is None:
@@ -183,13 +191,15 @@ def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
         axs.get_xaxis().get_label().set_fontfamily(fontfamily)
         axs.get_yaxis().get_label().set_fontfamily(fontfamily)
     if kwds.pop('titlefont', allopts):
-        axs.title.set_fontsize(fontsize)
+        titlefontsize = kwds.pop('titlefontsize', fontsize)
+        axs.title.set_fontsize(titlefontsize)
         axs.title.set_fontfamily(fontfamily)
     if axs.legend_ is not None:
         if kwds.pop('legendbox', allopts):
             axs.legend_.set_frame_on(False)
         if kwds.pop('legendfont', allopts):
-            adjust_legend_font(axs.legend_, size=fontsize)
+            legendfontsize = kwds.pop('legendfontsize', fontsize)
+            adjust_legend_font(axs.legend_, size=legendfontsize)
     axs.set(**kwds)
     axs.figure.tight_layout()
 
