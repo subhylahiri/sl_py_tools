@@ -191,6 +191,7 @@ def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
         if kwds.pop('legendfont', allopts):
             adjust_legend_font(axs.legend_, size=fontsize)
     axs.set(**kwds)
+    axs.figure.tight_layout()
 
 
 def adjust_legend_font(leg: mpl.legend.Legend, **kwds):
