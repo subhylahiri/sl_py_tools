@@ -330,9 +330,7 @@ def _uni_params(params, nst, serial: bool = False, ring: bool = False):
         See docs for `*_inds` for details.
     """
     npar = num_param(nst, serial=serial, ring=ring, drn=1, uniform=False)
-    if len(params) == 1:
-        return np.full(npar, params[0])
-    return la.hstack((np.full(npar, params[0]), np.full(npar, params[1])))
+    return la.hstack([np.full(npar, prm) for prm in params])
 
 
 def gen_params_to_mat(params: np.ndarray, drn: int = 0) -> la.lnarray:
@@ -558,12 +556,8 @@ def _uni_mat(params, drn, grad):
         If True, return sum of (anti)clockwise transitions.
         If False, return the mean.
     """
-    npar = len(params)
-    if drn == 0:
-        npar //= 2
-        params = la.hstack([params[:npar].sum(), params[npar:].sum()])
-    else:
-        params = params.sum()
+    npar = len(params) / (1 + (drn == 0))
+    params = params.reshape((-1, npar)).sum(axis=-1)
     if not grad:
         params /= npar
     return params
