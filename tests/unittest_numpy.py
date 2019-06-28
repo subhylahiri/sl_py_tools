@@ -9,8 +9,9 @@ import numpy as np
 
 __all__ = [
         'TestCaseNumpy',
-        'NosortTestLoader',
+        'TestLoaderNosort',
         'nosortTestLoader',
+        'TestCaseNosort',
         'TestResultStopTB',
         'TestRunnerStopTB',
         'main',
@@ -36,20 +37,30 @@ num_dim_err = (ValueError, 'does not have enough dimensions')
 invalid_err = (FloatingPointError, 'invalid value encountered')
 
 # =============================================================================
-# %% Customise test & traceback display
+# %% Customise test order & traceback display
 # =============================================================================
 __unittest = True
 
 
-class NosortTestLoader(_ut.TestLoader):
+class TestLoaderNosort(_ut.TestLoader):
     """Test loader that does not sort test methods by default
 
     Use in place of `unittest.TestLoader` or `unittest.defaultTestLoader`.
+
+    It will run the tests in the order defined, rather than alphabetical if the
+    module has an `__all__` attribute containing the `TestCase` classes, and if
+    the `TestCase` classes have a classmethod called `get_names` that returns
+    unsorted method/attribute names. Subclasses of `TestCaseNosort` will have
+    the required method.
     """
     sortTestMethodsUsing = None
 
     def getTestCaseNames(self, testCaseClass):
-        """Return an unsorted sequence of method names found in testCaseClass
+        """Return an unsorted sequence of method names found in testCaseClass.
+
+        Overrides `unittest.TestLoader.getTestCaseNames`.
+
+        The names are unsorted iff `testCaseClass` has a `get_names` method.
         """
         def shouldIncludeMethod(attrname):
             if not attrname.startswith(self.testMethodPrefix):
@@ -77,6 +88,8 @@ class NosortTestLoader(_ut.TestLoader):
 
         If module has an `__all__` attribute but no `load_tests` function,
         `TesCase`s will be loaded in the order they appear there.
+
+        Extends `unittest.TestLoader.loadTestsFromModule`.
         """
         tests = super().loadTestsFromModule(self, module, *args, pattern=None,
                                             **kws)
@@ -95,7 +108,42 @@ class NosortTestLoader(_ut.TestLoader):
         self._loading_packages = other._loading_packages
 
 
-nosortTestLoader = NosortTestLoader()
+nosortTestLoader = TestLoaderNosort()
+
+
+class TestCaseNosort(_ut.TestCase):
+    """Test case with a method for making unsorted method lists.
+
+    Extends `unittest.TestCase`. Subclass this for your own unit test suites.
+
+
+    It will run the tests in the order defined, rather than alphabetical if
+    used in combination with `TestLoaderNosort`, and if the module has an
+    `__all__` attribute containing the `TestCase` classes.
+
+    Methods
+    -------
+    get_names
+        Returns an unsorted list of attribute names.
+
+    See Also
+    --------
+    `TestLoaderNosort` : test loader that uses `TestCase.get_names` by default.
+    `nosortTestLoader` : instance of `TestLoaderNosort`.
+    `unittest.TestCase` : parent class.
+    """
+
+    @classmethod
+    def get_names(cls):
+        """Returns an unsorted list of attribute names."""
+        my_attr = []
+        for base in cls.__bases__:
+            try:
+                my_attr += base.get_names()
+            except AttributeError:
+                my_attr += dir(base)
+        my_attr.extend(cls.__dict__)
+        return unique_unsorted(my_attr)
 
 
 class TestResultStopTB(_ut.TextTestResult):
@@ -109,9 +157,9 @@ class TestResultStopTB(_ut.TextTestResult):
     be overridden in specific functions by writing ``__unittest = False``.
 
     Checks if there is a variable name ending with `__unittest` in the frame
-    and if that variable evaluates as True. Only the last variable satisfying
-    the first criterion is tested for the second, with locals added after
-    globals and otherwise appearing in the order they were added to the dicts.
+    and if that variable evaluates as True. Only the last variable named
+    `__unittest` is tested for Truth, with locals appearing after globals and
+    otherwise appearing in the order they were added to the dicts.
     """
 
     def addSubTest(self, test, subtest, err):
@@ -151,9 +199,9 @@ class TestRunnerStopTB(_ut.TextTestRunner):
     be overridden in specific functions by writing ``__unittest = False``.
 
     Checks if there is a variable name ending with `__unittest` in the frame
-    and if that variable evaluates as True. Only the last variable satisfying
-    the first criterion is tested for the second, with locals appearing after
-    globals and otherwise appearing in the order they were added to the dicts.
+    and if that variable evaluates as True. Only the last variable named
+    `__unittest` is tested for Truth, with locals appearing after globals and
+    otherwise appearing in the order they were added to the dicts.
     """
 
     def __init__(self, resultclass=None, **kwargs):
@@ -168,15 +216,27 @@ def main(testLoader=nosortTestLoader, testRunner=None, **kwds):
     Use in place of `unittest.main`. It uses `nosortTestLoader` and
     `TestRunnerStopTB` by default.
 
+    It will run the tests in the order defined, rather than alphabetical if the
+    module has an `__all__` attribute containing the `TestCase` classes, and if
+    the `TestCase` classes have a classmethod called `get_names` that returns
+    unsorted method/attribute names. Subclasses of `TestCaseNosort` will have
+    the required method.
+
     You can stop traceback display at any particular point by writing
     ``__unittest = True``. This can be done at the function level or at the
     module level. If ``__unittest = True`` appears at the module level, it can
     be overridden in specific functions by writing ``__unittest = False``.
 
     Checks if there is a variable name ending with `__unittest` in the frame
-    and if that variable evaluates as True. Only the last variable satisfying
-    the first criterion is tested for the second, with locals appearing after
-    globals and otherwise appearing in the order they were added to the dicts.
+    and if that variable evaluates as True. Only the last variable named
+    `__unittest` is tested for Truth, with locals appearing after globals and
+    otherwise appearing in the order they were added to the dicts.
+
+    See Also
+    --------
+    `unittest.main` : called by this function, with different defaults.
+    `TestLoaderNosort` : default test loader class.
+    `TestRunnerStopTB` : default test runner class.
     """
     if testRunner is None:
         testRunner = TestRunnerStopTB
@@ -188,7 +248,7 @@ def main(testLoader=nosortTestLoader, testRunner=None, **kwds):
 # =============================================================================
 
 
-class TestCaseNumpy(_ut.TestCase):
+class TestCaseNumpy(TestCaseNosort):
     """Test case with methods for comparing numpy arrays.
 
     Subclass this class to make your own unit test suite.
@@ -215,6 +275,10 @@ class TestCaseNumpy(_ut.TestCase):
         Calls numpy.all(numpy.greater(...)).
     assertArrayNotGreater
         Calls numpy.all(numpy.less_equal(...)).
+
+    See Also
+    --------
+    `TestCaseNosort` : parent class.
     """
 
     def setUp(self):
@@ -320,17 +384,6 @@ class TestCaseNumpy(_ut.TestCase):
         for array, shape in zip(arrays, shapes):
             self.assertEqual(array.shape, shape, msg)
 
-    @classmethod
-    def get_names(cls):
-        my_attr = []
-        for base in cls.__bases__:
-            try:
-                my_attr += base.get_names()
-            except AttributeError:
-                my_attr += dir(base)
-        my_attr.extend(cls.__dict__)
-        return unique_unsorted(my_attr)
-
 
 # =============================================================================
 # %% Helpers for TestCaseNumpy methods
@@ -410,6 +463,11 @@ def miss_str(x, y, atol=1e-8, rtol=1e-5, equal_nan=True):
     or: {r_worst:.2g} = {thresh:.2g} * 1e{mis_frac:.1f} at {r_ind}."""
 
 
+# -----------------------------------------------------------------------------
+# %%* help setUp fixtures
+# -----------------------------------------------------------------------------
+
+
 cmplx = {'b': 0, 'h': 0, 'i': 0, 'l': 0, 'p': 0, 'q': 0,
          'f': 0, 'd': 0, 'g': 0, 'F': 1j, 'D': 1j, 'G': 1j}
 
@@ -467,6 +525,10 @@ def ones_asa(shape, sctype):
     """
     return asa(np.ones(shape), np.zeros(shape), sctype)
 
+
+# -----------------------------------------------------------------------------
+# %%* General purpose utilities
+# -----------------------------------------------------------------------------
 
 @_cx.contextmanager
 def errstate(*args, **kwds):
