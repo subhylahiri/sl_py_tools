@@ -37,17 +37,23 @@ dzip: function
     Creates a `DisplayZip`.
 dbatch
     Like `batch`, but uses `DisplayCount` to display counter.
-The above have a method called rev that return reversed iterators:
+The above have methods called rev that return reversed iterators.
 
 zenumerate : function
     Combination of enumerate and unpacked zip.
 batch
     Generator that yields `slice` objects covering batches of indices.
+slice_to_range
+    Convert a `slice` object to a `range`.
+SliceRange
+    Class whose instances can be subscripted to create `range`s.
+srange
+    Instance of `SliceRange`.
 rdcount, rdbatch, rdenumerate, rdzip
     Aliases of `dcount.rev`, `dbatch.rev`, `denumerate.rev`, `dzip.rev`.
 undcount, undbatch, undenumerate, undzip
-    Wrappers around of `range`, `batch`, `zenumerate`, `zip` that remove the
-    `name` argument.
+    Wrappers around `range`, `batch`, `zenumerate`, `zip` that remove the
+    `name` argument, to make it easier to switch between displaying/hiding.
 You can set `start` and `stop` in `zenumerate`, `denumerate`, `dzip`, etc,
 but only via keyword arguments.
 
@@ -106,9 +112,11 @@ Examples
 # current_module = __import__(__name__)
 __all__ = [
     'DisplayCount', 'DisplayBatch', 'DisplayEnumerate', 'DisplayZip',
-    'zenumerate', 'batch',
+    'zenumerate', 'batch', 'slice_to_range', 'SliceRange', 'srange',
     'dbatch', 'dcount', 'denumerate', 'dzip',
     'rdcount', 'rdbatch', 'rdenumerate', 'rdzip',
+    'undcount', 'undbatch', 'undenumerate', 'undzip',
+    'delay_warnings',
     ]
 import itertools
 # All of these imports could be removed:
@@ -117,6 +125,7 @@ from typing import Optional
 import sys
 
 from . import _iter_base as _it
+from . import arg_tricks as _ag
 from .display_tricks import delay_warnings
 
 assert delay_warnings
@@ -188,6 +197,68 @@ def batch(*sliceargs: _it.SliceArg, **kwargs: _it.SliceArg):
     else:
         for i in range(start, stop, step):
             yield slice(i, i+step, 1)
+
+
+def slice_to_range(the_slice: slice, size: int = 0):
+    """Convert a slice object to a range.
+
+    Parameters
+    ----------
+    the_slice
+        The `slice` to convert.
+    size
+        Upper limit of `range`s, used if `the_slice.stop` is `None`.
+
+    Returns
+    -------
+    the_range
+        `range` object with `start`, `stop` and `step` taken from `the_slice`.
+    """
+    if isinstance(the_slice, int):
+        return the_slice
+    return range(_ag.default(the_slice.start, 0),
+                 _ag.default(the_slice.stop, size),
+                 _ag.default(the_slice.step, 1))
+
+
+class SliceRange():
+    """Class for converting a slice to a range.
+
+    You can build a `range` for iteration by calling `srange[start:stop:step]`,
+    where `srange` is an instance of `SliceRange`.
+
+    Parameters
+    ----------
+    size
+        Upper limit of `range`s, used if `the_slice.stop` is `None`.
+    """
+    size: int
+
+    def __init__(self, size: int = 0):
+        """
+        Parameters
+        ----------
+        size
+            Upper limit of `range`s, used if `the_slice.stop` is `None`.
+        """
+        self.size = size
+
+    def __getitem__(self, arg):
+        """
+        Parameters
+        ----------
+        the_slice
+            The `slice` to convert.
+
+        Returns
+        -------
+        the_range
+            `range` object with `start`, `stop` and `step` from `the_slice`.
+        """
+        return slice_to_range(arg, self.size)
+
+
+srange = SliceRange()
 
 
 # =============================================================================

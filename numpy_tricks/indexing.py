@@ -11,6 +11,7 @@ Tools for messing with array shapes
 """
 
 import numpy as np
+from sl_py_tools.arg_tricks import default
 from sl_py_tools.containers import (same_shape, identical_shape, broadcastable,
                                     ShapeTuple)
 assert all((same_shape, identical_shape, broadcastable, ShapeTuple))
@@ -80,50 +81,144 @@ def estack(arrays, axis=-1):
     return np.stack(arrays, axis=axis)
 
 
-def flattish(array, start, stop):
-    """Flatten a subset of axes
-
-    Takes axes in the range [start:stop) and flattens them into one axis.
+def slice_to_inds(the_slice: slice, size: int = 0):
+    """Convert a slice object to an array of indices.
 
     Parameters
     ----------
-    array
-        ndarray to be partially flattened, n-dimensional
-    start
-        axis at which to start flattening (inclusive)
-    stop
-        axis at which to stop flattening (exclusive)
+    the_slice
+        The `slice` to convert.
+    size
+        Upper limit of `range`s, used if `the_slice.stop` is `None`.
 
     Returns
     -------
-    flattish_array
-        array with flattened axes, (n-stop+start+1)-dimensional
+    inds
+        `np.ndarray` of indices, as produced by `np.arange` with `start`,
+        `stop` and `step` taken from `the_slice`.
     """
-    return array.reshape(array.shape[:start] + (-1,) + array.shape[stop:])
+    if isinstance(the_slice, int):
+        return the_slice
+    return np.arange(default(the_slice.start, 0),
+                     default(the_slice.stop, size),
+                     default(the_slice.step, 1), int)
 
 
-def expand_dims(array, axis):
-    """Expand the shape of the array
+class SliceInds():
+    """Class for converting a slice to an array of indices.
 
-    Alias of numpy.expand_dims.
-    If `axis` is a sequence, axes are added one at a time, left to right.
-    The numbering is wrt the shape at each axis addition.
+    You can build an array of indices by calling `si_[start:stop:step]`,
+    where `si_` is an instance of `SliceInds`.
 
     Parameters
     ----------
-    array
-        ndarray to be expanded
-    axis
-        Position of added axis. If it is a tuple, axes are added one at a time,
-        left to right. The numbering is wrt the shape at each axis addition.
+    size
+        Upper limit of `range`s, used if `the_slice.stop` is `None`.
     """
-    if isinstance(axis, int):
-        return np.expand_dims(array, axis).view(type(array))
-    elif not isinstance(axis, tuple):
-        raise TypeError("axis must be an int or a tuple of ints")
-    elif len(axis) == 0:
-        return array
-    return expand_dims(expand_dims(array, axis[0]), axis[1:])
+    size: int
+
+    def __init__(self, size: int = 0):
+        """
+        Parameters
+        ----------
+        size
+            Upper limit of `range`s, used if `the_slice.stop` is `None`.
+        """
+        self.size = size
+
+    def __getitem__(self, arg):
+        """
+        Parameters
+        ----------
+        the_slice
+            The `slice` to convert.
+
+        Returns
+        -------
+        inds
+            `np.ndarray` of indices, as produced by `np.arange` with `start`,
+            `stop` and `step` taken from `the_slice`.
+        """
+        return slice_to_inds(arg, self.size)
+
+
+si_ = SliceInds()
+
+
+def take_slice(array: np.ndarray, the_slice: slice, axis: int = None, **kwds):
+    """Take a slice along a given axis.
+
+    Equivalent to `np.take`, except it takes a `slice` object instead of an
+    array of indices.
+
+    See Also
+    --------
+    `np.take`
+    """
+    size = array.size
+    if axis is not None:
+        size = array.shape[axis]
+    return np.take(array, slice_to_inds(the_slice, size), axis=axis, **kwds)
+
+
+def flattish(arr: np.ndarray, start: int = 0, stop: int = None) -> np.ndarray:
+    """Partial flattening.
+
+    Flattens those axes in the range [start:stop)
+
+    Parameters
+    ----------
+    arr : np.ndarray (...,L,M,N,...,P,Q,R,...)
+        Array to be partially flattened.
+    start : int, optional, default: 0
+        First axis of group to be flattened.
+    stop : int or None, optional, default: None
+        First axis *after* group to be flattened. Goes to end if it is None.
+
+    Returns
+    -------
+    new_arr : np.ndarray (...,L,M*N*...*P*Q,R,...)
+        Partially flattened array.
+    """
+    stop = default(stop, arr.ndim)
+    newshape = arr.shape[:start] + (-1,) + arr.shape[stop:]
+    if len(newshape) > arr.ndim + 1:
+        raise ValueError(f"start={start} > stop={stop}")
+    return np.reshape(arr, newshape)
+
+
+def expand_dims(arr: np.ndarray, *axis) -> np.ndarray:
+    """Expand the shape of the array with length one axes.
+
+    Alias of `numpy.expand_dims` when `*axis` is a single `int`. If `axis`
+    is a sequence of `int`, axis numbers are relative to the *final* shape.
+
+    Parameters
+    ----------
+    arr : np.ndarray (...,L,M,N,...,P,Q,...)
+        Array to be expanded.
+    *axis : int
+        Positions where new axes are inserted. Negative numbers are allowed.
+        Numbers are with respect to the final shape.
+
+    Returns
+    -------
+    new_arr : np.ndarray (...,L,1,M,1,N,...,P,1,Q,...)
+        Expanded array.
+
+    See Also
+    --------
+    numpy.expand_dims
+    """
+    if len(axis) == 0:
+        return arr
+    if len(axis) == 1:
+        return np.expand_dims(arr, axis[0]).view(type(arr))
+    axes_sort = tuple(np.sort(np.mod(axis, arr.ndim + len(axis))))
+    axes_same = np.nonzero(np.diff(axes_sort) == 0)
+    if axes_same.size > 0:
+        raise ValueError(f'repeated axes, arguments: {axes_same}')
+    return expand_dims(expand_dims(arr, axes_sort[0]), *axes_sort[1:])
 
 
 class BroadcastType():
