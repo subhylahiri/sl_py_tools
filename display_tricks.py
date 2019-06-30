@@ -216,9 +216,7 @@ class DisplayTemporary():
     def _bksp(self, num: int = 1, bkc: str = '\b'):
         """Go back num characters
         """
-        if self.file is None:  # self.file.isatty() or self.file is sys.stdout
-            pass
-        elif self.file.seekable():
+        if self.file is not None and self.file.seekable():
             self.file.seek(self.file.tell() - num)
             return
 

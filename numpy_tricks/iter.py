@@ -49,7 +49,7 @@ class DisplayNDIndex(_it.DisplayMixin):
     ndim: int
     _it: np.ndindex
 
-    def __init__(self, *args: _it.DSliceArgs, **kwds: _it.KeyWords):
+    def __init__(self, *args: _it.DSliceArgs, **kwds: _it.DSliceKeys):
         name, shape = _it.extract_name(args, kwds)
         if isinstance(shape[0], tuple):
             shape = shape[0]
@@ -176,7 +176,7 @@ class DisplayNDIter(_DispNDIterBase):
     numpy.nditer
     """
 
-    def __init__(self, *args: _it.Args, **kwds: _it.KeyWords):
+    def __init__(self, *args: _it.DArgs, **kwds: _it.DKeys):
         name, args = _it.extract_name(args, kwds)
         my_iter = np.nditer(*args, **kwds)
         super().__init__(name, my_iter)
@@ -215,7 +215,7 @@ class DisplayNDEnumerate(_DispNDIterBase):
     numpy.ndenumerate
     """
 
-    def __init__(self, *args: _it.Args, **kwds: _it.KeyWords):
+    def __init__(self, *args: _it.DArgs, **kwds: _it.DKeys):
         name, args = _it.extract_name(args, kwds)
         my_iter = np.ndenumerate(*args, **kwds)
         super().__init__(name, my_iter)
@@ -226,7 +226,7 @@ class DisplayNDEnumerate(_DispNDIterBase):
 # =============================================================================
 
 
-def dndindex(*args: _it.DSliceArgs, **kwds: _it.KeyWords) -> DisplayNDIndex:
+def dndindex(*args: _it.DSliceArgs, **kwds: _it.DSliceKeys) -> DisplayNDIndex:
     """Numpy ndindex with progress display
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -262,7 +262,7 @@ def dndindex(*args: _it.DSliceArgs, **kwds: _it.KeyWords) -> DisplayNDIndex:
     return DisplayNDIndex(*args, **kwds)
 
 
-def dnditer(*args: _it.Args, **kwds: _it.KeyWords) -> DisplayNDIter:
+def dnditer(*args: _it.DArgs, **kwds: _it.DKeys) -> DisplayNDIter:
     """Numpy nditer with display
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -297,7 +297,7 @@ def dnditer(*args: _it.Args, **kwds: _it.KeyWords) -> DisplayNDIter:
     return DisplayNDIter(*args, **kwds)
 
 
-def dndenumerate(*args: _it.Args, **kwds: _it.KeyWords) -> DisplayNDEnumerate:
+def dndenumerate(*args: _it.DArgs, **kwds: _it.DKeys) -> DisplayNDEnumerate:
     """Numpy ndenumerate with display
 
     Prints loop counter (plus 1), updates in place, and deletes at end.

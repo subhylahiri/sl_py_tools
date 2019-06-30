@@ -92,9 +92,7 @@ def fft_flip(fftarray: np.ndarray,
         Fourier transform with frequencies flipped, complex conjugated.
     """
     fftconj = fftarray.conj()
-    for axis in axes:
-        fftconj = np.roll(np.flip(fftconj, axis), 1, axis)
-    return fftconj
+    return np.roll(np.flip(fftconj, axes), 1, axes)
 
 
 def rfft_to_fft(rfftarray: np.ndarray,
@@ -114,7 +112,7 @@ def rfft_to_fft(rfftarray: np.ndarray,
     axes : Sequence[int], optional
         Which axes were Fourier transformed? Default = (-1,).
     even : bool, optional
-        Is the full length of `axis` even? Default = True.
+        Is the full length of `axes[-1]` even? Default = True.
 
     Returns
     -------
@@ -126,23 +124,15 @@ def rfft_to_fft(rfftarray: np.ndarray,
     fft_to_rfft : inverse of this function
     """
     axis = axes[-1]
-    if axis < 0:
-        axis += rfftarray.ndim
-    inds = (slice(None),) * axis
-    if even:
-        inds += (slice(1, -1),)
-    else:
-        inds += (slice(1, None),)
-    redundant = np.flip(fft_flip(rfftarray[inds], axes[:-1]), axis)
+    indices = np.arange(1, rfftarray.shape[axis] - even)
+    redundant = np.take(rfftarray, indices, axis=axis)
+    redundant = np.flip(fft_flip(redundant, axes[:-1]), axis)
     return np.concatenate((rfftarray, redundant), axis)
 
 
 def fft_to_rfft(fftarray: np.ndarray,
                 axes: Sequence[int] = (-1,),) -> np.ndarray:
-    """
-    Parameters
-    ----------
-    Extend Real Fourier transform to all frequencies.
+    """Restrict Fourier transform to independent frequencies.
 
     The fourier transform of a real quantity has a Hermitean symmetry.
     Therefore half of the frequency components are redundant and not kept by
@@ -169,7 +159,4 @@ def fft_to_rfft(fftarray: np.ndarray,
     fftconj /= 2.
     axis = axes[-1]
     new_siz = fftarray.shape[axis] // 2 + 1
-    if axis < 0:
-        axis += fftarray.ndim
-    inds = (slice(None),) * axis + (slice(new_siz),)
-    return fftconj[inds]
+    return np.take(fftconj, np.arange(new_siz), axis=axis)

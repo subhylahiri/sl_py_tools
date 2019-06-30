@@ -15,6 +15,7 @@ from functools import wraps
 
 from .display_tricks import _DisplayState as DisplayState
 from .display_tricks import DisplayTemporary
+from .arg_tricks import default
 
 NameArg = Optional[str]
 SliceArg = Optional[int]
@@ -23,16 +24,19 @@ DSliceArg = Union[NameArg, SliceArg]
 Arg = Union[SliceArg, Iterable]
 DArg = Union[NameArg, Arg]
 SliceArgs = Tuple[SliceArg, ...]
-Args = Tuple[Union[SliceArg, Iterable], ...]
+DSliceArgs = Tuple[DSliceArg, ...]
+Args = Tuple[Arg, ...]
 DArgs = Tuple[DArg, ...]
-KeyWords = Dict[str, SliceArg]
-DKeyWords = Dict[str, DArgs]
+SliceKeys = Dict[str, SliceArg]
+DSliceKeys = Dict[str, DSliceArg]
+Keys = Dict[str, Arg]
+DKeys = Dict[str, DArg]
 # =============================================================================
 # %%* Convenience functions
 # =============================================================================
 
 
-def extract_name(args: DArgs, kwds: DKeyWords) -> (NameArg, Args):
+def extract_name(args: DArgs, kwds: DKeys) -> (NameArg, Args):
     """Extract name from other args
 
     If name is in kwds, assume all of args is others, pop name from kwds.
@@ -48,7 +52,7 @@ def extract_name(args: DArgs, kwds: DKeyWords) -> (NameArg, Args):
     return name, others
 
 
-def extract_slice(args: SliceArgs, kwargs: KeyWords) -> SliceArgs:
+def extract_slice(args: SliceArgs, kwargs: SliceKeys) -> SliceArgs:
     """Extract slice indices from args/kwargs
 
     Returns
@@ -69,10 +73,8 @@ def extract_slice(args: SliceArgs, kwargs: KeyWords) -> SliceArgs:
     start = kwargs.pop('start', inds.start)
     stop = kwargs.pop('stop', inds.stop)
     step = kwargs.pop('step', inds.step)
-    if start is None:
-        start = 0
-    if step is None:
-        step = 1
+    start = default(start, 0)
+    step = default(step, 1)
     return start, stop, step
 
 
@@ -209,7 +211,7 @@ class AddDisplayToIterables(Iterator):
     an instance of the subclass being defined.
 
     Subclasses of subclasses will also have to specify a ``displayer`` unless
-    the first subclass redefines `__init_subclass__`.
+    an intermediate subclass redefines `__init_subclass__`.
 
     Parameters
     ----------
