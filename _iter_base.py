@@ -42,6 +42,20 @@ def extract_name(args: DArgs, kwds: DKeys) -> (NameArg, Args):
     If name is in kwds, assume all of args is others, pop name from kwds.
     Else, if args[0] is a str or None, assume it's name & args[1:] is others.
     Else, name is None and all of args is others.
+
+    Parameters
+    ----------
+    args
+        `tuple` of arguments.
+    kwargs
+        `dict` of keyword arguments. Keyword `name` is popped if present.
+
+    Returns
+    -------
+    name
+        The name, from keyword or first argument if `str`.
+    others
+        `tuple` of other arguments.
     """
     name = None
     others = args
@@ -55,8 +69,15 @@ def extract_name(args: DArgs, kwds: DKeys) -> (NameArg, Args):
 def extract_slice(args: SliceArgs, kwargs: SliceKeys) -> SliceArgs:
     """Extract slice indices from args/kwargs
 
-    Returns
+    Parameters
     ----------
+    args
+        `tuple` of arguments.
+    kwargs
+        `dict` of keyword arguments. Keywords below are popped if present.
+
+    Returns
+    -------
     start : int or None, optional, default=0
         initial counter value (inclusive).
     stop : int or None, optional, default=None
@@ -80,6 +101,8 @@ def extract_slice(args: SliceArgs, kwargs: SliceKeys) -> SliceArgs:
 
 def counter_format(num: int) -> str:
     """Format string for counters that run up to num
+
+    Produces ' 4/10', etc.
     """
     num_dig = str(len(str(num)))
     formatter = '{:>' + num_dig + 'd}/'
