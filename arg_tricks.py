@@ -2,6 +2,7 @@
 """
 import typing as _ty
 A = _ty.TypeVar('A')
+B = _ty.TypeVar('B')
 
 
 def default(optional: _ty.Optional[A], default_value: A) -> A:
@@ -44,6 +45,32 @@ def default_eval(optional: _ty.Optional[A],
     if optional is None:
         return default_fn()
     return optional
+
+
+def non_default_eval(optional: _ty.Optional[A],
+                     default_fn: _ty.Callable[[A], B],
+                     default_value: B) -> B:
+    """Evaluate function on optional if it is not None
+
+    Parameters
+    ----------
+    optional : A or None
+        The optional argument, where `None` indicates that the default value
+        should be used instead.
+    default_fn : Callable[(A)->B]
+        Evaluates to default value for the argument, only evaluated and used
+        when `optional` is not `None`. Takes `optional` as its argument.
+    default_value : B
+        Default value for the argument, used when `optional` is `None`.
+
+    Returns
+    -------
+    use_value : A
+        Either `optional`, if it is not `None` or `default_fn()` if it is.
+    """
+    if optional is None:
+        return default_value
+    return default_fn(optional)
 
 
 def defaults(optionals: _ty.Iterable[_ty.Optional[A]],

@@ -11,7 +11,7 @@ Tools for messing with array shapes
 """
 
 import numpy as np
-from sl_py_tools.arg_tricks import default
+from sl_py_tools.arg_tricks import default, non_default_eval
 from sl_py_tools.containers import (same_shape, identical_shape, broadcastable,
                                     ShapeTuple)
 assert all((same_shape, identical_shape, broadcastable, ShapeTuple))
@@ -228,20 +228,19 @@ class BroadcastType():
     ----------
     *arrays: array_like
         Arrays to be broadcast
-
-    Keyword only
-    ------------
     shape: Tuple[int] or int
         Minimum shape of result (as if it were included in broadcasting).
+        Keyword only.
     dtype: dtype or dtype specifier
         Minimum scalar type of result (as if it were included in upcasting).
+        Keyword only.
 
     Attributes
     ----------
     dtype : np.dtype
         Scalar type of result.
     bcast : np.broadcast
-        Object encapsulating shape of broadcast result.
+        Object/iterable encapsulating shape of broadcast result.
     shape, ndim, size, etc
         Obtained from `self.bcast`.
 
@@ -253,15 +252,21 @@ class BroadcastType():
     bcast: np.broadcast
     dtype: np.dtype
 
-    def __init__(self, *arrays, shape=None, dtype='?'):
-        self.bcast = np.broadcast(*arrays, np.empty(shape))
-        self.dtype = np.result_type(*arrays, dtype)
+    def __init__(self, *arrays, shape=None, dtype=None):
+        min_dtype = non_default_eval(dtype, lambda x: (x,), ())
+        min_shape = non_default_eval(
+                            shape, lambda x: (np.empty(x, *min_dtype),), ())
+        self.bcast = np.broadcast(*arrays, *min_shape)
+        self.dtype = np.result_type(*arrays, *min_dtype)
 
     def __getattr__(self, name):
         return getattr(self.bcast, name)
 
     def __repr__(self):
         return f"BroadcastType(shape={self.shape}, dtype='{self.dtype}')"
+
+    def __iter__(self):
+        return iter(self.bcast)
 
     def empty_like(self, **kwds):
         """Return emtpty array of appropriate shape and dtype
@@ -270,6 +275,7 @@ class BroadcastType():
         --------
         `np.empty`, `np.empty_like`
         """
+        kwds.pop('subok')
         kwds.setdefault('shape', self.shape)
         kwds.setdefault('dtype', self.dtype)
         return np.empty(**kwds)
@@ -281,6 +287,7 @@ class BroadcastType():
         --------
         `np.ones`, `np.ones_like`
         """
+        kwds.pop('subok')
         kwds.setdefault('shape', self.shape)
         kwds.setdefault('dtype', self.dtype)
         return np.ones(**kwds)
@@ -292,6 +299,7 @@ class BroadcastType():
         --------
         `np.zeros`, `np.zeros_like`
         """
+        kwds.pop('subok')
         kwds.setdefault('shape', self.shape)
         kwds.setdefault('dtype', self.dtype)
         return np.zeros(**kwds)
@@ -303,6 +311,7 @@ class BroadcastType():
         --------
         `np.full`, `np.full_like`
         """
+        kwds.pop('subok')
         kwds.setdefault('shape', self.shape)
         kwds.setdefault('fill', fill)
         kwds.setdefault('dtype', self.dtype)
