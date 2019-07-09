@@ -42,6 +42,21 @@ from IPython.lib import deepreload
 ORIGINAL_IMPORT_SUBMODULE = deepreload.import_submodule
 
 # =============================================================================
+# %%* Dummy function
+# =============================================================================
+
+
+def used(*args):
+    """Dummy function to fool pyflakes
+
+    Does not actually do anything. It is really only intended for files like
+    `__init__.py`, where you might import things from private modules to make
+    them part of the public interface, etc. Including expressions such as
+    `Export[import1, import2, ...]` wil stop pyflakes from complaining that
+    `'import1' imported but unused`, etc.
+    """
+
+# =============================================================================
 # %%* Reloader class
 # =============================================================================
 

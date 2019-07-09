@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tools for processing function arguments.
 """
 import typing as _ty
@@ -93,3 +94,25 @@ def defaults(optionals: _ty.Iterable[_ty.Optional[A]],
         the latter only when the former is `None`.
     """
     return tuple(default(opt, df) for opt, df in zip(optionals, default_vals))
+
+
+# =============================================================================
+# %%* Dummy type hint
+# =============================================================================
+
+
+class Export(object):
+    """Dummy module/package level type hint to fool pyflakes.
+
+    Should behave like a type hint that 'these were imported to make them
+    available to the users of this module rather than for use in the module'.
+
+    Does not actually do anything. It is really only intended for files like
+    `__init__.py`, where you might import things from private modules to make
+    them part of the public interface, etc. Including expressions such as
+    `Export[import1, import2, ...]` wil stop pyflakes from complaining that
+    `'import1' imported but unused`, etc.
+    """
+
+    def __class_getitem__(cls, *args):
+        pass

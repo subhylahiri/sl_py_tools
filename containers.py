@@ -189,6 +189,9 @@ class ShapeTuple(tuple):
 
 def update_new(to_update: dict, update_from: Dictable):
     """Update new keys only
+
+    If `key` in `update_from` but not `to_update`, set `to_update[key] =
+    update_from[key]`.
     """
     if isinstance(update_from, cn.abc.Mapping):
         for k in update_from.keys():
@@ -201,6 +204,9 @@ def update_new(to_update: dict, update_from: Dictable):
 
 def update_existing(to_update: dict, update_from: Dictable):
     """Update existing keys only
+
+    If `key` in `update_from` and `to_update`, set `to_update[key] =
+    update_from[key]`.
     """
     if isinstance(update_from, cn.abc.Mapping):
         for k in to_update.keys():
@@ -213,29 +219,52 @@ def update_existing(to_update: dict, update_from: Dictable):
 
 def pop_existing(to_update: dict, pop_from: dict):
     """Pop to update existing keys only
+
+    If `k` in `pop_from` and `to_update`, set `to_update[k] = pop_from[k]`
+    and `del pop_from[k]`.
     """
     for k in to_update.keys():
         to_update[k] = pop_from.pop(k, to_update[k])
+
+
+def pop_new(to_update: dict, pop_from: dict):
+    """Pop to update new keys only
+
+    If `k` in `pop_from` but not `to_update`, set `to_update[k] = pop_from[k]`
+    and `del pop_from[k]`.
+    """
+    for k in pop_from.keys():
+        if k not in to_update.keys():
+            to_update[k] = pop_from.pop(k)
 
 
 def invert_dict(to_invert: dict) -> dict:
     """Swap keys and values.
 
     Assumes values are distinct and hashable.
+
+    Raises
+    ------
+    TypeError
+        If any of `to_invert.values()` are not hashable.
+    ValueError
+        If any of `to_invert.values()` are repeated.
     """
-    return {v: k for k, v in to_invert.items()}
+    inverted = {v: k for k, v in to_invert.items()}
+    if len(inverted) < len(to_invert):
+        raise ValueError(f'Repeated values in {to_invert}?')
+    return inverted
 
 
 def is_inverse_dict(map1: _ty.Mapping, map2: _ty.Mapping):
     """Test if two dicts are each others inverses.
+
+    Checks `map2[map1[key]] == key` for every `key` in `map1.keys()` and every
+    `key` in `map2.values()`. Does not check order of entries.
     """
     if len(map1) != len(map2):
         return False
-    if not all(a == b for a, b in zip(map2.keys(), map1.values())):
-        return False
-    if not all(a == b for a, b in zip(map1.keys(), map2.values())):
-        return False
-    return True
+    return all(map2[v] == k for k, v in map1.items())
 
 
 class PairedDict(cn.UserDict):
