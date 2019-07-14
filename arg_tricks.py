@@ -49,7 +49,34 @@ def default_eval(optional: _ty.Optional[A],
 
 
 def non_default_eval(optional: _ty.Optional[A],
-                     default_fn: _ty.Callable[[A], B],
+                     non_default_fn: _ty.Callable[[A], B],
+                     default_fn: _ty.Callable[[], B]) -> B:
+    """Evaluate function on optional if it is not None, else evaluate default.
+
+    Parameters
+    ----------
+    optional : A or None
+        The optional argument, where `None` indicates that the default value
+        should be used instead.
+    non_default_fn : Callable[(A)->B]
+        Evaluated on `optional`if it is not `None`.
+    default_fn : Callable[()->B]
+        Evaluates to default value for the argument, only evaluated and used
+        when `optional` is not `None`.
+
+    Returns
+    -------
+    use_value : B
+        Either `non_default_fn(optional)`, if `optional` is not `None` or
+        `default_fn()` if it is.
+    """
+    if optional is None:
+        return default_fn()
+    return non_default_fn(optional)
+
+
+def default_non_eval(optional: _ty.Optional[A],
+                     non_default_fn: _ty.Callable[[A], B],
                      default_value: B) -> B:
     """Evaluate function on optional if it is not None
 
@@ -58,20 +85,20 @@ def non_default_eval(optional: _ty.Optional[A],
     optional : A or None
         The optional argument, where `None` indicates that the default value
         should be used instead.
-    default_fn : Callable[(A)->B]
-        Evaluates to default value for the argument, only evaluated and used
-        when `optional` is not `None`. Takes `optional` as its argument.
+    non_default_fn : Callable[(A)->B]
+        Evaluated on `optional`if it is not `None`.
     default_value : B
         Default value for the argument, used when `optional` is `None`.
 
     Returns
     -------
-    use_value : A
-        Either `optional`, if it is not `None` or `default_fn()` if it is.
+    use_value : B
+        Either `non_default_fn(optional)`, if `optional` is not `None` or
+        `default_value` if it is.
     """
     if optional is None:
         return default_value
-    return default_fn(optional)
+    return non_default_fn(optional)
 
 
 def defaults(optionals: _ty.Iterable[_ty.Optional[A]],
