@@ -4,10 +4,12 @@
 from __future__ import annotations
 import collections as cn
 import itertools as _it
+import functools as _ft
 import operator as _op
+import contextlib as _cx
 import typing as _ty
 import numbers as _num
-from .arg_tricks import defaults
+from . import arg_tricks as _ag
 
 A = _ty.TypeVar('A')
 B = _ty.TypeVar('B')
@@ -247,6 +249,15 @@ def pop_new(to_update: dict, pop_from: dict):
             to_update[k] = pop_from.pop(k)
 
 
+def _inv_dict_iter(to_invert: dict) -> _ty.Iterator:
+    """Swap keys and values.
+
+    Can be used to build/update another dict or other container.
+    Can only be used once - best not to store in a variable.
+    """
+    return ((v, k) for k, v in to_invert.items())
+
+
 def invert_dict(to_invert: dict) -> dict:
     """Swap keys and values.
 
@@ -259,13 +270,13 @@ def invert_dict(to_invert: dict) -> dict:
     ValueError
         If any of `to_invert.values()` are repeated.
     """
-    inverted = {v: k for k, v in to_invert.items()}
+    inverted = dict(_inv_dict_iter(to_invert))
     if len(inverted) < len(to_invert):
         raise ValueError(f'Repeated values in {to_invert}?')
     return inverted
 
 
-def is_inverse_dict(map1: _ty.Mapping, map2: _ty.Mapping):
+def is_inverse_dict(map1: _ty.Mapping, map2: _ty.Mapping) -> bool:
     """Test if two dicts are each others inverses.
 
     Checks `map2[map1[key]] == key` for every `key` in `map1.keys()` and every
@@ -279,22 +290,31 @@ def is_inverse_dict(map1: _ty.Mapping, map2: _ty.Mapping):
 class PairedDict(cn.UserDict):
     """One direction of bidirectional mapping
 
-    Stores a reference to its inverse mapping in `self.inverse`. If the
-    inverse is provided in the constructor and ``dict(*args,**kwds)`` is empty,
-    `self` will be updated with ``invert_dict(self.inverse)``. If the
-    inverse is not provided in the constructor and ``dict(*args,**kwds)`` is
-    non-empty, `self.inverse` will be created with ``invert_dict(self)``.
-    Otherwise, no effort is made to ensure that they are inverses of each
-    other. We recommend running `self.fix_inverse()` after construction.
-    Instead, the instances could be built using the class-method
-    `PairedDict.make_pairs`.
+    Instances Store a reference to their inverse mapping in `self.inverse`.
+    Both keys and values must be unique and hashable.
 
     Deleting an item also deletes the reversed item from `self.inverse`.
-    Setting an item with ``self[key1] = key2``, deletes `key1` from `self` as
-    above, deletes `key2` from `self.inverse`, adds item `(key1,key2)` to
-    `self`, and adds item `(key2,key1)` to `self.inverse`.
+    Setting an item with `self[key1] = key2`, deletes `key1` from `self` as
+    above, deletes `key2` from `self.inverse`, adds item `(key1, key2)` to
+    `self`, and adds item `(key2, key1)` to `self.inverse`.
 
-    Both keys and values must be unique and hashable.
+    Ideally, the instances should be built using the class-method
+    `PairedDict.make_pairs`. This will raise a `ValueError` for repeated values
+
+    If you do use the constructor directly: when `inverse` is not provided in
+    the constructor, `self.inverse` will be created with `invert_dict(self)`
+    without checking for repeated values. When `inverse` is provided in the
+    constructor, it will be copied and updated with `invert_dict(self)` and
+    `self` will be updated with `invert_dict(self.inverse)`, both without
+    checking for repeated values. We recommend running `self.fix_inverse()`
+    after construction, which will raise a `ValueError` if there were any
+    repeated values, or at least calling `self.check_inverse()`.
+
+    Under normal circumstances `self.inverse.inverse is self` should hold. This
+    can break if `self.inverse` is replaced or private machinery is used.
+    There is no guarantee that `self.inverse == invert_dict(self)` due to the
+    possibility of repeated values, but if it holds after construction it
+    should remain True thereafter.
 
     Parameters
     ----------
@@ -305,57 +325,90 @@ class PairedDict(cn.UserDict):
     Other keword arguments
         Passed to the `UserDict` constructor.
 
+    Raises
+    ------
+    ValueError
+        If any keys/values are not unique.
+    TypeError
+        If any keys/values are not hashable.
+
     See Also
     --------
     dict
     collections.UserDict
-    collections.ChainMap
-    AssociativeMap
+    BijectiveMap
     """
     inverse: _ty.Optional[PairedDict] = None
     _formed: bool = False
 
     def __init__(self, *args, inverse=None, **kwds):
+        # ensure we only use super().__setitem__ to prevent infinite recursion
         self._formed = False
-        self.inverse = None
+        # were we called by another object's __init__?
+        secret = kwds.pop('__secret', False)
+        # use this to construct self.inverse if inverse is not already ok
+        init_fn = _ft.partial(type(self), inverse=self, __secret=True)
         super().__init__(*args, **kwds)
-        if len(args) > 0 or len(kwds) > 0 or inverse is not None:
-            self.inverse = type(self)()
-            self.inverse.inverse = self
-        if inverse is not None:
-            self.inverse.update(inverse)
-            if len(self) == 0 and len(self.inverse) > 0:
-                self.update(invert_dict(self.inverse))
-        elif len(self) > 0:
-            self.inverse.update(invert_dict(self))
+
+        # self.inverse.__init__ will not be callled if secret is True and
+        # inverse is not None.
+        if secret:
+            self.inverse = _ag.default_eval(inverse, init_fn)
+        else:
+            self.inverse = _ag.non_default_eval(inverse, init_fn, init_fn)
+        # In all calls of self.inverse.__init__ above, __secret is True and
+        # inverse is self => no infinite recursion (at most one more call).
+
+        # First object constructed is last to be updated by its inverse
+        if secret or inverse is not None:
+            self.update(_inv_dict_iter(self.inverse))
+        # we can use our own __setitem__ now that self.update is done
         self._formed = True
+        # if not (secret or self.check_inverse()):
+        #     raise ValueError("Unable to form inverse. Repeated keys/values?")
 
     def __delitem__(self, key):
         """Delete inverse map as well as forward map"""
         if self._formed:
+            # not in constructor/fix_inverse, assume self.inverse is good
+            # use super().__delitem__ to avoid infinite recursion
             super(PairedDict, self.inverse).__delitem__(self[key])
+        # maybe in constructor/fix_inverse, make no assumptions
         super().__delitem__(key)
 
     def __setitem__(self, key, value):
         """Delete inverse & forward maps, then create new foward & inverse map
         """
         if self._formed:
-            # not in constructor, assume self.inverse is good
+            # not in constructor/fix_inverse, assume self.inverse is good
             if key in self.keys():
                 del self[key]
             if value in self.inverse.keys():
                 del self.inverse[value]
+            # use super().__setitem__ to avoid infinite recursion
             super(PairedDict, self.inverse).__setitem__(value, key)
-        # maybe in constructor, make no assumptions
+        # maybe in constructor/fix_inverse, make no assumptions
         super().__setitem__(key, value)
 
     def check_inverse(self) -> bool:
-        """Check that inverse is well formed"""
+        """Check that inverse has the correct value."""
         if self.inverse is None:
             return False
-        if self.inverse.inverse is not self:
+        if self.inverse.inverse != self:
             return False
         return is_inverse_dict(self, self.inverse)
+
+    def check_inverse_strict(self) -> bool:
+        """Check that inverse is correct and properly linked to self."""
+        return self.check_inverse() and (self.inverse.inverse is self)
+
+    @_cx.contextmanager
+    def _unformed(self):
+        try:
+            self._formed = False
+            yield
+        finally:
+            self._formed = True
 
     def fix_inverse(self):
         """Set inverse using self
@@ -367,66 +420,66 @@ class PairedDict(cn.UserDict):
         raise a `ValueError`.
         """
         if self.inverse is None:
-            self.inverse = type(self)()
-            self.inverse._formed = False
-            self.inverse.update(invert_dict(self))
-            self.inverse._formed = True
+            self.inverse = type(self)(inverse=self)
         self.inverse.inverse = self
         if not self.check_inverse():
-            self.inverse._formed = False
-            self.inverse.update(invert_dict(self))
-            self.inverse._formed = True
+            with self.inverse._unformed():
+                self.inverse.update(_inv_dict_iter(self))
         if not self.check_inverse():
-            self._formed = False
-            self.update(invert_dict(self.inverse))
-            self._formed = True
+            with self._unformed():
+                self.update(_inv_dict_iter(self.inverse))
         if not self.check_inverse():
-            raise ValueError("Unable to fix inverse")
+            raise ValueError("Unable to fix inverse. Repeated keys/values?")
 
     @classmethod
     def make_pairs(cls, *args, **kwds) -> _ty.Tuple[PairedDict, PairedDict]:
         """Create a pair of dicts that are inverses of each other
 
+        Parameters
+        ----------
+        All used to construct `fwd`.
+
         Returns
         -------
-        [fwd, bwd]
-            fwd : PairedDict
-                Dictionary built with other parameters.
-            bwd : PairedDict
-                Inverse of `fwd`
+        fwd : PairedDict
+            Dictionary built with parameters.
+        bwd : PairedDict
+            Inverse of `fwd`
 
         Raises
         ------
         ValueError
-            If 'inverse' is supplied as a keyword argument, or values are not
-            unique.
+            If values are not unique or if 'inverse' is used as a keyword.
+        TypeError
+            If any values are not hashable.
         """
         if 'inverse' in kwds.keys():
             raise ValueError("Cannot use 'inverse' as a keyword here")
         fwd = cls(*args, **kwds)
         fwd.fix_inverse()
         bwd = fwd.inverse
-        if len(fwd) != len(bwd):
-            raise ValueError("Repeated keys/values")
-        return [fwd, bwd]
+        if not fwd.check_inverse_strict():
+            raise ValueError("Repeated keys/values?")
+        return fwd, bwd
 
 
-class AssociativeMap(cn.ChainMap):
+class BijectiveMap(cn.ChainMap):
     """Bidirectional mapping
 
-    Similar to a ``dict``, except the statement ``self.fwd[key1] == key2`` is
-    equivalent to ``self.bwd[key2] == key1``. Both of these statements imply
-    that ``self[key1] == key2`` and ``self[key2] == key1``. Both keys must be
+    Similar to a `dict`, except the statement `self.fwd[key1] == key2` is
+    equivalent to `self.bwd[key2] == key1`. Both of these statements imply
+    that `self[key1] == key2` and `self[key2] == key1`. Both keys must be
     unique and hashable.
 
-    An unordered associative map arises when subscripting the object itself.
-    An ordered associative map arises when subscripting the ``fwd`` and ``bwd``
+    A symmetric bijective map arises when subscripting the object itself.
+    An asymmetric bijective map arises when subscripting the `fwd` and `bwd`
     properties, which are both `PairedDict`s and inverses of each other.
 
     If an association is modified, in either direction, both the forward and
     backward mappings are deleted and a new association is created. (see
-    documentation for `PairedDict`). Setting ``self[key1] = key2`` is always
-    applied to ``self.fwd``, with ``self.bwd`` modified appropriately.
+    documentation for `PairedDict`). Setting `self[key1] = key2` is always
+    applied to `self.fwd`, with `self.bwd` modified appropriately. For more
+    control, you can call `self.fwd[key1] = key2` or `self.bwd[key2] = key1`.
 
     See Also
     --------
@@ -438,7 +491,7 @@ class AssociativeMap(cn.ChainMap):
     maps: _ty.List[PairedDict]
 
     def __init__(self, *args, **kwds):
-        self.maps = PairedDict.make_pairs(*args, **kwds)
+        super().__init__(*PairedDict.make_pairs(*args, **kwds))
 
     def __delitem__(self, key):
         if key in self.fwd.keys():
