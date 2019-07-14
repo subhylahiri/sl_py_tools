@@ -56,7 +56,7 @@ def listify(arg: InstanceOrIterable, num: int = 1) -> _ty.List[A]:
 class Interval(cn.abc.Container):
     """An interval of the real line.
 
-    For testing upper and lower bounds with ``x in Interval(a,b)``.
+    For testing upper and lower bounds with `x in Interval(a,b)`.
 
     Parameters
     ----------
@@ -101,7 +101,7 @@ def _eq_broadcast(siz0: int, siz1: int) -> bool:
 
 def same_shape(shape0: _ty.Tuple[int, ...], shape1: _ty.Tuple[int, ...],
                compr: _ty.Callable[[int, int], bool] = _op.eq) -> bool:
-    """Are the two array shapes equivalent, ignoring leading singleton axes?
+    """Are two array shapes the same after padding with leading singleton axes?
 
     Parameters
     ----------
@@ -147,33 +147,42 @@ class ShapeTuple(tuple):
 
     Gives 1 if you ask for elements before the start, either via negative
     indexing, negative slicing or the reversed iterator beyond its length.
-    The reversed iterator will never stop iteration by itself.
+    The reversed iterator will never stop iteration by itself, must be zipped
+    with something finite.
     """
 
     def __getitem__(self, ind: _ty.Union[slice, int]):
         if isinstance(ind, slice):
             out = super().__getitem__(ind)
-            m, n = len(out), len(self)
-            start, stop, step = defaults((ind.start, ind.stop, ind.step),
-                                         (0, n, 1))
-            if step < 0:
-                start, stop = defaults((ind.stop, ind.start), (0, n))
-            if start > n or start > stop:
-                return out
-            if start > 0:
-                start -= n
-            if stop > 0:
-                stop -= n
-            if step < 0:
-                start += (stop - start) % -step
-            num = (min(stop, 0) - start) // step
-            return (1,)*(num-m) + out + (1,)*(-num-m)
+            step = _ag.default(ind.step, 1)
+            rev = step < 0
+            # defaults:- not rev: [0, n], rev: [-1, -n-1]
+            my_lims = [[0, len(self)], [-1, -1 - len(self)]]
+            lims = [self._posify(x, rev)
+                    for x in _ag.defaults([ind.start, ind.stop], my_lims[rev])]
+            # number of missing singletons, if positive.
+            num = len(range(*lims, step)) - len(out)
+            # not rev: (1,)*num + out, rev: out + (1,)*num, num <= 0: out
+            return (1,)*(num * (not rev)) + out + (1,)*(num * rev)
         try:
             return super().__getitem__(ind)
         except IndexError:
             if isinstance(ind, int) and ind < -len(self):
                 return 1
             raise
+
+    def _posify(self, ind, rev=False):
+        """Remap slice indices
+
+        set 0 at start of tuple =>  if ind < 0: ind + len(self)
+        clip at end => if step > 0 and ind > len(self): len(self)      (stop)
+                    => if step < 0 and ind >= len(self): len(self) - 1 (start)
+        """
+        if ind < 0:
+            return ind + len(self)
+        if ind > len(self) - rev:
+            return len(self) - rev
+        return ind
 
     def __reversed__(self):
         return _it.chain(reversed(tuple(self)), _it.repeat(1))
