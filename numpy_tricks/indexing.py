@@ -116,6 +116,18 @@ def slice_str(*sliceobjs: slice) -> str:
     return slc_str
 
 
+def _posify(ind, size):
+    if ind < 0:
+        ind += size
+    return ind
+
+
+def _negify(ind, size):
+    if ind >= 0:
+        ind -= size
+    return ind
+
+
 def slice_to_inds(the_slice: slice, size: int = 0):
     """Convert a slice object to an array of indices.
 
@@ -134,8 +146,8 @@ def slice_to_inds(the_slice: slice, size: int = 0):
     """
     if isinstance(the_slice, int):
         return the_slice
-    return np.arange(default(the_slice.start, 0),
-                     default(the_slice.stop, size),
+    return np.arange(_posify(default(the_slice.start, 0), size),
+                     _posify(default(the_slice.stop, size), size),
                      default(the_slice.step, 1), int)
 
 

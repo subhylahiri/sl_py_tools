@@ -65,17 +65,13 @@ def equal_axlim(ax: mpl.axes.Axes, mode: str = 'union'):
     """
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
-    if mode == 'union':
-        new_lim = (min(xlim[0], ylim[0]), max(xlim[1], ylim[1]))
-    elif mode == 'intersect':
-        new_lim = (max(xlim[0], ylim[0]), min(xlim[1], ylim[1]))
-    elif mode == 'x':
-        new_lim = xlim
-    elif mode == 'y':
-        new_lim = ylim
-    else:
+    modes = {'union': (min(xlim[0], ylim[0]), max(xlim[1], ylim[1])),
+             'intersect': (max(xlim[0], ylim[0]), min(xlim[1], ylim[1])),
+             'x': xlim, 'y': ylim}
+    if mode not in modes:
         raise ValueError(f"Unknown mode '{mode}'. Shoulde be one of: "
                          "'union', 'intersect', 'x', 'y'.")
+    new_lim = modes[mode]
     ax.set_xlim(new_lim)
     ax.set_ylim(new_lim)
 
@@ -94,18 +90,13 @@ def calc_axlim(data, err=None, log=False, buffer=0.05):
     buffer : float, optional
         fractional padding around data
     """
-    if err is None:
-        lim = np.array([np.nanmin(data), np.nanmax(data)])
-    elif err.ndim == data.ndim + 1:
-        lim = np.array([np.nanmin(data - err[0]), np.nanmax(data + err[1])])
-    else:
-        lim = np.array([np.nanmin(data - err), np.nanmax(data + err)])
+    errs = np.broadcast_to(_ag.default(err, 0.), (2,) + data.shape)
+    lim = np.array([np.nanmin(data - errs[0]), np.nanmax(data + errs[1])])
     if log:
-        lim = np.log(lim)
-    diff = lim[1] - lim[0]
-    lim += np.array([-1, 1]) * buffer * diff
+        np.log(lim, out=lim)
+    lim += np.array([-1, 1]) * buffer * (lim[1] - lim[0])
     if log:
-        lim = np.exp(lim)
+        np.exp(lim, out=lim)
     return tuple(lim)
 
 
