@@ -48,6 +48,32 @@ def default_eval(optional: _ty.Optional[A],
     return optional
 
 
+def default_non_eval(optional: _ty.Optional[A],
+                     non_default_fn: _ty.Callable[[A], B],
+                     default_value: B) -> B:
+    """Evaluate function on optional if it is not None
+
+    Parameters
+    ----------
+    optional : A or None
+        The optional argument, where `None` indicates that the default value
+        should be used instead.
+    non_default_fn : Callable[(A)->B]
+        Evaluated on `optional`if it is not `None`.
+    default_value : B
+        Default value for the argument, used when `optional` is `None`.
+
+    Returns
+    -------
+    use_value : B
+        Either `non_default_fn(optional)`, if `optional` is not `None` or
+        `default_value` if it is.
+    """
+    if optional is None:
+        return default_value
+    return non_default_fn(optional)
+
+
 def non_default_eval(optional: _ty.Optional[A],
                      non_default_fn: _ty.Callable[[A], B],
                      default_fn: _ty.Callable[[], B]) -> B:
@@ -72,32 +98,6 @@ def non_default_eval(optional: _ty.Optional[A],
     """
     if optional is None:
         return default_fn()
-    return non_default_fn(optional)
-
-
-def default_non_eval(optional: _ty.Optional[A],
-                     non_default_fn: _ty.Callable[[A], B],
-                     default_value: B) -> B:
-    """Evaluate function on optional if it is not None
-
-    Parameters
-    ----------
-    optional : A or None
-        The optional argument, where `None` indicates that the default value
-        should be used instead.
-    non_default_fn : Callable[(A)->B]
-        Evaluated on `optional`if it is not `None`.
-    default_value : B
-        Default value for the argument, used when `optional` is `None`.
-
-    Returns
-    -------
-    use_value : B
-        Either `non_default_fn(optional)`, if `optional` is not `None` or
-        `default_value` if it is.
-    """
-    if optional is None:
-        return default_value
     return non_default_fn(optional)
 
 
