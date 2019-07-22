@@ -24,6 +24,8 @@ def test_dndindex():
 def test_reversed():
     for i in reversed(denumerate('a', [1, 2, 3, 4, 5])):
         time.sleep(1)
+    for i in reversed(dcount('b', 2, 9, 3)):
+        time.sleep(1)
 
 
 def test_nesting():

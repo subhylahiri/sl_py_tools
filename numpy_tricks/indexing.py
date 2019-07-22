@@ -11,12 +11,12 @@ Tools for messing with array shapes
 """
 
 import numpy as np
-from sl_py_tools.arg_tricks import default, non_default_eval
-from sl_py_tools.iter_tricks import slice_to_range
-from sl_py_tools.containers import same_shape, identical_shape, broadcastable
-from sl_py_tools.containers import ShapeTuple
-from sl_py_tools.arg_tricks import Export
-Export[slice_to_range, same_shape, identical_shape, broadcastable, ShapeTuple]
+from ..containers import ShapeTuple, same_shape, identical_shape, broadcastable
+from ..containers import slice_to_range, SliceRange, srange, in_slice, slice_str
+from ..iter_tricks import last_value
+from ..arg_tricks import default, default_non_eval, Export
+Export[slice_to_range, SliceRange, srange, in_slice, slice_str, last_value]
+Export[same_shape, identical_shape, broadcastable, ShapeTuple]
 
 
 def mesh_stack(*arrays):
@@ -83,48 +83,15 @@ def estack(arrays, axis=-1):
     return np.stack(arrays, axis=axis)
 
 
-def slice_str(*sliceobjs: slice) -> str:
-    """String representation of slice
-
-    Converts `np.s_[a:b:c]` to `'a:b:c'`, `np.s_[a:b, c:]` to `'a:b, c:'`,
-    `*np.s_[::c, :4]` to `'::c, :4'`, `np.s_[:]` to `':'`, etc.
-
-    Parameters
-    ----------
-    sliceobj : slice
-        Slice instance(s) to represent.
-
-    Returns
-    -------
-    slc_str : str
-        String representing slice.
-    """
-    if len(sliceobjs) == 0:
-        return ''
-    if len(sliceobjs) > 1:
-        return ', '.join(slice_str(s) for s in sliceobjs)
-    sliceobjs = sliceobjs[0]
-    if isinstance(sliceobjs, tuple):
-        return slice_str(*sliceobjs)
-    if isinstance(sliceobjs, int):
-        return str(sliceobjs)
-    if isinstance(sliceobjs, Ellipsis):
-        return '...'
-    slc_str = non_default_eval(sliceobjs.start, str, '') + ':'
-    slc_str += non_default_eval(sliceobjs.stop, str, '')
-    slc_str += non_default_eval(sliceobjs.step, lambda x: f':{x}', '')
-    return slc_str
-
-
 def _posify(ind, size):
     if ind < 0:
-        ind += size
+        return ind + size
     return ind
 
 
 def _negify(ind, size):
     if ind >= 0:
-        ind -= size
+        return ind - size
     return ind
 
 

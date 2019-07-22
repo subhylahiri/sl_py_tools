@@ -116,7 +116,7 @@ __all__ = [
     'dbatch', 'dcount', 'denumerate', 'dzip',
     'rdcount', 'rdbatch', 'rdenumerate', 'rdzip',
     'undcount', 'undbatch', 'undenumerate', 'undzip',
-    'delay_warnings',
+    'delay_warnings', 'last_value',
     ]
 import itertools
 # All of these imports could be removed:
@@ -127,13 +127,31 @@ import sys
 from . import _iter_base as _it
 from . import arg_tricks as _ag
 from .display_tricks import delay_warnings
+from .containers import slice_to_range, SliceRange, srange, in_slice
 
-assert delay_warnings
+_ag.Export[delay_warnings, slice_to_range, SliceRange, srange, in_slice]
 assert sys.version_info[:2] >= (3, 6)
 
 # =============================================================================
 # %%* Convenience functions
 # =============================================================================
+
+
+def last_value(obj) -> int:
+    """Last value in range
+
+    Parameters
+    ----------
+    obj
+        An object that has integer attributes named `start`, `stop` and `step`
+        e.g. `slice`, `range`, `DisplayCount`
+    """
+    if (obj.stop - obj.start) * obj.step <= 0:
+        return None
+    remainder = (obj.stop - obj.start) % obj.step
+    if remainder:
+        return obj.stop - remainder
+    return obj.stop - obj.step
 
 
 def zenumerate(*iterables: _it.Iterable, start=0, step=1) -> zip:
@@ -197,68 +215,6 @@ def batch(*sliceargs: _it.SliceArg, **kwargs: _it.SliceArg):
     else:
         for i in range(start, stop, step):
             yield slice(i, i+step, 1)
-
-
-def slice_to_range(the_slice: slice, size: int = 0):
-    """Convert a slice object to a range.
-
-    Parameters
-    ----------
-    the_slice
-        The `slice` to convert.
-    size
-        Upper limit of `range`s, used if `the_slice.stop` is `None`.
-
-    Returns
-    -------
-    the_range
-        `range` object with `start`, `stop` and `step` taken from `the_slice`.
-    """
-    if isinstance(the_slice, int):
-        return the_slice
-    return range(_ag.default(the_slice.start, 0),
-                 _ag.default(the_slice.stop, size),
-                 _ag.default(the_slice.step, 1))
-
-
-class SliceRange():
-    """Class for converting a slice to a range.
-
-    You can build a `range` for iteration by calling `srange[start:stop:step]`,
-    where `srange` is an instance of `SliceRange`.
-
-    Parameters
-    ----------
-    size
-        Upper limit of `range`s, used if `the_slice.stop` is `None`.
-    """
-    size: int
-
-    def __init__(self, size: int = 0):
-        """
-        Parameters
-        ----------
-        size
-            Upper limit of `range`s, used if `the_slice.stop` is `None`.
-        """
-        self.size = size
-
-    def __getitem__(self, arg):
-        """
-        Parameters
-        ----------
-        the_slice
-            The `slice` to convert.
-
-        Returns
-        -------
-        the_range
-            `range` object with `start`, `stop` and `step` from `the_slice`.
-        """
-        return slice_to_range(arg, self.size)
-
-
-srange = SliceRange()
 
 
 # =============================================================================
@@ -414,15 +370,24 @@ class DisplayCount(_it.DisplayMixin, Sized):
         self.end()
         raise StopIteration()
 
+    def _slice(self):
+        """equivalent slice object"""
+        return slice(self.start, self.stop, self.step)
+
+    def _range(self):
+        """equivalent range object"""
+        return slice_to_range(self)
+
     def __len__(self):
         """Number of entries"""
         if self.stop is None:
             raise ValueError('Must specify stop to define len')
-        return (self.stop - self.start) // self.step
+        return len(self._range())
 
     def __contains__(self, val):
         """Is val a valid counter value?"""
-        return (val - self.start) % self.step == 0
+        # not using _range in case stop is None
+        return in_slice(val, self._slice())
 
     def _check_ctr(self) -> str:
         """Ensure that DisplayCount's are properly used"""

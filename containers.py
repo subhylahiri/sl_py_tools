@@ -17,7 +17,7 @@ InstanceOrIterable = _ty.Union[A, _ty.Iterable[A]]
 Dictable = _ty.Union[_ty.Mapping[A, B], _ty.Iterable[_ty.Tuple[A, B]]]
 
 
-def tuplify(arg: InstanceOrIterable, num: int = 1) -> _ty.Tuple[A, ...]:
+def tuplify(arg: InstanceOrIterable[A], num: int = 1) -> _ty.Tuple[A, ...]:
     """Make argument a tuple.
 
     If it is an iterable, it is converted to a tuple.
@@ -36,7 +36,7 @@ def tuplify(arg: InstanceOrIterable, num: int = 1) -> _ty.Tuple[A, ...]:
     return (arg,) * num
 
 
-def listify(arg: InstanceOrIterable, num: int = 1) -> _ty.List[A]:
+def listify(arg: InstanceOrIterable[A], num: int = 1) -> _ty.List[A]:
     """Make argument a list.
 
     If it is an iterable, it is converted to a list.
@@ -88,6 +88,115 @@ class Interval(cn.abc.Container):
         """Clip value to lie in interval
         """
         return min(max(val, self.start), self.stop)
+
+# =============================================================================
+# %%* Slice manipulation
+# =============================================================================
+
+
+def slice_to_range(the_slice: slice, size: int = 0) -> range:
+    """Convert a slice object to a range.
+
+    Parameters
+    ----------
+    the_slice
+        The `slice` to convert. or any object that has integer attributes named
+        `start`, `stop` and `step` e.g. `slice`, `range`, `DisplayCount`
+    size
+        Upper limit of `range`s, used if `the_slice.stop` is `None`.
+
+    Returns
+    -------
+    the_range
+        `range` object with `start`, `stop` and `step` taken from `the_slice`.
+    """
+    if isinstance(the_slice, int):
+        return the_slice
+    return range(_ag.default(the_slice.start, 0),
+                 _ag.default(the_slice.stop, size),
+                 _ag.default(the_slice.step, 1))
+
+
+class SliceRange():
+    """Class for converting a slice to a range.
+
+    You can build a `range` for iteration by calling `srange[start:stop:step]`,
+    where `srange` is an instance of `SliceRange`.
+
+    Parameters
+    ----------
+    size
+        Upper limit of `range`s, used if `the_slice.stop` is `None`.
+    """
+    size: int
+
+    def __init__(self, size: int = 0):
+        """
+        Parameters
+        ----------
+        size
+            Upper limit of `range`s, used if `the_slice.stop` is `None`.
+        """
+        self.size = size
+
+    def __getitem__(self, arg) -> range:
+        """
+        Parameters
+        ----------
+        the_slice
+            The `slice` to convert.
+
+        Returns
+        -------
+        the_range
+            `range` object with `start`, `stop` and `step` from `the_slice`.
+        """
+        return slice_to_range(arg, self.size)
+
+
+srange = SliceRange()
+
+
+def in_slice(val: int, the_slice: slice):
+    """Does slice contain value?
+    """
+    the_range = slice_to_range(the_slice)
+    if the_slice.stop is not None:
+        return val in the_range
+    return (((val - the_range.start) * the_range.step >= 0)
+            and ((val - the_range.start) % the_range.step == 0))
+
+
+def slice_str(*sliceobjs: slice) -> str:
+    """String representation of slice
+
+    Converts `slice(a, b, c)` to `'a:b:c'`, `np.s_[a:b, c:]` to `'a:b, c:'`,
+    `*np.s_[::c, :4]` to `'::c, :4'`, `np.s_[:]` to `':'`, etc.
+
+    Parameters
+    ----------
+    sliceobj : slice or range
+        Slice instance(s) to represent.
+
+    Returns
+    -------
+    slc_str : str
+        String representing slice.
+    """
+    if len(sliceobjs) == 0:
+        return ''
+    if len(sliceobjs) > 1:
+        return ', '.join(slice_str(s) for s in sliceobjs)
+    sliceobj = sliceobjs[0]
+    if isinstance(sliceobj, tuple):
+        return slice_str(*sliceobj)
+    if isinstance(sliceobj, int):
+        return str(sliceobj)
+    if sliceobj is Ellipsis:
+        return '...'
+    return (_ag.default_non_eval(sliceobj.start, str, '') + ':'
+            + _ag.default_non_eval(sliceobj.stop, str, '')
+            + _ag.default_non_eval(sliceobj.step, lambda x: f':{x}', ''))
 
 
 # =============================================================================
