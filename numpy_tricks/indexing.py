@@ -12,7 +12,8 @@ Tools for messing with array shapes
 
 import numpy as np
 from ..containers import ShapeTuple, same_shape, identical_shape, broadcastable
-from ..containers import slice_to_range, SliceRange, srange, in_slice, slice_str
+from ..containers import slice_str, slice_to_range, SliceRange, srange
+from ..containers import in_slice
 from ..iter_tricks import last_value
 from ..arg_tricks import default, default_non_eval, Export
 Export[slice_to_range, SliceRange, srange, in_slice, slice_str, last_value]
@@ -169,16 +170,15 @@ def take_slice(array: np.ndarray, the_slice: slice, axis: int = None, **kwds):
     --------
     `np.take`
     """
-    size = array.size
-    if axis is not None:
-        size = array.shape[axis]
+    size = default_non_eval(axis, lambda x: array.shape[x], array.size)
     return np.take(array, slice_to_inds(the_slice, size), axis=axis, **kwds)
 
 
 def flattish(arr: np.ndarray, start: int = 0, stop: int = None) -> np.ndarray:
     """Partial flattening.
 
-    Flattens those axes in the range [start:stop)
+    Flattens those axes in the range `[start:stop)`. If `start == stop` it will
+    insert a singleton.
 
     Parameters
     ----------
@@ -193,11 +193,16 @@ def flattish(arr: np.ndarray, start: int = 0, stop: int = None) -> np.ndarray:
     -------
     new_arr : np.ndarray (...,L,M*N*...*P*Q,R,...)
         Partially flattened array.
+
+    Raises
+    ------
+    ValueError
+        If `start > stop`.
     """
     stop = default(stop, arr.ndim)
-    newshape = arr.shape[:start] + (-1,) + arr.shape[stop:]
-    if len(newshape) > arr.ndim + 1:
+    if start > stop:
         raise ValueError(f"start={start} > stop={stop}")
+    newshape = arr.shape[:start] + (-1,) + arr.shape[stop:]
     return np.reshape(arr, newshape)
 
 
@@ -218,7 +223,13 @@ def expand_dims(arr: np.ndarray, *axis) -> np.ndarray:
     Returns
     -------
     new_arr : np.ndarray (...,L,1,M,1,N,...,P,1,Q,...)
-        Expanded array.
+        Expanded array, `new_arr.shape[ax] == 1` for all `ax in axis` and
+        `new_arr.ndim = arr.ndim + len(axis)`.
+
+    Raises
+    ------
+    ValueError
+        If any of `axis` are repeated or not in `range(new_arr.ndim)`.
 
     See Also
     --------
@@ -228,11 +239,13 @@ def expand_dims(arr: np.ndarray, *axis) -> np.ndarray:
         return arr
     if len(axis) == 1:
         return np.expand_dims(arr, axis[0]).view(type(arr))
-    axes_sort = tuple(np.sort(np.mod(axis, arr.ndim + len(axis))))
-    axes_same = np.nonzero(np.diff(axes_sort) == 0)
-    if axes_same.size > 0:
-        raise ValueError(f'repeated axes, arguments: {axes_same}')
-    return expand_dims(expand_dims(arr, axes_sort[0]), *axes_sort[1:])
+    ndim = arr.ndim + len(axis)
+    axes_sort = np.unique([_posify(x, ndim) for x in axis])
+    if np.any(axes_sort < 0) or np.any(axes_sort >= ndim):
+        raise ValueError(f'Axes out of range in: {axis}, ndim={ndim}')
+    if len(axes_sort) < len(axis):
+        raise ValueError(f'Repeated axes in: {axis}, ndim={ndim}')
+    return expand_dims(expand_dims(arr, axes_sort[0]), *axes_sort[1:].tolist())
 
 
 class BroadcastType():
@@ -267,8 +280,8 @@ class BroadcastType():
     dtype: np.dtype
 
     def __init__(self, *arrays, shape=None, dtype=None):
-        min_dtype = non_default_eval(dtype, lambda x: (x,), ())
-        min_shape = non_default_eval(
+        min_dtype = default_non_eval(dtype, lambda x: (x,), ())
+        min_shape = default_non_eval(
                             shape, lambda x: (np.empty(x, *min_dtype),), ())
         self.bcast = np.broadcast(*arrays, *min_shape)
         self.dtype = np.result_type(*arrays, *min_dtype)
