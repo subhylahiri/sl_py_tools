@@ -11,10 +11,10 @@ import typing as _ty
 import numbers as _num
 from . import arg_tricks as _ag
 from .slice_tricks import (range_to_slice, slice_to_range, SliceRange, srange,
-                           in_slice, is_subslice)
+                           in_slice, is_subslice, disjoint_slice)
 
 _ag.Export[range_to_slice, slice_to_range, SliceRange, srange,
-           in_slice, is_subslice]
+           in_slice, is_subslice, disjoint_slice]
 
 A = _ty.TypeVar('A')
 B = _ty.TypeVar('B')

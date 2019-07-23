@@ -8,8 +8,8 @@ from . import arg_tricks as _ag
 def slice_str(*sliceobjs: slice) -> str:
     """String representation of slice
 
-    Converts `slice(a, b, c)` to `'a:b:c'`, `np.s_[a:b, c:]` to `'a:b, c:'`,
-    `*np.s_[::c, :4]` to `'::c, :4'`, `np.s_[:]` to `':'`, etc.
+    Converts `slice(a, b, c)` to `'a:b:c'`, `np.s_[a:b, c:]` to `'a:b,c:'`,
+    `*np.s_[::c, :4]` to `'::c,:4'`, `np.s_[:]` to `':'`, etc.
 
     Parameters
     ----------
@@ -24,7 +24,7 @@ def slice_str(*sliceobjs: slice) -> str:
     if len(sliceobjs) == 0:
         return ''
     if len(sliceobjs) > 1:
-        return ', '.join(slice_str(s) for s in sliceobjs)
+        return ','.join(slice_str(s) for s in sliceobjs)
     sliceobj = sliceobjs[0]
     if isinstance(sliceobj, tuple):
         return slice_str(*sliceobj)
@@ -446,8 +446,8 @@ def in_slice(val: int, the_slice: slice):
         return _unbounded(the_slice)
     if not _unbounded(the_slice):
         return val in slice_to_range(the_slice)
-    start = _rectify(the_slice).start
-    return (val >= start) and ((val - start) % the_slice.step == 0)
+    rslice = _rectify(the_slice)
+    return (val >= rslice.start) and ((val - rslice.start) % rslice.step == 0)
 
 
 def is_subslice(subslice: slice, the_slice: slice):
@@ -457,3 +457,27 @@ def is_subslice(subslice: slice, the_slice: slice):
     return all(subslice.step % the_slice.step == 0,
                in_slice(subslice.start, the_slice),
                in_slice(subslice.stop, the_slice))
+
+
+def disjoint_slice(slc1: slice, slc2: slice):
+    """Do slices fail to overlap?
+    """
+    from gmpy2 import gcd, divm
+    slc1, slc2 = _rectify(slc1), _rectify(slc2)
+    delta = gcd(slc1.step, slc2.step)
+    if (slc1.start - slc2.start) % delta:
+        return True
+    dlt1, dlt2 = slc1.step // delta, slc2.step // delta
+    excess = (slc1.start - slc2.start) // delta
+    exc1, exc2 = excess % dlt1, -excess % dlt2
+    # this needs modular arithmetic...
+    dmult1 = 0 if dlt2 == 1 else divm(exc2, dlt1, dlt2)
+    dmult2 = 0 if dlt1 == 1 else divm(exc1, dlt2, dlt1)
+    dexcess = excess + dmult1 * dlt1 - dmult2 * dlt2
+    if dexcess > 0:
+        mult1, mult2 = dmult1, dmult2 + dexcess // (dlt1 * dlt2)
+    else:
+        mult1, mult2 = dmult1 - dexcess // (dlt1 * dlt2), dmult2
+    overlap = int(slc1.start + mult1 * slc1.step)
+    assert overlap == slc2.start + mult2 * slc2.step
+    return not (in_slice(overlap, slc1) and in_slice(overlap, slc2))
