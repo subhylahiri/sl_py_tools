@@ -12,11 +12,12 @@ Tools for messing with array shapes
 
 import numpy as np
 from ..containers import ShapeTuple, same_shape, identical_shape, broadcastable
-from ..containers import slice_str, slice_to_range, SliceRange, srange
-from ..containers import in_slice
-from ..iter_tricks import last_value
+from ..slice_tricks import slice_str, slice_to_range, SliceRange, srange
+from ..slice_tricks import last_value, stop_step, in_slice, is_subslice
 from ..arg_tricks import default, default_non_eval, Export
-Export[slice_to_range, SliceRange, srange, in_slice, slice_str, last_value]
+
+Export[slice_to_range, SliceRange, srange, slice_str]
+Export[last_value, stop_step, in_slice, is_subslice]
 Export[same_shape, identical_shape, broadcastable, ShapeTuple]
 
 

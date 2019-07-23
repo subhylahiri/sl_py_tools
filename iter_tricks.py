@@ -116,7 +116,7 @@ __all__ = [
     'dbatch', 'dcount', 'denumerate', 'dzip',
     'rdcount', 'rdbatch', 'rdenumerate', 'rdzip',
     'undcount', 'undbatch', 'undenumerate', 'undzip',
-    'delay_warnings', 'last_value',
+    'delay_warnings',
     ]
 import itertools
 # All of these imports could be removed:
@@ -127,31 +127,15 @@ import sys
 from . import _iter_base as _it
 from . import arg_tricks as _ag
 from .display_tricks import delay_warnings
-from .containers import slice_to_range, SliceRange, srange, in_slice
+from .slice_tricks import (range_to_slice, slice_to_range, SliceRange, srange,
+                           in_slice)
 
-_ag.Export[delay_warnings, slice_to_range, SliceRange, srange, in_slice]
+_ag.Export[delay_warnings, slice_to_range, SliceRange, srange, range_to_slice]
 assert sys.version_info[:2] >= (3, 6)
 
 # =============================================================================
 # %%* Convenience functions
 # =============================================================================
-
-
-def last_value(obj) -> int:
-    """Last value in range
-
-    Parameters
-    ----------
-    obj
-        An object that has integer attributes named `start`, `stop` and `step`
-        e.g. `slice`, `range`, `DisplayCount`
-    """
-    if (obj.stop - obj.start) * obj.step <= 0:
-        return None
-    remainder = (obj.stop - obj.start) % obj.step
-    if remainder:
-        return obj.stop - remainder
-    return obj.stop - obj.step
 
 
 def zenumerate(*iterables: _it.Iterable, start=0, step=1) -> zip:
