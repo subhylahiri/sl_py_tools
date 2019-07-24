@@ -471,8 +471,8 @@ def disjoint_slice(slc1: slice, slc2: slice):
     excess = (slc1.start - slc2.start) // delta
     exc1, exc2 = excess % dlt1, -excess % dlt2
     # this needs modular arithmetic...
-    dmult1 = 0 if dlt2 == 1 else divm(exc2, dlt1, dlt2)
-    dmult2 = 0 if dlt1 == 1 else divm(exc1, dlt2, dlt1)
+    dmult1 = 0 if (dlt2 == 1) else divm(exc2, dlt1, dlt2)
+    dmult2 = 0 if (dlt1 == 1) else divm(exc1, dlt2, dlt1)
     dexcess = excess + dmult1 * dlt1 - dmult2 * dlt2
     if dexcess > 0:
         mult1, mult2 = dmult1, dmult2 + dexcess // (dlt1 * dlt2)
