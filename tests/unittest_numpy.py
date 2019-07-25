@@ -145,6 +145,10 @@ class TestCaseNosort(_ut.TestCase):
         my_attr.extend(cls.__dict__)
         return unique_unsorted(my_attr)
 
+    def assertSameRepr(self, first, second, numchars=None, msg=None):
+        inds = slice(numchars)
+        self.assertEqual(repr(first)[inds], repr(second)[inds], msg=msg)
+
 
 class TestResultStopTB(_ut.TextTestResult):
     """TestResult that does not print beyond certain frames in tracebacks
