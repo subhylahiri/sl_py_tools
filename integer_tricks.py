@@ -75,6 +75,7 @@ def divmod_(dividend: Number, divisor: Number) -> Number:
 # =============================================================================
 # %%* ExtendedInt method wrappers
 # =============================================================================
+_types = (Number, gmpy2.mpz)
 
 
 def _eint_conv(args):
@@ -83,14 +84,16 @@ def _eint_conv(args):
     def _conv(arg):
         if isinstance(arg, ExtendedInt):
             return arg.value
-        if isinstance(arg, Number):
+        if isinstance(arg, _types):
             return arg
         raise TypeError("Other argument must be a number or eint")
     return [_conv(x) for x in args]
 
 
-_eint_method_in, _, _eint_ops = _nl.make_method_wrappers(_eint_conv, 'value')
-_Mixin = _nl.number_like_mixin(_eint_conv, 'value')
+_mth_cache = set()
+_eint_meth_in = _nl.in_method_wrapper(_eint_conv, _mth_cache)
+_eint_ops = _nl.out_method_wrappers(_eint_conv, 'value', _mth_cache, _types)[1]
+_Mixin = _nl.number_like_mixin(_eint_conv, 'value', _mth_cache, _types)
 
 # =============================================================================
 # %%* Extended integers
@@ -109,8 +112,8 @@ class ExtendedInt(ExtendedIntegral, _Mixin):
     """
     value: Real
 
-    __str__ = _eint_method_in(str)
-    __hash__ = _eint_method_in(hash)
+    __str__ = _eint_meth_in(str)
+    __hash__ = _eint_meth_in(hash)
     __mod__, __rmod__, __imod__ = _eint_ops(mod)
     __divmod__, __rdivmod__ = _eint_ops(divmod_)[:2]
 
@@ -131,8 +134,8 @@ class ExtendedInt(ExtendedIntegral, _Mixin):
 # %%* ExtendedInt function wrappers
 # =============================================================================
 
-_nl.set_objclasses(ExtendedInt)
-eint_in, eint_out = _nl.make_fn_wrappers(_eint_conv, ExtendedInt)
+_nl.set_objclasses(ExtendedInt, _mth_cache)
+eint_in, eint_out = _nl.function_wrappers(_eint_conv, ExtendedInt, _types)
 
 
 # =============================================================================
@@ -154,6 +157,22 @@ isfinite = eint_in(math.isfinite)
 
 
 @eint_out
+def nan_gcd(a: Integral, b: Integral) -> Integral:
+    """Greatest common divisor for extended integers.
+
+    NaN safe version: Treats `nan` like `inf`.
+
+    Extended integers include `nan` and `+/-inf`. We act as if:
+    - `inf` is the product of all positive numbers, so `inf % anything == 0`.
+    """
+    if math.isfinite(a) and math.isfinite(b):
+        return math.gcd(a, b)
+    if math.isfinite(b):
+        return abs(b)
+    return abs(a)
+
+
+@eint_out
 def gcd(a: Integral, b: Integral) -> Integral:
     """Greatest common divisor for extended integers.
 
@@ -162,11 +181,7 @@ def gcd(a: Integral, b: Integral) -> Integral:
     """
     if math.isnan(a) or math.isnan(b):
         return math.nan
-    if math.isfinite(a) and math.isfinite(b):
-        return math.gcd(a, b)
-    if math.isinf(a):
-        return b
-    return a
+    return nan_gcd(a, b)
 
 
 @eint_out
@@ -185,9 +200,11 @@ def invert(x: Integral, m: Integral) -> Integral:
         # everything is an inverse
         return 0
     if math.isfinite(x) and math.isfinite(m):
-        return gmpy2.invert(x, m)
+        return int(gmpy2.invert(x, m))
     if x in {1, -1}:
         return x
+    # if m == inf: inv(x) = 1/x,  - not invertible unless in {1, -1}
+    # if x == inf: inf = 0 (mod m) - not invertible
     raise ZeroDivisionError('not invertible')
 
 
@@ -204,7 +221,8 @@ def divm(a: Number, b: Number, m: Number) -> Integral:
     if math.isnan(a) or math.isnan(b) or math.isnan(m):
         return math.nan
     if math.isfinite(a) and math.isfinite(b) and math.isfinite(m):
-        if a == 0 and m in {1, -1}:
+        if m in {1, -1}:
+            # everything == 0 (mod m)
             return 0
-        return gmpy2.divm(a, b, m)
+        return int(gmpy2.divm(a, b, m))
     return mod(a * invert(b, m), m)
