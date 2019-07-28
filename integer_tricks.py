@@ -116,7 +116,7 @@ def divmod_(dividend: Number, divisor: Number) -> Number:
 # %%* ExtendedInt method wrappers
 # =============================================================================
 _types = (Real, gmpy2.mpz)
-_mth_cache = set()
+_method_cache = set()
 
 
 def _eint_conv(args):
@@ -131,9 +131,10 @@ def _eint_conv(args):
     return [_conv(x) for x in args]
 
 
-_eint_meth_in = _nl.in_method_wrapper(_eint_conv, _mth_cache)
-_eint_ops = _nl.ops_method_wrappers(_eint_conv, 'value', _mth_cache, _types)
-_Mixin = _nl.number_like_mixin(_eint_conv, 'value', _mth_cache, _types)
+_eint_meth_in = _nl.in_method_wrapper(_eint_conv, _method_cache)
+_eint_opr = _nl.opr_method_wrappers(_eint_conv, _method_cache, _types)
+_eint_ops = _nl.ops_method_wrappers(_eint_conv, 'value', _method_cache, _types)
+_Mixin = _nl.number_like_mixin(_eint_conv, 'value', _method_cache, _types)
 
 # =============================================================================
 # %%* Extended integers
@@ -147,12 +148,13 @@ class ExtendedIntegral(Real):
 ExtendedIntegral.register(Integral)
 
 
-class ExtendedInt(ExtendedIntegral, _Mixin):
+@ExtendedIntegral.register
+class ExtendedInt(_Mixin):
     """Extended integers to include +/-inf and nan.
 
     All of the usual operations and built in functions for numeric types are
     defined. If any argument is an `eint` the result will be too, with the
-    obvious exceptions: comparisons, type conversion.
+    obvious exceptions: comparisons, type conversion...
 
     It can be converted to an ordinary number by calling `int(eint)` or
     `float(eint)`.
@@ -168,7 +170,7 @@ class ExtendedInt(ExtendedIntegral, _Mixin):
     __str__ = _eint_meth_in(str)
     __hash__ = _eint_meth_in(hash)
     __mod__, __rmod__, __imod__ = _eint_ops(mod)
-    __divmod__, __rdivmod__ = _eint_ops(divmod_)[:2]
+    __divmod__, __rdivmod__ = _eint_opr(divmod_)
 
     def __init__(self, value):
         try:
@@ -184,10 +186,10 @@ class ExtendedInt(ExtendedIntegral, _Mixin):
 
 
 # =============================================================================
-# %%* ExtendedInt function wrappers
+# %%* ExtendedInt finalise & function wrappers
 # =============================================================================
 
-_nl.set_objclasses(ExtendedInt, _mth_cache)
+_nl.set_objclasses(ExtendedInt, _method_cache)
 eint_in, eint_out = _nl.function_wrappers(_eint_conv, ExtendedInt, _types)
 
 

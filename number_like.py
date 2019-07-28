@@ -25,23 +25,28 @@ in_method_wrapper
     Decorator to wrap a method whose outputs do not require conversion
 one_method_wrapper
     Decorator to wrap a method whose outputs do require conversion
+opr_method_wrappers
+    Turns one function into two magic methods - forward, reverse
+iop_method_wrapper
+    Decorator to wrap an inplace magic method
 ops_method_wrappers
-    Turns one function into three of magic methods - forward, reverse, inplace
-out_method_wrappers
-    Union of `one_method_wrapper` and `ops_method_wrappers`
-method_wrappers
-    Union of `one_method_wrapper` and `out_method_wrappers`
+    Turns one function into three magic methods - forward, reverse, inplace
 function_wrappers
     Two decorators to wrap functions whose outputs do/do not require conversion
 set_objclasses
     Finalises mehod wrappers after class definition.
+
+Separate `opr_method_wrappers` and `iop_method_wrapper` assumes mutable data
+and use of a special inplace function which takes care of assignment.
+Combined `ops_method_wrappers` does not allow use of a special inplace
+function, which would not have made sense for immutable data anyway.
 
 Notes
 -----
 You should call `set_objclasses(class, cache)` after the `class` definition,
 especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
 `out_method_wrappers` or the last two outputs of `method_wrappers`. The
-`__objclass__` attrinute is needed to convert the outputs back.
+`__objclass__` attribute is needed to convert the outputs back.
 """
 import builtins
 import math
@@ -141,7 +146,34 @@ def _implement_iop(func, args, conv_in, attr):
     except TypeError:
         return NotImplemented
     else:
+        # if attr is immutable (like numbers), no need to use inplace function
         setattr(args[0], attr, result)
+        return args[0]
+
+
+def _implement_mutable_iop(func, args, conv_in):
+    """Implement mutable inplace operator for class
+
+    Parameters
+    ----------
+    func : Callable
+        The function being wrapped.
+    args : Tuple[types]
+        The inputs to the function being wrapped.
+    conv_in : Callable
+        Function used to convert a tuple of inputs.
+
+    Returns
+    -------
+    result
+        The results of `func` after conversion.
+    """
+    try:
+        func(*conv_in(args))
+    except TypeError:
+        return NotImplemented
+    else:
+        # if attr is mutable (like ndarrays), no need assign
         return args[0]
 
 
@@ -219,7 +251,7 @@ def set_objclasses(objclass, cache=None):
     You should call `set_objclasses(class, cache)` after defining the `class`,
     especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
     `out_method_wrappers` or the last two outputs of `method_wrappers`. The
-    `__objclass__` attrinute is needed to convert the outputs back.
+    `__objclass__` attribute is needed to convert the outputs back.
     """
     cache = default(cache, _to_set_objclass)
     while cache:
@@ -256,7 +288,7 @@ def in_method_wrapper(conv_in, cache=None):
     You should call `set_objclasses(class, cache)` after defining the `class`,
     especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
     `out_method_wrappers` or the last two outputs of `method_wrappers`. The
-    `__objclass__` attrinute is needed to convert the outputs back.
+    `__objclass__` attribute is needed to convert the outputs back.
     """
     @_objclass_decorator_factory(cache)
     def method_input(func):
@@ -300,7 +332,7 @@ def one_method_wrapper(conv_in, cache=None, types=None):
     You must call `set_objclasses(class, cache)` after defining the `class`,
     especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
     `out_method_wrappers` or the last two outputs of `method_wrappers`. The
-    `__objclass__` attrinute is needed to convert the outputs back.
+    `__objclass__` attribute is needed to convert the outputs back.
     """
     @_objclass_decorator_factory(cache)
     def method(func):
@@ -315,8 +347,8 @@ def one_method_wrapper(conv_in, cache=None, types=None):
     return method
 
 
-def ops_method_wrappers(conv_in, attr, cache=None, types=None):
-    """make wrappers for some class
+def opr_method_wrappers(conv_in, cache=None, types=None):
+    """make wrappers for operator doublet: forward, reverse,
 
     make methods, with inputs that are class/number & outputs that are class.
     Conversion back to class uses methods' `__objclass__`.
@@ -325,8 +357,6 @@ def ops_method_wrappers(conv_in, attr, cache=None, types=None):
     ----------
     conv_in : Callable
         Function used to convert a tuple of inputs.
-    attr : str
-        The name of the attribut atht is update for inplace operations.
     cache : set or None
         Set storing methods that will need to have __objclass__ set later. When
         `None` the default is used: a set private to this module.
@@ -345,7 +375,7 @@ def ops_method_wrappers(conv_in, attr, cache=None, types=None):
     You must call `set_objclasses(class, cache)` after defining the `class`,
     especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
     `out_method_wrappers` or the last two outputs of `method_wrappers`. The
-    `__objclass__` attrinute is needed to convert the outputs back.
+    `__objclass__` attribute is needed to convert the outputs back.
     """
     @_objclass_decorator_factory(cache)
     def operator_set(func, types=None):
@@ -364,63 +394,61 @@ def ops_method_wrappers(conv_in, attr, cache=None, types=None):
             return _implement_op(func, reversed(args), conv_in, rwrapper,
                                  types)
 
-        @wraps(func, assigned=WRAPPER_ASSIGNMENTS_N)
-        def iwrapper(*args):
-            return _implement_iop(func, args, conv_in, attr)
-
         wrapper.__name__ = _magic_name(func)
         rwrapper.__name__ = _magic_name(func, 'r')
-        iwrapper.__name__ = _magic_name(func, 'i')
 
-        return wrapper, rwrapper, iwrapper
+        return wrapper, rwrapper
 
     return operator_set
 
 
-def out_method_wrappers(conv_in, attr, cache=None, types=None):
-    """make wrappers for some class
+def iop_method_wrapper(conv_in, cache=None):
+    """make wrapper for inplace operator
 
-    make methods, with inputs that are class/number & outputs that are class.
-    Conversion back to class uses methods' `__objclass__`.
+    make inplace methods, with inputs that are class/number
 
     Parameters
     ----------
     conv_in : Callable
         Function used to convert a tuple of inputs.
-    attr : str
-        The name of the attribut atht is update for inplace operations.
     cache : set or None
         Set storing methods that will need to have __objclass__ set later. When
         `None` the default is used: a set private to this module.
-    types : Type or Tuple[Type] or None
-        The types of output that should be converted.
 
     Returns
     -------
-    method_out : Callable
-        A decorator for a method, so that the method's inputs are preconverted
-        and its outputs are post converted.
-    opertors_out : Callable
-        A decorator for a method, returning three methods, so that the method's
-        inputs are preconverted and its outputs are post converted.
-        The three methods are for forward, reverse, and inplace operators.
+    operators_out : Callable
+        A decorator for a method, returning one inplace method, so that the
+        method's inputs are preconverted
 
     Notes
     -----
-    You must call `set_objclasses(class, cache)` after defining the `class`,
+    You should call `set_objclasses(class, cache)` after defining the `class`,
     especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
     `out_method_wrappers` or the last two outputs of `method_wrappers`. The
-    `__objclass__` attrinute is needed to convert the outputs back.
+    `__objclass__` attribute is needed to convert the outputs back.
     """
-    return (one_method_wrapper(conv_in, cache, types),
-            ops_method_wrappers(conv_in, attr, cache, types))
+    @_objclass_decorator_factory(cache)
+    def operator_set(func):
+        """Wrap operator set.
+
+        A decorator for an inplace method, so that the method's inputs are
+        preconverted. func should be an inplace function
+        """
+        @wraps(func, assigned=WRAPPER_ASSIGNMENTS_N)
+        def iwrapper(*args):
+            return _implement_mutable_iop(func, args, conv_in)
+
+        iwrapper.__name__ = _magic_name(func)
+        return iwrapper
+    return operator_set
 
 
-def method_wrappers(conv_in, attr, cache=None, types=None):
-    """make wrappers for some class
+def ops_method_wrappers(conv_in, attr, cache=None, types=None):
+    """make wrappers for operator triplet: forward, reverse, inplace
 
-    make methods, with inputs & outputs that are class/number.
-    Conversion back to class uses method's `__objclass__`.
+    make methods, with inputs that are class/number & outputs that are class.
+    Conversion back to class uses methods' `__objclass__`.
 
     Parameters
     ----------
@@ -436,25 +464,35 @@ def method_wrappers(conv_in, attr, cache=None, types=None):
 
     Returns
     -------
-    method_input : Callable
-        A decorator for a method, so that the method's inputs are preconverted.
-    method_out : Callable
-        A decorator for a method, so that the method's inputs are preconverted
-        and its outputs are post converted.
-    opertors_out : Callable
+    operators_out : Callable
         A decorator for a method, returning three methods, so that the method's
         inputs are preconverted and its outputs are post converted.
         The three methods are for forward, reverse, and inplace operators.
 
     Notes
     -----
-    You should call `set_objclasses(class, cache)` after defining the `class`,
+    You must call `set_objclasses(class, cache)` after defining the `class`,
     especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
     `out_method_wrappers` or the last two outputs of `method_wrappers`. The
-    `__objclass__` attrinute is needed to convert the outputs back.
+    `__objclass__` attribute is needed to convert the outputs back.
     """
-    return ((in_method_wrapper(conv_in, cache),)
-            + out_method_wrappers(conv_in, attr, cache, types))
+    def operator_set(func, types=None):
+        """Wrap operator set.
+
+        A decorator for a method, returning three methods, so that the method's
+        inputs are preconverted and its outputs are post converted.
+        The three methods are for forward, reverse, and inplace operators.
+        """
+        opr_methods = opr_method_wrappers(conv_in, cache, types)
+
+        @wraps(func, assigned=WRAPPER_ASSIGNMENTS_N)
+        def iwrapper(*args):
+            return _implement_iop(func, args, conv_in, attr)
+
+        iwrapper.__name__ = _magic_name(func, 'i')
+
+        return opr_methods(func, types) + (iwrapper,)
+    return operator_set
 
 
 # =============================================================================
@@ -538,7 +576,7 @@ def convertible_mixin(conv_in, cache=None, namespace=builtins):
     You should call `set_objclasses(class, cache)` after defining the `class`,
     especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
     `out_method_wrappers` or the last two outputs of `method_wrappers`. The
-    `__objclass__` attrinute is needed to convert the outputs back.
+    `__objclass__` attribute is needed to convert the outputs back.
     """
     method_input = in_method_wrapper(conv_in, cache)
 
@@ -581,9 +619,11 @@ def arithmetic_mixin(conv_in, attr, cache=None, types=None, opspace=operator):
     You must call `set_objclasses(class, cache)` after defining the `class`,
     especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
     `out_method_wrappers` or the last two outputs of `method_wrappers`. The
-    `__objclass__` attrinute is needed to convert the outputs back.
+    `__objclass__` attribute is needed to convert the outputs back.
     """
-    method_in, method, ops = method_wrappers(conv_in, attr, cache, types)
+    method_in = in_method_wrapper(conv_in, cache)
+    method = one_method_wrapper(conv_in, cache, types)
+    ops = ops_method_wrappers(conv_in, attr, cache, types)
 
     # @total_ordering  # not nan friendly
     class ArithmeticMixin(Complex):
@@ -604,7 +644,7 @@ def arithmetic_mixin(conv_in, attr, cache=None, types=None, opspace=operator):
 
 
 def ordered_mixin(conv_in, cache=None, opspace=operator):
-    """Mixin class to mimic arithmetic number types.
+    """Mixin class for arithmetic comparisons.
 
     Defines all of the comparison operators, `==`, `!=`, `<`, `<=`, `>`, `>=`.
 
@@ -623,7 +663,7 @@ def ordered_mixin(conv_in, cache=None, opspace=operator):
     You should call `set_objclasses(class, cache)` after defining the `class`,
     especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
     `out_method_wrappers` or the last two outputs of `method_wrappers`. The
-    `__objclass__` attrinute is needed to convert the outputs back.
+    `__objclass__` attribute is needed to convert the outputs back.
     """
     method_in = in_method_wrapper(conv_in, cache)
 
@@ -643,7 +683,7 @@ def ordered_mixin(conv_in, cache=None, opspace=operator):
 
 def roundable_mixin(conv_in, attr, cache=None, types=None,
                     opspace=operator, namespace=builtins, mathspace=math):
-    """Mixin class for conversion to number types.
+    """Mixin class for rounding/modular routines.
 
     Defines the operators `%`, `//`, and the functions  `divmod`, 'round',
     `math.floor,ceil,trunc`.
@@ -671,12 +711,13 @@ def roundable_mixin(conv_in, attr, cache=None, types=None,
     You must call `set_objclasses(class, cache)` after defining the `class`,
     especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
     `out_method_wrappers` or the last two outputs of `method_wrappers`. The
-    `__objclass__` attrinute is needed to convert the outputs back.
+    `__objclass__` attribute is needed to convert the outputs back.
     """
-    method, ops = out_method_wrappers(conv_in, attr, cache, types)
+    method = one_method_wrapper(conv_in, cache, types)
+    ops = ops_method_wrappers(conv_in, attr, cache, types)
 
     class RoundableMixin(Real):
-        """Mixin class for rounding routines.
+        """Mixin class for rounding/modular routines.
         """
         __floordiv__, __rfloordiv__, __ifloordiv__ = ops(opspace.floordiv)
         __mod__, __rmod__, __imod__ = ops(opspace.mod)
@@ -714,9 +755,10 @@ def bit_twiddle_mixin(conv_in, attr, cache=None, types=None, opspace=operator):
     You must call `set_objclasses(class, cache)` after defining the `class`,
     especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
     `out_method_wrappers` or the last two outputs of `method_wrappers`. The
-    `__objclass__` attrinute is needed to convert the outputs back.
+    `__objclass__` attribute is needed to convert the outputs back.
     """
-    method, ops = out_method_wrappers(conv_in, attr, cache, types)
+    method = one_method_wrapper(conv_in, cache, types)
+    ops = ops_method_wrappers(conv_in, attr, cache, types)
 
     class BitTwiddleMixin(Integral):
         """Mixin class to mimic bit-string types.
@@ -754,7 +796,7 @@ def number_like_mixin(conv_in, attr, cache=None, types=None):
     You must call `set_objclasses(class, cache)` after defining the `class`,
     especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
     `out_method_wrappers` or the last two outputs of `method_wrappers`. The
-    `__objclass__` attrinute is needed to convert the outputs back.
+    `__objclass__` attribute is needed to convert the outputs back.
     """
 
     class NumberLikeMixin(convertible_mixin(conv_in, cache),
@@ -762,6 +804,195 @@ def number_like_mixin(conv_in, attr, cache=None, types=None):
                           ordered_mixin(conv_in, cache),
                           roundable_mixin(conv_in, attr, cache, types),
                           bit_twiddle_mixin(conv_in, attr, cache, types),
+                          ):
+        """Mixin class to mimic number types.
+        """
+
+    return NumberLikeMixin
+
+
+def rithmetic_mutable_mixin(conv_in, cache=None, types=None, opspace=operator):
+    """Mixin class to mimic arithmetic numeric types.
+
+    Defines the arithmetic operators `+`, `-`, `*`, `/`, `**`, `==`, `!=` and
+    the functions `pow`, `abs`. Operators `//`, `%` can be found in
+    `round_mutable_mixin`, `<`, `<=`, `>`, `>=` in `ordered_mixin` and `<<`,
+    `>>`, `&`, `^`, `|`, `~` in `bit_mutable_mixin`.
+
+    Parameters
+    ----------
+    conv_in : Callable
+        Function used to convert a tuple of inputs.
+    cache : set or None
+        Set storing methods that will need to have __objclass__ set later. When
+        `None` the default is used: a set private to this module.
+    types : Type or Tuple[Type] or None
+        The types of output that should be converted.
+    opspace : default - operator
+        namespace with function attributes: 'eq', `ne`, `add`, `sub`, `mul`,
+        `truediv`, `pow`, `neg`, `pos`, `abs`.
+
+    Notes
+    -----
+    You must call `set_objclasses(class, cache)` after defining the `class`,
+    especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
+    `out_method_wrappers` or the last two outputs of `method_wrappers`. The
+    `__objclass__` attribute is needed to convert the outputs back.
+    """
+    method_in = in_method_wrapper(conv_in, cache)
+    method = one_method_wrapper(conv_in, cache, types)
+    ops = opr_method_wrappers(conv_in, cache, types)
+    iop = iop_method_wrapper(conv_in, cache)
+
+    # @total_ordering  # not nan friendly
+    class ArithmeticMixin(Complex):
+        """Mixin class to mimic arithmetic number types.
+        """
+        __eq__ = method_in(opspace.eq)
+        __ne__ = method_in(opspace.ne)
+        __add__, __radd__ = ops(opspace.add)
+        __sub__, __rsub__ = ops(opspace.sub)
+        __mul__, __rmul__ = ops(opspace.mul)
+        __truediv__, __rtruediv__ = ops(opspace.truediv)
+        __pow__, __rpow__ = ops(opspace.pow)
+        __iadd__ = iop(opspace.iadd)
+        __isub__ = iop(opspace.isub)
+        __imul__ = iop(opspace.imul)
+        __itruediv__ = iop(opspace.itruediv)
+        __ipow__ = iop(opspace.ipow)
+        __neg__ = method(opspace.neg)
+        __pos__ = method(opspace.pos)
+        __abs__ = method(opspace.abs)
+
+    return ArithmeticMixin
+
+
+def round_mutable_mixin(conv_in, cache=None, types=None,
+                        opspace=operator, namespace=builtins, mathspace=math):
+    """Mixin class for rounding/modular routines.
+
+    Defines the operators `%`, `//`, and the functions  `divmod`, 'round',
+    `math.floor,ceil,trunc`.
+
+    Parameters
+    ----------
+    conv_in : Callable
+        Function used to convert a tuple of inputs.
+    cache : set or None
+        Set storing methods that will need to have __objclass__ set later. When
+        `None` the default is used: a set private to this module.
+    types : Type or Tuple[Type] or None
+        The types of output that should be converted.
+    opspace : default - operator
+        namespace with function attributes: 'floordiv', `mod`.
+    namespace : default - builtins
+        namespace with function attributes: 'divmod', `round`.
+    mathspace : default - math
+        namespace with function attributes: 'trunc', `floor`, `ceil`.
+
+    Notes
+    -----
+    You must call `set_objclasses(class, cache)` after defining the `class`,
+    especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
+    `out_method_wrappers` or the last two outputs of `method_wrappers`. The
+    `__objclass__` attribute is needed to convert the outputs back.
+    """
+    method = one_method_wrapper(conv_in, cache, types)
+    ops = opr_method_wrappers(conv_in, cache, types)
+    iop = iop_method_wrapper(conv_in, cache)
+
+    class RoundableMixin(Real):
+        """Mixin class for rounding/modular routines.
+        """
+        __ifloordiv__ = iop(opspace.ifloordiv)
+        __imod__ = iop(opspace.imod)
+        __floordiv__, __rfloordiv__ = ops(opspace.floordiv)
+        __mod__, __rmod__ = ops(opspace.mod)
+        __divmod__, __rdivmod__ = ops(namespace.divmod)
+        __round__ = method(namespace.round)
+        __trunc__ = method(mathspace.trunc)
+        __floor__ = method(mathspace.floor)
+        __ceil__ = method(mathspace.ceil)
+
+    return RoundableMixin
+
+
+def bit_mutable_mixin(conv_in, cache=None, types=None, opspace=operator):
+    """Mixin class to mimic bit-string types.
+
+    Defines all of the bit-wise operators: `<<`, `>>`, `&`, `^`, `|`, `~`.
+
+    Parameters
+    ----------
+    conv_in : Callable
+        Function used to convert a tuple of inputs.
+    cache : set or None
+        Set storing methods that will need to have __objclass__ set later. When
+        `None` the default is used: a set private to this module.
+    types : Type or Tuple[Type] or None
+        The types of output that should be converted.
+    opspace : default - operator
+        namespace with function attributes: 'lshift', `rshift`, `and_`, `xor`,
+        `or_`, `invert`.
+
+    Notes
+    -----
+    You must call `set_objclasses(class, cache)` after defining the `class`,
+    especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
+    `out_method_wrappers` or the last two outputs of `method_wrappers`. The
+    `__objclass__` attribute is needed to convert the outputs back.
+    """
+    method = one_method_wrapper(conv_in, cache, types)
+    ops = opr_method_wrappers(conv_in, cache, types)
+    iop = iop_method_wrapper(conv_in, cache)
+
+    class BitTwiddleMixin(Integral):
+        """Mixin class to mimic bit-string types.
+        """
+        __lshift__, __rlshift__ = ops(opspace.lshift)
+        __rshift__, __rrshift__ = ops(opspace.rshift)
+        __and__, __rand__ = ops(opspace.and_)
+        __xor__, __rxor__ = ops(opspace.xor)
+        __or__, __ror__ = ops(opspace.or_)
+        __ilshift__ = iop(opspace.ilshift)
+        __irshift__ = iop(opspace.irshift)
+        __iand__ = iop(opspace.iand)
+        __ixor__ = iop(opspace.ixor)
+        __ior__ = iop(opspace.ior)
+        __invert__ = method(opspace.invert)
+
+    return BitTwiddleMixin
+
+
+def mutable_mixin(conv_in, cache=None, types=None):
+    """Mixin class to mimic mutable numeric types.
+
+    Defines all of the operators and the functions `complex`, `float`, `int`,
+    `pow`, `abs`, `divmod`, 'round', `math.floor,ceil,trunc`.
+
+    Parameters
+    ----------
+    conv_in : Callable
+        Function used to convert a tuple of inputs.
+    cache : set or None
+        Set storing methods that will need to have __objclass__ set later. When
+        `None` the default is used: a set private to this module.
+    types : Type or Tuple[Type] or None
+        The types of output that should be converted.
+
+    Notes
+    -----
+    You must call `set_objclasses(class, cache)` after defining the `class`,
+    especially if you used any of `one_method_wrapper`, `ops_method_wrappers`,
+    `out_method_wrappers` or the last two outputs of `method_wrappers`. The
+    `__objclass__` attribute is needed to convert the outputs back.
+    """
+
+    class NumberLikeMixin(convertible_mixin(conv_in, cache),
+                          rithmetic_mutable_mixin(conv_in, cache, types),
+                          ordered_mixin(conv_in, cache),
+                          round_mutable_mixin(conv_in, cache, types),
+                          bit_mutable_mixin(conv_in, cache, types),
                           ):
         """Mixin class to mimic number types.
         """
