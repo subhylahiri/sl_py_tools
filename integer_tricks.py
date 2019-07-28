@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tricks for manipulating integers
+"""Tricks for working with integers
 """
 import math
 from math import floor, ceil, trunc
@@ -13,13 +13,29 @@ Export[floor, floordiv]
 
 
 def ceil_divide(numerator: Number, denominator: Number) -> int:
-    """Ceiling division
+    """Ceiling division.
+
+    Similar to `numerator // denominator`, but uses `ceil` on the result
+    rather than `floor`.
+
+    See Also
+    --------
+    operator.floordiv
+    math.ceil
     """
     return ceil(numerator / denominator)
 
 
 def trunc_divide(numerator: Number, denominator: Number) -> int:
-    """Truncated division
+    """Truncated division.
+
+    Similar to `numerator // denominator`, but uses `trunc` on the result
+    rather than `floor`.
+
+    See Also
+    --------
+    operator.floordiv
+    math.trunc
     """
     return trunc(numerator / denominator)
 
@@ -27,7 +43,19 @@ def trunc_divide(numerator: Number, denominator: Number) -> int:
 def round_divide(numerator: Number,
                  denominator: Number,
                  ndigits: Optional[int] = None) -> Number:
-    """Rounded division
+    """Rounded division.
+
+    Similar to `numerator // denominator`, but uses `round` on the result
+    rather than `floor`.
+
+    See Also
+    --------
+    operator.floordiv
+
+    See Also
+    --------
+    operator.floordiv
+    round
     """
     return round(numerator / denominator, ndigits)
 
@@ -43,6 +71,12 @@ def mod(dividend: Number, divisor: Number) -> Number:
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
     - `inf * 0 == 0 (mod inf)`, so that `anything % inf == anything`.
+
+    If any argument is an `eint` the result will be too.
+
+    See Also
+    --------
+    operator.mod
     """
     if math.isnan(dividend) or math.isnan(divisor):
         return math.nan
@@ -62,6 +96,12 @@ def divmod_(dividend: Number, divisor: Number) -> Number:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
     - `inf * 0 == 0 (mod inf)`, so that `anything % inf == anything`.
     - `anything // inf == 0`.
+
+    If any argument is an `eint` the result will be too.
+
+    See Also
+    --------
+    divmod
     """
     if math.isnan(dividend) or math.isnan(divisor):
         return (math.nan, math.nan)
@@ -75,7 +115,8 @@ def divmod_(dividend: Number, divisor: Number) -> Number:
 # =============================================================================
 # %%* ExtendedInt method wrappers
 # =============================================================================
-_types = (Number, gmpy2.mpz)
+_types = (Real, gmpy2.mpz)
+_mth_cache = set()
 
 
 def _eint_conv(args):
@@ -90,9 +131,8 @@ def _eint_conv(args):
     return [_conv(x) for x in args]
 
 
-_mth_cache = set()
 _eint_meth_in = _nl.in_method_wrapper(_eint_conv, _mth_cache)
-_eint_ops = _nl.out_method_wrappers(_eint_conv, 'value', _mth_cache, _types)[1]
+_eint_ops = _nl.ops_method_wrappers(_eint_conv, 'value', _mth_cache, _types)
 _Mixin = _nl.number_like_mixin(_eint_conv, 'value', _mth_cache, _types)
 
 # =============================================================================
@@ -109,6 +149,19 @@ ExtendedIntegral.register(Integral)
 
 class ExtendedInt(ExtendedIntegral, _Mixin):
     """Extended integers to include +/-inf and nan.
+
+    All of the usual operations and built in functions for numeric types are
+    defined. If any argument is an `eint` the result will be too, with the
+    obvious exceptions: comparisons, type conversion.
+
+    It can be converted to an ordinary number by calling `int(eint)` or
+    `float(eint)`.
+
+    Parameters
+    ----------
+    value : Real
+        The value being represented. Stored as an `int` (via constructor),
+        unless it in `nan` or `inf`, in which case it is stored as a `float`.
     """
     value: Real
 
@@ -150,6 +203,8 @@ inf = eint('inf')
 isinf = eint_in(math.isinf)
 isnan = eint_in(math.isnan)
 isfinite = eint_in(math.isfinite)
+mod = eint_out(mod)
+divmod_ = eint_out(divmod_)
 
 # =============================================================================
 # %%* More modulo for Extended Integers
@@ -157,13 +212,21 @@ isfinite = eint_in(math.isfinite)
 
 
 @eint_out
-def nan_gcd(a: Integral, b: Integral) -> Integral:
+def nan_gcd(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
     """Greatest common divisor for extended integers.
 
     NaN safe version: Treats `nan` like `inf`.
 
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
+
+    If any argument is an `eint` the result will be too.
+
+    See Also
+    --------
+    math.gcd
+    gmpy2.gcd
+    gcd
     """
     if math.isfinite(a) and math.isfinite(b):
         return math.gcd(a, b)
@@ -173,11 +236,19 @@ def nan_gcd(a: Integral, b: Integral) -> Integral:
 
 
 @eint_out
-def gcd(a: Integral, b: Integral) -> Integral:
+def gcd(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
     """Greatest common divisor for extended integers.
 
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
+
+    If any argument is an `eint` the result will be too.
+
+    See Also
+    --------
+    math.gcd
+    gmpy2.gcd
+    nan_gcd
     """
     if math.isnan(a) or math.isnan(b):
         return math.nan
@@ -185,7 +256,7 @@ def gcd(a: Integral, b: Integral) -> Integral:
 
 
 @eint_out
-def invert(x: Integral, m: Integral) -> Integral:
+def invert(x: ExtendedIntegral, m: ExtendedIntegral) -> ExtendedIntegral:
     """Multiplicative inverse (modulo m) for extended integers.
 
     Return `y` such that `x * y == 1 (mod m)`.
@@ -193,6 +264,12 @@ def invert(x: Integral, m: Integral) -> Integral:
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
     - `inf * 0 == 0 (mod inf)`, so that `anything % inf == anything`.
+
+    If any argument is an `eint` the result will be too.
+
+    See Also
+    --------
+    gmpy2.invert
     """
     if math.isnan(x) or math.isnan(m):
         return math.nan
@@ -209,7 +286,7 @@ def invert(x: Integral, m: Integral) -> Integral:
 
 
 @eint_out
-def divm(a: Number, b: Number, m: Number) -> Integral:
+def divm(a: Number, b: Number, m: Number) -> ExtendedIntegral:
     """Division (modulo m) for extended integers.
 
     Return `x` such that `x * b == a (mod m)`.
@@ -217,6 +294,12 @@ def divm(a: Number, b: Number, m: Number) -> Integral:
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
     - `inf * 0 == 0 (mod inf)`, so that `anything % inf == anything`.
+
+    If any argument is an `eint` the result will be too.
+
+    See Also
+    --------
+    gmpy2.divm
     """
     if math.isnan(a) or math.isnan(b) or math.isnan(m):
         return math.nan
