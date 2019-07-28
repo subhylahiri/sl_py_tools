@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tricks for working with integers
 """
+import abc
 import math
 from math import floor, ceil, trunc
 from operator import floordiv
@@ -141,8 +142,36 @@ _Mixin = _nl.number_like_mixin(_eint_conv, 'value', _method_cache, _types)
 # =============================================================================
 
 
-class ExtendedIntegral(Real):
-    """ABC for extended Integral, including +/-inf and nan."""
+class ExtendedIntegralMeta(abc.ABCMeta):
+    """Metaclass for ExtendedIntegral ABC.
+
+    Instance checks return `True` for all `Integral`s and non-finite `Real`s.
+    Subclass checks return `True` for `Integrals`.
+    """
+
+    def __instancecheck__(cls, instance):
+        # Do not want this to propagate to subclasses
+        if cls == ExtendedIntegral:
+            if isinstance(instance, Real) and not math.isfinite(instance):
+                return True
+            if isinstance(instance, Integral):
+                return True
+        return super().__instancecheck__(instance)
+
+    def __subclasscheck__(cls, subclass):
+        # Do not want this to propagate to subclasses
+        if cls == ExtendedIntegral:
+            if issubclass(subclass, Integral):
+                return True
+        return super().__subclasscheck__(subclass)
+
+
+class ExtendedIntegral(Real, metaclass=ExtendedIntegralMeta):
+    """ABC for extended Integral, including +/-inf and nan.
+
+    Instance checks return `True` for non-finite `Real`s and all `Integral`s.
+    Subclass checks return `True` for `Integrals`.
+    """
 
 
 ExtendedIntegral.register(Integral)
