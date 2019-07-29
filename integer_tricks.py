@@ -134,8 +134,6 @@ def _eint_conv(args):
 
 _eint_meth_in = _nl.in_method_wrapper(_eint_conv, _method_cache)
 _eint_opr = _nl.opr_method_wrappers(_eint_conv, _method_cache, _types)
-_eint_ops = _nl.ops_method_wrappers(_eint_conv, 'value', _method_cache, _types)
-_Mixin = _nl.number_like_mixin(_eint_conv, 'value', _method_cache, _types)
 
 # =============================================================================
 # %%* Extended integers
@@ -178,7 +176,7 @@ ExtendedIntegral.register(Integral)
 
 
 @ExtendedIntegral.register
-class ExtendedInt(_Mixin):
+class ExtendedInt(_nl.number_like_mixin(_eint_conv, _method_cache, _types)):
     """Extended integers to include +/-inf and nan.
 
     All of the usual operations and built in functions for numeric types are
@@ -194,14 +192,14 @@ class ExtendedInt(_Mixin):
         The value being represented. Stored as an `int` (via constructor),
         unless it in `nan` or `inf`, in which case it is stored as a `float`.
     """
-    value: Real
+    value: ExtendedIntegral
 
     __str__ = _eint_meth_in(str)
     __hash__ = _eint_meth_in(hash)
-    __mod__, __rmod__, __imod__ = _eint_ops(mod)
+    __mod__, __rmod__ = _eint_opr(mod)
     __divmod__, __rdivmod__ = _eint_opr(divmod_)
 
-    def __init__(self, value):
+    def __init__(self, value: ExtendedIntegral):
         try:
             self.value = int(value)
         except (ValueError, OverflowError):
@@ -317,7 +315,8 @@ def invert(x: ExtendedIntegral, m: ExtendedIntegral) -> ExtendedIntegral:
 
 
 @eint_out
-def divm(a: Number, b: Number, m: Number) -> ExtendedIntegral:
+def divm(a: ExtendedIntegral, b: ExtendedIntegral,
+         m: ExtendedIntegral) -> ExtendedIntegral:
     """Division (modulo m) for extended integers.
 
     Return `x` such that `x * b == a (mod m)`.

@@ -6,7 +6,7 @@ import sl_py_tools.integer_tricks as ig
 from sl_py_tools.tests.unittest_numpy import main, TestCaseNumpy
 
 __all__ = ['TestConversion', 'TestComparison', 'TestArithmetic', 'TestModulo',
-           'TestGCD', 'TestInvertDivm']
+           'TestGCD', 'TestInvertDivm', 'TestInplace']
 
 
 class TestConversion(TestCaseNumpy):
@@ -29,6 +29,7 @@ class TestConversion(TestCaseNumpy):
 
     def test_finite_float_converts_to_eint(self):
         self.assertSameRepr(ig.eint(4.3131), ig.eint(4))
+        self.assertSameRepr(ig.eint(4.8131), ig.eint(4))
 
 
 class TestComparison(TestCaseNumpy):
@@ -241,6 +242,63 @@ class TestInvertDivm(TestCaseNumpy):
         self.assertRaises(ZeroDivisionError, ig.divm, 4, ig.eint(6), 21)
         self.assertRaises(ZeroDivisionError, ig.divm, ig.eint(7), inf, 21)
         self.assertRaises(ZeroDivisionError, ig.divm, 4, ig.eint(6), ig.inf)
+
+
+class TestInplace(TestCaseNumpy):
+    """docstring for TestInplace."""
+
+    def setUp(self):
+        super().setUp()
+        self.x = ig.eint(4)
+        self.pinf = ig.inf
+        self.ninf = -ig.inf
+        self.nan = ig.nan
+
+    def test_iplus(self):
+        self.x += 3
+        self.assertSameRepr(self.x, ig.eint(7))
+        self.x += ig.eint(8)
+        self.assertSameRepr(self.x, ig.eint(15))
+        self.pinf += -ig.inf
+        self.assertSameRepr(self.pinf, ig.nan)
+
+    def test_imul(self):
+        self.x *= 3
+        self.assertSameRepr(self.x, ig.eint(12))
+        self.x *= ig.eint(8)
+        self.assertSameRepr(self.x, ig.eint(96))
+        self.pinf *= -ig.inf
+        self.assertSameRepr(self.pinf, -ig.inf)
+
+    def test_itruediv(self):
+        self.x *= 3
+        self.x /= ig.eint(8)
+        self.assertSameRepr(self.x, ig.eint(1))
+        self.x *= 20
+        self.x /= ig.eint(7)
+        self.assertSameRepr(self.x, ig.eint(2))
+        self.pinf /= -ig.inf
+        self.assertSameRepr(self.pinf, ig.nan)
+
+    def test_ifloordiv(self):
+        self.x *= 3
+        self.x //= ig.eint(8)
+        self.assertSameRepr(self.x, ig.eint(1))
+        self.x *= 20
+        self.x //= ig.eint(7)
+        self.assertSameRepr(self.x, ig.eint(2))
+        self.pinf //= -ig.inf
+        self.assertSameRepr(self.pinf, ig.nan)
+
+    def test_imod(self):
+        self.x *= 3
+        self.x %= ig.eint(8)
+        self.assertSameRepr(self.x, ig.eint(4))
+        self.x *= 5
+        self.x %= ig.eint(7)
+        self.assertSameRepr(self.x, ig.eint(6))
+        self.pinf %= -ig.inf
+        self.assertSameRepr(self.pinf, ig.eint(0))
 
 
 if __name__ == '__main__':
