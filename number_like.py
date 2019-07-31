@@ -5,29 +5,29 @@ Routine Listings
 ----------------
 The following return mixin classes for defining numeric operators / functions:
 
-convertible_mixin
+convert_mixin
     Methods for conversion to `complex`, `float`, `int`.
 ordered_mixin
     Comparison operators
-arithmetic_mixin
+mathops_mixin
     Arithmetic operators
-roundable_mixin
+rounder_mixin
     Rounding and modular arithmetic
-number_like_mixin
+number_mixin
     Union of all the above.
-bit_twiddle_mixin
+bitwise_mixin
     Bit-wise operators
-int_like_mixin
+integr_mixin
     Union of the two above.
-iarithmetic_mixin
+imaths_mixin
     Inplace arithmetic operators
-iroundable_mixin
+iround_mixin
     Inplace rounding and modular arithmetic
-inumber_like_mixin
+inumbr_mixin
     Union of the two above with `number_like_mixin`.
-ibit_twiddle_mixin
+ibitws_mixin
     Inplace bit-wise operators
-iint_like_mixin
+iintgr_mixin
     Union of the two above with `int_like_mixin`.
 
 The following return functions to wrap methods and functions with type
@@ -94,6 +94,18 @@ def _multi_conv(single_conv: Callable, result, types=None):
     return tuple(single_conv(res) for res in result)
 
 
+def dummy_method(name: str) -> Callable:
+    """Return a dummy function that always returns NotImplemented.
+
+    This can be used to effectively delete an unwanted operator from a mixin.
+    """
+    def dummy(*args):
+        """Dummy function"""
+        return NotImplemented
+    dummy.__name__ = name
+    return dummy
+
+
 # -----------------------------------------------------------------------------
 # %%* Method wrapper helpers
 # -----------------------------------------------------------------------------
@@ -123,9 +135,10 @@ def _implement_op(func, args, conv_in, method, types=None):
     """
     try:
         result = func(*conv_in(args))
-        return _multi_conv(method.__objclass__, result, types)
     except TypeError:
         return NotImplemented
+    else:
+        return _multi_conv(method.__objclass__, result, types)
 
 
 def _implement_mutable_iop(func, args, conv_in):
@@ -194,7 +207,6 @@ def _magic_name(func: Callable, prefix: str = None):
 # =============================================================================
 # %%* Setting method __objclass__
 # =============================================================================
-_to_set_objclass = set()
 
 
 def _add_set_objclass(meth, cache: set):
@@ -214,7 +226,7 @@ def _add_set_objclass(meth, cache: set):
         cache.add(meth)
 
 
-def set_objclasses(objclass: type, cache: set = None):
+def set_objclasses(objclass: type, cache: set):
     """Set the __objclass__ attributes of methods.
 
     Must be called immediately after class definition.
@@ -226,8 +238,7 @@ def set_objclasses(objclass: type, cache: set = None):
         What we are setting `__objclass__` attributes to. It will be used to
         convert outputs.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
+        Set that stores methods that need to have __objclass__ set now.
 
     Notes
     -----
@@ -235,7 +246,6 @@ def set_objclasses(objclass: type, cache: set = None):
     especially if you used any of `one_method_wrapper`, `opr_method_wrappers`.
     The `__objclass__`attribute is needed to convert the outputs back.
     """
-    cache = default(cache, _to_set_objclass)
     while cache:
         meth = cache.pop()
         meth.__objclass__ = objclass
@@ -246,7 +256,7 @@ def set_objclasses(objclass: type, cache: set = None):
 # =============================================================================
 
 
-def in_method_wrapper(conv_in: Callable, cache: set = None) -> Callable:
+def in_method_wrapper(conv_in: Callable, cache: set) -> Callable:
     """make wrappers for some class
 
     Make method, with inputs that are class/number & outputs that are number.
@@ -257,8 +267,7 @@ def in_method_wrapper(conv_in: Callable, cache: set = None) -> Callable:
     conv_in : Callable
         Function used to convert a tuple of inputs.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
+        Set that stores methods that will need to have __objclass__ set later.
 
     Returns
     -------
@@ -286,7 +295,7 @@ def in_method_wrapper(conv_in: Callable, cache: set = None) -> Callable:
     return method_input
 
 
-def one_method_wrapper(conv_in: Callable, cache=None, types=None) -> Callable:
+def one_method_wrapper(conv_in: Callable, cache: set, types=None) -> Callable:
     """make wrappers for some class
 
     make method, with inputs that are class/number & outputs that are class.
@@ -297,8 +306,7 @@ def one_method_wrapper(conv_in: Callable, cache=None, types=None) -> Callable:
     conv_in : Callable
         Function used to convert a tuple of inputs.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
+        Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
 
@@ -327,7 +335,7 @@ def one_method_wrapper(conv_in: Callable, cache=None, types=None) -> Callable:
     return method
 
 
-def opr_method_wrappers(conv_in: Callable, cache=None, types=None) -> Callable:
+def opr_method_wrappers(conv_in: Callable, cache: set, types=None) -> Callable:
     """make wrappers for operator doublet: forward, reverse,
 
     make methods, with inputs that are class/number & outputs that are class.
@@ -338,8 +346,7 @@ def opr_method_wrappers(conv_in: Callable, cache=None, types=None) -> Callable:
     conv_in : Callable
         Function used to convert a tuple of inputs.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
+        Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
 
@@ -356,7 +363,7 @@ def opr_method_wrappers(conv_in: Callable, cache=None, types=None) -> Callable:
     especially if you used any of `one_method_wrapper`, `opr_method_wrappers`.
     The `__objclass__`attribute is needed to convert the outputs back.
     """
-    def operator_set(func: Callable, types=None) -> Tuple[Callable, ...]:
+    def operator_set(func: Callable) -> Tuple[Callable, ...]:
         """Wrap operator set.
 
         A decorator for a method, returning three methods, so that the method's
@@ -380,7 +387,7 @@ def opr_method_wrappers(conv_in: Callable, cache=None, types=None) -> Callable:
     return operator_set
 
 
-def iop_method_wrapper(conv_in: Callable, attr: str = None, cache: set = None):
+def iop_method_wrapper(conv_in: Callable, cache: set, attr=None) -> Callable:
     """make wrapper for inplace operator, immutable data
 
     make methods, with inputs that are class/number & outputs that are class.
@@ -394,8 +401,7 @@ def iop_method_wrapper(conv_in: Callable, attr: str = None, cache: set = None):
         The name of the attribute that is updated for inplace operations on
         immutable data, or `None` for mutable data.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
+        Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
 
@@ -492,7 +498,7 @@ def function_wrappers(conv_in: Callable, class_out: type, types=None):
 # =============================================================================
 
 
-def convertible_mixin(conv_in, cache: set = None, defspace=builtins) -> type:
+def convert_mixin(conv_in: Callable, cache: set, nmspace=None) -> type:
     """Mixin class for conversion to number types.
 
     Defines the functions `complex`, `float`, `int`.
@@ -502,9 +508,8 @@ def convertible_mixin(conv_in, cache: set = None, defspace=builtins) -> type:
     conv_in : Callable
         Function used to convert a tuple of inputs.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
-    defspace : default - builtins
+        Set that stores methods that will need to have __objclass__ set later.
+    nmspace : default - builtins
         namespace with function attributes: {'complex', `float`, `int`}.
 
     Notes
@@ -513,6 +518,7 @@ def convertible_mixin(conv_in, cache: set = None, defspace=builtins) -> type:
     especially if you used any of `one_method_wrapper`, `opr_method_wrappers`.
     The `__objclass__`attribute is needed to convert the outputs back.
     """
+    defspace = default(nmspace, builtins)
     method_input = in_method_wrapper(conv_in, cache)
 
     class ConvertibleMixin(Complex):
@@ -526,7 +532,7 @@ def convertible_mixin(conv_in, cache: set = None, defspace=builtins) -> type:
     return ConvertibleMixin
 
 
-def ordered_mixin(conv_in, cache: set = None, opspace=operator) -> type:
+def ordered_mixin(conv_in: Callable, cache: set, nmspace=None) -> type:
     """Mixin class for arithmetic comparisons.
 
     Defines all of the comparison operators, `==`, `!=`, `<`, `<=`, `>`, `>=`.
@@ -536,9 +542,8 @@ def ordered_mixin(conv_in, cache: set = None, opspace=operator) -> type:
     conv_in : Callable
         Function used to convert a tuple of inputs.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
-    opspace : default - operator
+        Set that stores methods that will need to have __objclass__ set later.
+    nmspace : default - operator
         namespace w/ function attributes: {'eq', `ne`, `lt`, 'le', `gt`, `ge`}.
 
     Notes
@@ -547,6 +552,7 @@ def ordered_mixin(conv_in, cache: set = None, opspace=operator) -> type:
     especially if you used any of `one_method_wrapper`, `opr_method_wrappers`.
     The `__objclass__`attribute is needed to convert the outputs back.
     """
+    opspace = default(nmspace, operator)
     method_in = in_method_wrapper(conv_in, cache)
 
     # @total_ordering  # not nan friendly
@@ -563,11 +569,11 @@ def ordered_mixin(conv_in, cache: set = None, opspace=operator) -> type:
     return OrderedMixin
 
 
-def arithmetic_mixin(conv_in, cache=None, types=None, opspace=operator):
+def mathops_mixin(conv_in, cache: set, types=None, nmspace=None) -> type:
     """Mixin class to mimic arithmetic number types.
 
     Defines the arithmetic operators `+`, `-`, `*`, `/`, `**`, `==`, `!=` and
-    the functions `pow`, `abs`. Operators `//`, `%` are in `roundable_mixin`,
+    the functions `pow`, `abs`. Operators `//`, `%` are in `rounder_mixin`,
     operators `<`, `<=`, `>`, `>=` are in `ordered_mixin` and `<<`, `>>`, `&`,
     `^`, `|`, `~` are in `bit_twiddle_mixin`.
 
@@ -576,11 +582,10 @@ def arithmetic_mixin(conv_in, cache=None, types=None, opspace=operator):
     conv_in : Callable
         Function used to convert a tuple of inputs.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
+        Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
-    opspace : default - operator
+    nmspace : default - operator
         namespace with function attributes: {'eq', `ne`, `add`, `sub`, `mul`,
         `truediv`, `pow`, `neg`, `pos`, `abs`}.
 
@@ -590,6 +595,7 @@ def arithmetic_mixin(conv_in, cache=None, types=None, opspace=operator):
     especially if you used any of `one_method_wrapper`, `opr_method_wrappers`.
     The `__objclass__`attribute is needed to convert the outputs back.
     """
+    opspace = default(nmspace, operator)
     method_in = in_method_wrapper(conv_in, cache)
     method = one_method_wrapper(conv_in, cache, types)
     ops = opr_method_wrappers(conv_in, cache, types)
@@ -612,7 +618,7 @@ def arithmetic_mixin(conv_in, cache=None, types=None, opspace=operator):
     return ArithmeticMixin
 
 
-def roundable_mixin(conv_in: Callable, cache=None, types=None, nmspace=None):
+def rounder_mixin(conv_in, cache: set, types=None, nmspace=None) -> type:
     """Mixin class for rounding/modular routines.
 
     Defines the operators `%`, `//`, and the functions  `divmod`, 'round',
@@ -623,8 +629,7 @@ def roundable_mixin(conv_in: Callable, cache=None, types=None, nmspace=None):
     conv_in : Callable
         Function used to convert a tuple of inputs.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
+        Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
     nmspace:
@@ -652,7 +657,7 @@ def roundable_mixin(conv_in: Callable, cache=None, types=None, nmspace=None):
         """
         __floordiv__, __rfloordiv__ = ops(opspace.floordiv)
         __mod__, __rmod__ = ops(opspace.mod)
-        __divmod__, __rdivmod__ = ops(defspace.divmod)[:2]
+        __divmod__, __rdivmod__ = ops(defspace.divmod)
         __round__ = method(defspace.round)
         __trunc__ = method(mathspace.trunc)
         __floor__ = method(mathspace.floor)
@@ -661,7 +666,7 @@ def roundable_mixin(conv_in: Callable, cache=None, types=None, nmspace=None):
     return RoundableMixin
 
 
-def bit_twiddle_mixin(conv_in, cache=None, types=None, opspace=operator):
+def bitwise_mixin(conv_in, cache: set, types=None, nmspace=None) -> type:
     """Mixin class to mimic bit-string types.
 
     Defines all of the bit-wise operators: `<<`, `>>`, `&`, `^`, `|`, `~`.
@@ -671,11 +676,10 @@ def bit_twiddle_mixin(conv_in, cache=None, types=None, opspace=operator):
     conv_in : Callable
         Function used to convert a tuple of inputs.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
+        Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
-    opspace : default - operator
+    nmspace : default - operator
         namespace with function attributes: {'lshift', `rshift`, `and_`, `xor`,
         `or_`, `invert`}.
 
@@ -685,6 +689,7 @@ def bit_twiddle_mixin(conv_in, cache=None, types=None, opspace=operator):
     especially if you used any of `one_method_wrapper`, `opr_method_wrappers`.
     The `__objclass__`attribute is needed to convert the outputs back.
     """
+    opspace = default(nmspace, operator)
     method = one_method_wrapper(conv_in, cache, types)
     ops = opr_method_wrappers(conv_in, cache, types)
 
@@ -706,11 +711,11 @@ def bit_twiddle_mixin(conv_in, cache=None, types=None, opspace=operator):
 # -----------------------------------------------------------------------------
 
 
-def iarithmetic_mixin(conv_in, attr, cache=None, opspace=operator) -> type:
+def imaths_mixin(conv_in, cache: set, attr=None, nmspace=None) -> type:
     """Mixin class to mimic arithmetic number types.
 
     Defines the arithmetic operators `+`, `-`, `*`, `/`, `**`, `==`, `!=` and
-    the functions `pow`, `abs`. Operators `//`, `%` are in `roundable_mixin`,
+    the functions `pow`, `abs`. Operators `//`, `%` are in `rounder_mixin`,
     operators `<`, `<=`, `>`, `>=` are in `ordered_mixin` and `<<`, `>>`, `&`,
     `^`, `|`, `~` are in `bit_twiddle_mixin`.
 
@@ -722,9 +727,8 @@ def iarithmetic_mixin(conv_in, attr, cache=None, opspace=operator) -> type:
         The name of the attribute that is updated for inplace operations on
         immutable data, or `None` for mutable data.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
-    opspace : default - operator
+        Set that stores methods that will need to have __objclass__ set later.
+    nmspace : default - operator
         namespace with function attributes:
         for immutable data - {`add`, `sub`, `mul`, `truediv`, `pow`};
         for mutable data - {`iadd`, `isub`, `imul`, `itruediv`, `ipow`}.
@@ -735,7 +739,8 @@ def iarithmetic_mixin(conv_in, attr, cache=None, opspace=operator) -> type:
     especially if you used any of `one_method_wrapper`, `opr_method_wrappers`.
     The `__objclass__`attribute is needed to convert the outputs back.
     """
-    iop = iop_method_wrapper(conv_in, attr, cache)
+    opspace = default(nmspace, operator)
+    iop = iop_method_wrapper(conv_in, cache, attr)
     prefix = default_non_eval(attr, lambda x: 'i', '')
 
     # @total_ordering  # not nan friendly
@@ -751,7 +756,7 @@ def iarithmetic_mixin(conv_in, attr, cache=None, opspace=operator) -> type:
     return IArithmeticMixin
 
 
-def iroundable_mixin(conv_in, attr=None, cache=None, opspace=operator) -> type:
+def iround_mixin(conv_in, cache: set, attr=None, nmspace=None) -> type:
     """Mixin class for rounding/modular routines.
 
     Defines the operators `%`, `//`, and the functions  `divmod`, 'round',
@@ -765,9 +770,8 @@ def iroundable_mixin(conv_in, attr=None, cache=None, opspace=operator) -> type:
         The name of the attribute that is updated for inplace operations on
         immutable data, or `None` for mutable data.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
-    opspace : default - operator
+        Set that stores methods that will need to have __objclass__ set later.
+    nmspace : default - operator
         namespace with function attributes:
         for immutable data - {'floordiv', `mod`};
         for mutable data - {'ifloordiv', `imod`}.
@@ -778,7 +782,8 @@ def iroundable_mixin(conv_in, attr=None, cache=None, opspace=operator) -> type:
     especially if you used any of `one_method_wrapper`, `opr_method_wrappers`.
     The `__objclass__`attribute is needed to convert the outputs back.
     """
-    iop = iop_method_wrapper(conv_in, attr, cache)
+    opspace = default(nmspace, operator)
+    iop = iop_method_wrapper(conv_in, cache, attr)
     prefix = default_non_eval(attr, lambda x: 'i', '')
 
     class IRoundableMixin(Real):
@@ -790,7 +795,7 @@ def iroundable_mixin(conv_in, attr=None, cache=None, opspace=operator) -> type:
     return IRoundableMixin
 
 
-def ibit_twiddle_mixin(conv_in, attr=None, cache=None, opspace=operator):
+def ibitws_mixin(conv_in, cache: set, attr=None, nmspace=None) -> type:
     """Mixin class to mimic bit-string types.
 
     Defines all of the bit-wise operators: `<<`, `>>`, `&`, `^`, `|`, `~`.
@@ -803,9 +808,8 @@ def ibit_twiddle_mixin(conv_in, attr=None, cache=None, opspace=operator):
         The name of the attribute that is updated for inplace operations on
         immutable data, or `None` for mutable data.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
-    opspace : default - operator
+        Set that stores methods that will need to have __objclass__ set later.
+    nmspace : default - operator
         namespace with function attributes:
         for immutable data - {'lshift', `rshift`, `and_`, `xor`, `or_`};
         for mutable data - {'ilshift', `irshift`, `iand`, `ixor`, `ior`}.
@@ -816,7 +820,8 @@ def ibit_twiddle_mixin(conv_in, attr=None, cache=None, opspace=operator):
     especially if you used any of `one_method_wrapper`, `opr_method_wrappers`.
     The `__objclass__`attribute is needed to convert the outputs back.
     """
-    iop = iop_method_wrapper(conv_in, attr, cache)
+    opspace = default(nmspace, operator)
+    iop = iop_method_wrapper(conv_in, cache, attr)
     prefix = default_non_eval(attr, lambda x: '', 'i')
     suffix = default_non_eval(attr, lambda x: '_', '')
 
@@ -837,7 +842,7 @@ def ibit_twiddle_mixin(conv_in, attr=None, cache=None, opspace=operator):
 # -----------------------------------------------------------------------------
 
 
-def number_like_mixin(conv_in, cache=None, types=None) -> type:
+def number_mixin(conv_in: Callable, cache: set, types=None) -> type:
     """Mixin class to mimic number types.
 
     Defines all of the operators and the functions `complex`, `float`, `int`,
@@ -849,8 +854,7 @@ def number_like_mixin(conv_in, cache=None, types=None) -> type:
     conv_in : Callable
         Function used to convert a tuple of inputs.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
+        Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
 
@@ -861,10 +865,10 @@ def number_like_mixin(conv_in, cache=None, types=None) -> type:
     The `__objclass__`attribute is needed to convert the outputs back.
     """
 
-    class NumberLikeMixin(convertible_mixin(conv_in, cache),
+    class NumberLikeMixin(convert_mixin(conv_in, cache),
                           ordered_mixin(conv_in, cache),
-                          arithmetic_mixin(conv_in, cache, types),
-                          roundable_mixin(conv_in, cache, types),
+                          mathops_mixin(conv_in, cache, types),
+                          rounder_mixin(conv_in, cache, types),
                           ):
         """Mixin class to mimic number types.
         """
@@ -872,7 +876,39 @@ def number_like_mixin(conv_in, cache=None, types=None) -> type:
     return NumberLikeMixin
 
 
-def inumber_like_mixin(conv_in, attr=None, cache=None, types=None) -> type:
+def integr_mixin(conv_in: Callable, cache: set, types=None) -> type:
+    """Mixin class to mimic integer types.
+
+    Defines all of the operators and the functions `complex`, `float`, `int`,
+    `pow`, `abs`, `divmod`, 'round', `math.floor,ceil,trunc`, *except for*
+    the inplace operators.
+
+    Parameters
+    ----------
+    conv_in : Callable
+        Function used to convert a tuple of inputs.
+    cache : set or None
+        Set that stores methods that will need to have __objclass__ set later.
+    types : Type or Tuple[Type] or None
+        The types of output that should be converted.
+
+    Notes
+    -----
+    You must call `set_objclasses(class, cache)` after defining the `class`,
+    especially if you used any of `one_method_wrapper`, `opr_method_wrappers`.
+    The `__objclass__`attribute is needed to convert the outputs back.
+    """
+
+    class IntegerLikeMixin(number_mixin(conv_in, cache, types),
+                           bitwise_mixin(conv_in, cache, types),
+                           ):
+        """Mixin class to mimic integer types.
+        """
+
+    return IntegerLikeMixin
+
+
+def inumbr_mixin(conv_in: Callable, cache: set, types=None, attr=None) -> type:
     """Mixin class to mimic number types, with inplace operators.
 
     Defines all of the operators and the functions `complex`, `float`, `int`,
@@ -887,8 +923,7 @@ def inumber_like_mixin(conv_in, attr=None, cache=None, types=None) -> type:
         The name of the attribute that is updated for inplace operations on
         immutable data, or `None` for mutable data.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
+        Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
 
@@ -899,9 +934,9 @@ def inumber_like_mixin(conv_in, attr=None, cache=None, types=None) -> type:
     The `__objclass__`attribute is needed to convert the outputs back.
     """
 
-    class NumberLikeMixin(number_like_mixin(conv_in, cache, types),
-                          iarithmetic_mixin(conv_in, attr, cache),
-                          iroundable_mixin(conv_in, attr, cache),
+    class NumberLikeMixin(number_mixin(conv_in, cache, types),
+                          imaths_mixin(conv_in, cache, attr),
+                          iround_mixin(conv_in, cache, attr),
                           ):
         """Mixin class to mimic number types.
         """
@@ -909,40 +944,7 @@ def inumber_like_mixin(conv_in, attr=None, cache=None, types=None) -> type:
     return NumberLikeMixin
 
 
-def int_like_mixin(conv_in, attr=None, cache=None, types=None) -> type:
-    """Mixin class to mimic integer types.
-
-    Defines all of the operators and the functions `complex`, `float`, `int`,
-    `pow`, `abs`, `divmod`, 'round', `math.floor,ceil,trunc`, *except for*
-    the inplace operators.
-
-    Parameters
-    ----------
-    conv_in : Callable
-        Function used to convert a tuple of inputs.
-    cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
-    types : Type or Tuple[Type] or None
-        The types of output that should be converted.
-
-    Notes
-    -----
-    You must call `set_objclasses(class, cache)` after defining the `class`,
-    especially if you used any of `one_method_wrapper`, `opr_method_wrappers`.
-    The `__objclass__`attribute is needed to convert the outputs back.
-    """
-
-    class IntegerLikeMixin(number_like_mixin(conv_in, attr, cache, types),
-                           bit_twiddle_mixin(conv_in, cache, types),
-                           ):
-        """Mixin class to mimic integer types.
-        """
-
-    return IntegerLikeMixin
-
-
-def iint_like_mixin(conv_in, attr=None, cache=None, types=None) -> type:
+def iintgr_mixin(conv_in: Callable, cache: set, types=None, attr=None) -> type:
     """Mixin class to mimic integer types, with inplace operators.
 
     Defines all of the operators and the functions `complex`, `float`, `int`,
@@ -956,8 +958,7 @@ def iint_like_mixin(conv_in, attr=None, cache=None, types=None) -> type:
         The name of the attribute that is updated for inplace operations on
         immutable data, or `None` for mutable data.
     cache : set or None
-        Set storing methods that will need to have __objclass__ set later. When
-        `None` the default is used: a set private to this module.
+        Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
 
@@ -968,9 +969,9 @@ def iint_like_mixin(conv_in, attr=None, cache=None, types=None) -> type:
     The `__objclass__`attribute is needed to convert the outputs back.
     """
 
-    class IntegerLikeMixin(inumber_like_mixin(conv_in, attr, cache, types),
-                           bit_twiddle_mixin(conv_in, cache, types),
-                           ibit_twiddle_mixin(conv_in, attr, cache),
+    class IntegerLikeMixin(inumbr_mixin(conv_in, cache, types, attr),
+                           bitwise_mixin(conv_in, cache, types),
+                           ibitws_mixin(conv_in, cache, attr),
                            ):
         """Mixin class to mimic integer types.
         """

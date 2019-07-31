@@ -93,7 +93,7 @@ class TestArithmetic(TestCaseNumpy):
 
     def test_inf_arithmetic(self):
         self.assertSameRepr(ig.inf + inf, ig.inf)
-        self.assertSameRepr(ig.inf / ig.inf, ig.nan)
+        self.assertSameRepr(ig.inf // ig.inf, ig.nan)
         self.assertSameRepr(inf - ig.inf, ig.nan)
         self.assertSameRepr(-inf * ig.inf, -ig.inf)
 
@@ -271,14 +271,8 @@ class TestInplace(TestCaseNumpy):
         self.assertSameRepr(self.pinf, -ig.inf)
 
     def test_itruediv(self):
-        self.x *= 3
-        self.x /= ig.eint(8)
-        self.assertSameRepr(self.x, ig.eint(1))
-        self.x *= 20
-        self.x /= ig.eint(7)
-        self.assertSameRepr(self.x, ig.eint(2))
-        self.pinf /= -ig.inf
-        self.assertSameRepr(self.pinf, ig.nan)
+        with self.assertRaises(TypeError):
+            self.x /= ig.eint(8)
 
     def test_ifloordiv(self):
         self.x *= 3

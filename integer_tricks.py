@@ -5,6 +5,7 @@ import abc
 import math
 from math import floor, ceil, trunc
 from operator import floordiv
+from functools import reduce
 from typing import Optional
 from numbers import Number, Real, Integral
 import gmpy2
@@ -116,7 +117,7 @@ def divmod_(dividend: Number, divisor: Number) -> Number:
 # =============================================================================
 # %%* ExtendedInt method wrappers
 # =============================================================================
-_types = (Real, gmpy2.mpz)
+_types = (Real, type(gmpy2.mpz(1)))
 _method_cache = set()
 
 
@@ -176,7 +177,7 @@ ExtendedIntegral.register(Integral)
 
 
 @ExtendedIntegral.register
-class ExtendedInt(_nl.number_like_mixin(_eint_conv, _method_cache, _types)):
+class ExtendedInt(_nl.number_mixin(_eint_conv, _method_cache, _types)):
     """Extended integers to include +/-inf and nan.
 
     All of the usual operations and built in functions for numeric types are
@@ -198,6 +199,7 @@ class ExtendedInt(_nl.number_like_mixin(_eint_conv, _method_cache, _types)):
     __hash__ = _eint_meth_in(hash)
     __mod__, __rmod__ = _eint_opr(mod)
     __divmod__, __rdivmod__ = _eint_opr(divmod_)
+    __truediv__, __rtruediv__ = _eint_opr(_nl.dummy_method('truediv'))
 
     def __init__(self, value: ExtendedIntegral):
         try:
@@ -225,6 +227,7 @@ eint_in, eint_out = _nl.function_wrappers(_eint_conv, ExtendedInt, _types)
 # =============================================================================
 
 eint = ExtendedInt
+Eint = ExtendedIntegral
 
 nan = eint('nan')
 inf = eint('inf')
@@ -244,7 +247,7 @@ divmod_ = eint_out(divmod_)
 def nan_gcd(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
     """Greatest common divisor for extended integers.
 
-    NaN safe version: Treats `nan` like `inf`.
+    NaN safe version: ignores `nan` if the other argument is not `nan`.
 
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
@@ -282,6 +285,52 @@ def gcd(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
     if math.isnan(a) or math.isnan(b):
         return math.nan
     return nan_gcd(a, b)
+
+
+@eint_out
+def nan_lcm(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
+    """Least common multiple for extended integers.
+
+    NaN safe version: ignores `nan` if the other argument is not `nan`.
+
+    Extended integers include `nan` and `+/-inf`. We act as if:
+    - `inf` is the product of all positive numbers, so `inf % anything == 0`.
+    - `inf * 0 == 0 (mod inf)`, so that `anything % inf == anything`.
+
+    If any argument is an `eint` the result will be too.
+
+    See Also
+    --------
+    gmpy2.lcm
+    lcm
+    """
+    if math.isfinite(a) and math.isfinite(b):
+        return int(gmpy2.lcm(a, b))
+    if math.isnan(a):
+        return b
+    if math.isnan(b):
+        return a
+    return inf
+
+
+@eint_out
+def lcm(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
+    """Least common multiple for extended integers.
+
+    Extended integers include `nan` and `+/-inf`. We act as if:
+    - `inf` is the product of all positive numbers, so `inf % anything == 0`.
+    - `inf * 0 == 0 (mod inf)`, so that `anything % inf == anything`.
+
+    If any argument is an `eint` the result will be too.
+
+    See Also
+    --------
+    gmpy2.lcm
+    nan_lcm
+    """
+    if math.isnan(a) or math.isnan(b):
+        return math.nan
+    return nan_lcm(a, b)
 
 
 @eint_out
@@ -339,3 +388,45 @@ def divm(a: ExtendedIntegral, b: ExtendedIntegral,
             return 0
         return int(gmpy2.divm(a, b, m))
     return mod(a * invert(b, m), m)
+
+
+@eint_out
+def gcdn(*args, nan_safe=False):
+    """Greatest common divisor of many extended integers.
+
+    Extended integers include `nan` and `+/-inf`. We act as if:
+    - `inf` is the product of all positive numbers, so `inf % anything == 0`.
+
+    If any argument is an `eint` the result will be too.
+
+    See Also
+    --------
+    math.gcd
+    gmpy2.gcd
+    gcd
+    nan_gcd
+    """
+    if nan_safe:
+        return reduce(nan_gcd, args, inf)
+    return reduce(gcd, args, inf)
+
+
+@eint_out
+def lcmn(*args, nan_safe=False):
+    """Lowest common multiple of many extended integers.
+
+    Extended integers include `nan` and `+/-inf`. We act as if:
+    - `inf` is the product of all positive numbers, so `inf % anything == 0`.
+    - `inf * 0 == 0 (mod inf)`, so that `anything % inf == anything`.
+
+    If any argument is an `eint` the result will be too.
+
+    See Also
+    --------
+    gmpy2.lcm
+    lcm
+    nan_lcm
+    """
+    if nan_safe:
+        return reduce(nan_lcm, args, 1)
+    return reduce(lcm, args, 1)
