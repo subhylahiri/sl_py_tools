@@ -120,7 +120,7 @@ __all__ = [
     ]
 import itertools
 # All of these imports could be removed:
-from collections.abc import Iterator, Sized
+from collections.abc import Iterator, Collection
 from typing import Optional
 import sys
 
@@ -128,7 +128,7 @@ from . import _iter_base as _it
 from . import arg_tricks as _ag
 from .display_tricks import delay_warnings
 from .slice_tricks import (range_to_slice, slice_to_range, SliceRange, srange,
-                           in_slice)
+                           erange)
 
 _ag.Export[delay_warnings, slice_to_range, SliceRange, srange, range_to_slice]
 assert sys.version_info[:2] >= (3, 6)
@@ -201,12 +201,18 @@ def batch(*sliceargs: _it.SliceArg, **kwargs: _it.SliceArg):
             yield slice(i, i+step, 1)
 
 
+def _raise_if_no_stop(obj):
+    """raise ValueError if obj.stop is None"""
+    if obj.stop is None:
+        raise ValueError("Need a value for stop")
+
+
 # =============================================================================
 # %%* Displaying iterator classes
 # =============================================================================
 
 
-class DisplayCount(_it.DisplayMixin, Sized):
+class DisplayCount(_it.DisplayMixin, Collection):
     """Iterator for displaying loop counters.
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -338,8 +344,7 @@ class DisplayCount(_it.DisplayMixin, Sized):
         """Prepare to display final counter with prefix.
         Calling iter and then next will count down.
         """
-        if self.stop is None:
-            raise ValueError('Must specify stop to reverse')
+        _raise_if_no_stop(self)
         self.start, self.stop = self.stop - self.step, self.start - self.step
         self.step *= -1
         self._state.prefix += '-'
@@ -354,29 +359,24 @@ class DisplayCount(_it.DisplayMixin, Sized):
         self.end()
         raise StopIteration()
 
-    def _slice(self):
-        """equivalent slice object"""
-        return slice(self.start, self.stop, self.step)
-
-    def _range(self):
+    def _range(self) -> erange:
         """equivalent range object"""
         return slice_to_range(self)
 
     def __len__(self):
         """Number of entries"""
-        if self.stop is None:
-            raise ValueError('Must specify stop to define len')
+        _raise_if_no_stop(self)
         return len(self._range())
 
     def __contains__(self, val):
         """Is val a valid counter value?"""
         # not using _range in case stop is None
-        return in_slice(val, self._slice())
+        return val in self._range()
 
     def _check_ctr(self) -> str:
         """Ensure that DisplayCount's are properly used"""
         # raise error if ctr is outside range
-        if self.counter > self.stop or self.counter < self.start:
+        if self.counter not in self:
             msg = f'{self._state.name}: has value {self.counter} '
             msg += f'when range is ({self.start}:{self.stop}:{self.step}).'
         return msg
@@ -388,7 +388,7 @@ class DisplayCount(_it.DisplayMixin, Sized):
         if self.debug:
             self._state.check(self._check_ctr())
 
-    def count_steps(self, counter=None):
+    def count_steps(self, counter=None) -> int:
         """How many steps have been taken?
         """
         if counter is None:
@@ -510,7 +510,7 @@ class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):
 
     def __iter__(self):
         """Display initial counter with prefix."""
-        self._iterator = zip(self.display, *self._iterables)
+        self._iterator = iter(zip(self.display, *self._iterables))
         return self
 
     def __next__(self):
@@ -572,7 +572,7 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
         """Display initial counter with prefix."""
         self.display = iter(self.display)
         if len(self._iterables) > 1:
-            self._iterator = zip(*self._iterables)
+            self._iterator = iter(zip(*self._iterables))
         else:
             self._iterator = iter(self._iterables[0])
         return self

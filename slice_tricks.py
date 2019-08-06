@@ -2,7 +2,11 @@
 """Tricks for manipulating slices
 """
 import typing as _ty
+import itertools as _it
+import collections.abc as _abc
 from . import arg_tricks as _ag
+from . import integer_tricks as _ig
+from . import _iter_base as _ib
 
 
 def slice_str(*sliceobjs: slice) -> str:
@@ -14,7 +18,7 @@ def slice_str(*sliceobjs: slice) -> str:
     Parameters
     ----------
     sliceobj : slice or range
-        Slice instance(s) to represent.
+        Instance(s) to represent (or int, Ellipsis, hasattr{start,stop,step}).
 
     Returns
     -------
@@ -38,6 +42,99 @@ def slice_str(*sliceobjs: slice) -> str:
 
 
 # =============================================================================
+# %%* Extended range
+# =============================================================================
+
+
+def _isinf(obj):
+    """is obj.stop None/inf?"""
+    return _ig.isinf(obj.stop)
+
+
+def _raise_if_no_stop(obj):
+    """raise ValueError if obj.stop is None/inf"""
+    if _isinf(obj):
+        raise ValueError("Need a finite value for stop")
+
+
+class ExtendedRange(_abc.Collection, _abc.Iterator):
+    """Combination of range and itertools.count
+
+    Any parameter can be given as `None` and the default will be used. `stop`
+    can also be `+/-inf`.
+
+    Parameters
+    ----------
+    start : int or None, optional, default=0
+        initial counter value (inclusive).
+    stop : int or None, optional, default={inf,-1} if step {>0,<0}
+        value of counter at, or above which, the loop terminates (exclusive).
+    step : int or None, optional, default=1
+        increment of counter after each loop.
+    """
+    start: _ig.Integral
+    stop: _ig.Eint
+    step: _ig.Integral
+    _iter: _ty.Union[range, _it.count]
+
+    def __init__(self, *args, **kwds):
+        super().__init__()
+        self.start, self.stop, self.step = _ib.extract_slice(args, kwds)
+        if self.step < 0:
+            self.stop = _ag.default(self.stop, -1)
+        else:
+            self.stop = _ag.default(self.stop, _ig.inf)
+        if _isinf(self):
+            self._iter = _it.count(self.start, self.step)
+        else:
+            self.stop = _stop_bound(self.start, self.stop, self.step)
+            self._iter = range(self.start, self.stop, self.step)
+
+    def count(self, value) -> int:
+        """return number of occurences of value"""
+        if not _isinf(self):
+            return self._iter.count(value)
+        return int(value in self)
+
+    def index(self, value):
+        """return index of value.
+        Raise ValueError if the value is not present.
+        """
+        if not _isinf(self):
+            return self._iter.index(value)
+        if value not in self:
+            raise ValueError(f"{value} is not in range")
+        return (value - self.stop) // self.step
+
+    def __iter__(self):
+        return iter(self._iter)
+
+    def __next__(self):
+        return next(self._iter)
+
+    def __len__(self):
+        if _isinf(self):
+            return _ig.inf
+        return len(self._iter)
+
+    def __contains__(self, arg):
+        if not _isinf(self):
+            return (arg in self._iter)
+        return ((arg - self.start) * self.step >= 0
+                and (arg - self.start) % self.step == 0)
+
+    def __reversed__(self):
+        _raise_if_no_stop(self)
+        args = self.stop - self.step, self.start - self.step, -self.step
+        return type(self)(*args)
+
+    def __repr__(self):
+        rpr = slice_str(self).replace(':', ', ')
+        return f"erange({rpr})"
+
+
+erange = ExtendedRange
+# =============================================================================
 # %%* Range conversion
 # =============================================================================
 
@@ -59,8 +156,8 @@ def range_to_slice(the_range: range) -> slice:
     return slice(the_range.start, the_range.stop, the_range.step)
 
 
-def slice_to_range(the_slice: slice, size: int = None) -> range:
-    """Convert a slice object to a range.
+def slice_to_range(the_slice: slice, size: int = None) -> erange:
+    """Convert a slice object to an erange.
 
     Parameters
     ----------
@@ -73,35 +170,19 @@ def slice_to_range(the_slice: slice, size: int = None) -> range:
 
     Returns
     -------
-    the_range : range
-        `range` object with `start`, `stop` and `step` taken from `the_slice`.
+    the_range : erange
+        `erange` object with `start`, `stop` and `step` taken from `the_slice`.
 
     Notes
     -----
     Negative `start`, `stop` interpreted relative to `size` if it is not `None`
     and relative to `0` otherwise.
-
-    Raises
-    ------
-    ValueError
-        If neither `size` nor upper bound are specified, where upper bound is
-        `stop` if `step > 0` and `start` otherwise.
-        Or if `step == 0`.
     """
     if isinstance(the_slice, int):
-        return range(the_slice, the_slice + 1)
+        return erange(the_slice, the_slice + 1)
     if size is not None:
-        return range(*the_slice.indices(size))
-    if _unbounded(the_slice):
-        raise ValueError('Must specify size or upper bound')
-    step = _ag.default(the_slice.step, 1)
-    if step < 0:
-        start = the_slice.start
-        stop = _ag.default(the_slice.stop, -1)
-    else:
-        start = _ag.default(the_slice.start, 0)
-        stop = the_slice.stop
-    return range(start, stop, step)
+        return erange(*the_slice.indices(size))
+    return erange(*_indices(the_slice))
 
 
 class SliceRange():
@@ -118,21 +199,15 @@ class SliceRange():
 
     Returns
     -------
-    the_range : range
-        `range` object with `start`, `stop` and `step` taken from `the_slice`.
+    the_range : erange
+        `erange` object with `start`, `stop` and `step` taken from `the_slice`.
 
     Notes
     -----
     Negative `start`, `stop` interpreted relative to `size` if it is not `None`
     and relative to `0` otherwise.
-
-    Raises
-    ------
-    ValueError
-        If `size` is `None` and upper bound is not specified, where upper bound
-        is `stop` if `step > 0` and `start` otherwise.
     """
-    size: int
+    size: _ty.Optional[int]
 
     def __init__(self, size: int = None):
         """
@@ -144,7 +219,7 @@ class SliceRange():
         """
         self.size = size
 
-    def __getitem__(self, arg) -> range:
+    def __getitem__(self, arg) -> erange:
         """
         Parameters
         ----------
@@ -163,6 +238,11 @@ srange = SliceRange()
 # =============================================================================
 # %%* Utilities
 # =============================================================================
+
+
+def _indices(the_slice: slice):
+    """Extract start, stop, step"""
+    return the_slice.start, the_slice.stop, the_slice.step
 
 
 def _unbounded(the_slice: slice) -> bool:
@@ -235,8 +315,8 @@ def _std_slice(the_slice: slice, size: int = None) -> slice:
     """
     if size is not None:
         the_slice = slice(*the_slice.indices(size))
-    step = _ag.default(the_slice.step, 1)
-    start, stop = the_slice.start, the_slice.stop
+    start, stop, step = _indices(the_slice)
+    step = _ag.default(step, 1)
     if step > 0:
         start = _ag.default(start, 0)
     elif step < 0:
@@ -462,22 +542,7 @@ def is_subslice(subslice: slice, the_slice: slice):
 def disjoint_slice(slc1: slice, slc2: slice):
     """Do slices fail to overlap?
     """
-    from gmpy2 import gcd, divm
+    from .modular_arithmetic import and_
     slc1, slc2 = _rectify(slc1), _rectify(slc2)
-    delta = gcd(slc1.step, slc2.step)
-    if (slc1.start - slc2.start) % delta:
-        return True
-    dlt1, dlt2 = slc1.step // delta, slc2.step // delta
-    excess = (slc1.start - slc2.start) // delta
-    exc1, exc2 = excess % dlt1, -excess % dlt2
-    # this needs modular arithmetic...
-    dmult1 = 0 if (dlt2 == 1) else divm(exc2, dlt1, dlt2)
-    dmult2 = 0 if (dlt1 == 1) else divm(exc1, dlt2, dlt1)
-    dexcess = excess + dmult1 * dlt1 - dmult2 * dlt2
-    if dexcess > 0:
-        mult1, mult2 = dmult1, dmult2 + dexcess // (dlt1 * dlt2)
-    else:
-        mult1, mult2 = dmult1 - dexcess // (dlt1 * dlt2), dmult2
-    overlap = int(slc1.start + mult1 * slc1.step)
-    assert overlap == slc2.start + mult2 * slc2.step
+    overlap, step = and_(slc1.start, slc1.step, slc2.start, slc2.step)
     return not (in_slice(overlap, slc1) and in_slice(overlap, slc2))
