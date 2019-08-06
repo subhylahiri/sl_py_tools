@@ -237,7 +237,7 @@ def set_objclasses(objclass: type, cache: set):
     objclass
         What we are setting `__objclass__` attributes to. It will be used to
         convert outputs.
-    cache : set or None
+    cache : set
         Set that stores methods that need to have __objclass__ set now.
 
     Notes
@@ -266,7 +266,7 @@ def in_method_wrapper(conv_in: Callable, cache: set) -> Callable:
     ----------
     conv_in : Callable
         Function used to convert a tuple of inputs.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
 
     Returns
@@ -305,7 +305,7 @@ def one_method_wrapper(conv_in: Callable, cache: set, types=None) -> Callable:
     ----------
     conv_in : Callable
         Function used to convert a tuple of inputs.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
@@ -345,7 +345,7 @@ def opr_method_wrappers(conv_in: Callable, cache: set, types=None) -> Callable:
     ----------
     conv_in : Callable
         Function used to convert a tuple of inputs.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
@@ -400,7 +400,7 @@ def iop_method_wrapper(conv_in: Callable, cache: set, attr=None) -> Callable:
     attr : str
         The name of the attribute that is updated for inplace operations on
         immutable data, or `None` for mutable data.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
@@ -507,7 +507,7 @@ def convert_mixin(conv_in: Callable, cache: set, nmspace=None) -> type:
     ----------
     conv_in : Callable
         Function used to convert a tuple of inputs.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     nmspace : default - builtins
         namespace with function attributes: {'complex', `float`, `int`}.
@@ -541,7 +541,7 @@ def ordered_mixin(conv_in: Callable, cache: set, nmspace=None) -> type:
     ----------
     conv_in : Callable
         Function used to convert a tuple of inputs.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     nmspace : default - operator
         namespace w/ function attributes: {'eq', `ne`, `lt`, 'le', `gt`, `ge`}.
@@ -581,7 +581,7 @@ def mathops_mixin(conv_in, cache: set, types=None, nmspace=None) -> type:
     ----------
     conv_in : Callable
         Function used to convert a tuple of inputs.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
@@ -628,7 +628,7 @@ def rounder_mixin(conv_in, cache: set, types=None, nmspace=None) -> type:
     ----------
     conv_in : Callable
         Function used to convert a tuple of inputs.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
@@ -675,7 +675,7 @@ def bitwise_mixin(conv_in, cache: set, types=None, nmspace=None) -> type:
     ----------
     conv_in : Callable
         Function used to convert a tuple of inputs.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
@@ -726,7 +726,7 @@ def imaths_mixin(conv_in, cache: set, attr=None, nmspace=None) -> type:
     attr : str
         The name of the attribute that is updated for inplace operations on
         immutable data, or `None` for mutable data.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     nmspace : default - operator
         namespace with function attributes:
@@ -769,7 +769,7 @@ def iround_mixin(conv_in, cache: set, attr=None, nmspace=None) -> type:
     attr : str
         The name of the attribute that is updated for inplace operations on
         immutable data, or `None` for mutable data.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     nmspace : default - operator
         namespace with function attributes:
@@ -807,7 +807,7 @@ def ibitws_mixin(conv_in, cache: set, attr=None, nmspace=None) -> type:
     attr : str
         The name of the attribute that is updated for inplace operations on
         immutable data, or `None` for mutable data.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     nmspace : default - operator
         namespace with function attributes:
@@ -853,7 +853,7 @@ def number_mixin(conv_in: Callable, cache: set, types=None) -> type:
     ----------
     conv_in : Callable
         Function used to convert a tuple of inputs.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
@@ -887,7 +887,7 @@ def integr_mixin(conv_in: Callable, cache: set, types=None) -> type:
     ----------
     conv_in : Callable
         Function used to convert a tuple of inputs.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
@@ -922,7 +922,7 @@ def inumbr_mixin(conv_in: Callable, cache: set, types=None, attr=None) -> type:
     attr : str
         The name of the attribute that is updated for inplace operations on
         immutable data, or `None` for mutable data.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.
@@ -957,7 +957,7 @@ def iintgr_mixin(conv_in: Callable, cache: set, types=None, attr=None) -> type:
     attr : str
         The name of the attribute that is updated for inplace operations on
         immutable data, or `None` for mutable data.
-    cache : set or None
+    cache : set
         Set that stores methods that will need to have __objclass__ set later.
     types : Type or Tuple[Type] or None
         The types of output that should be converted.

@@ -62,9 +62,9 @@ def mesh_flat(*arrays):
 def estack(arrays, axis=-1):
     """Same as `np.stack`, except default `axis`=-1
 
-    According to `np.linalg` broadcasting, `np.stack` combines (lists of)
-    matrices into a list of matrices (as default `axis`=0).
-    This function builds up the (list of) matrices/vectors from (lists of)
+    Following `np.linalg` broadcasting, `np.stack` combines arrays of
+    matrices into an array of matrices, as default `axis`=0.
+    This function builds up the matrix/vector array from arrays of
     vectors/scalars.
 
     Parameters
@@ -201,7 +201,8 @@ def flattish(arr: np.ndarray, start: int = 0, stop: int = None) -> np.ndarray:
     ValueError
         If `start > stop`.
     """
-    stop = default(stop, arr.ndim)
+    start = _posify(start, arr.ndim)
+    stop = _posify(default(stop, arr.ndim), arr.ndim)
     if start > stop:
         raise ValueError(f"start={start} > stop={stop}")
     newshape = arr.shape[:start] + (-1,) + arr.shape[stop:]

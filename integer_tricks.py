@@ -144,6 +144,7 @@ _eint_opr = _nl.opr_method_wrappers(_eint_conv, _method_cache, _types)
 class ExtendedIntegralMeta(abc.ABCMeta):
     """Metaclass for ExtendedIntegral ABC.
 
+    If class is a virtual superclass of Integral:
     Instance checks return `True` for all `Integral`s and non-finite `Real`s.
     Subclass checks return `True` for `Integrals`.
     """
@@ -153,16 +154,7 @@ class ExtendedIntegralMeta(abc.ABCMeta):
         if cls == ExtendedIntegral:
             if isinstance(instance, Real) and not math.isfinite(instance):
                 return True
-            if isinstance(instance, Integral):
-                return True
         return super().__instancecheck__(instance)
-
-    def __subclasscheck__(cls, subclass):
-        # Do not want this to propagate to subclasses
-        if cls == ExtendedIntegral:
-            if issubclass(subclass, Integral):
-                return True
-        return super().__subclasscheck__(subclass)
 
 
 class ExtendedIntegral(Real, metaclass=ExtendedIntegralMeta):
@@ -247,6 +239,8 @@ divmod_ = eint_out(divmod_)
 def nan_gcd(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
     """Greatest common divisor for extended integers.
 
+    Largest `d` such that `a % d == 0 and b % d == 0`.
+
     NaN safe version: ignores `nan` if the other argument is not `nan`.
 
     Extended integers include `nan` and `+/-inf`. We act as if:
@@ -271,6 +265,8 @@ def nan_gcd(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
 def gcd(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
     """Greatest common divisor for extended integers.
 
+    Largest `d` such that `a % d == 0 and b % d == 0`.
+
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
 
@@ -290,6 +286,8 @@ def gcd(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
 @eint_out
 def nan_lcm(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
     """Least common multiple for extended integers.
+
+    Smallest `m` such that `m % a == 0 and m % b == 0`.
 
     NaN safe version: ignores `nan` if the other argument is not `nan`.
 
@@ -316,6 +314,8 @@ def nan_lcm(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
 @eint_out
 def lcm(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
     """Least common multiple for extended integers.
+
+    Smallest `m` such that `m % a == 0 and m % b == 0`.
 
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
@@ -391,8 +391,20 @@ def divm(a: ExtendedIntegral, b: ExtendedIntegral,
 
 
 @eint_out
-def gcdn(*args, nan_safe=False):
+def gcdn(*args: ExtendedIntegral, nan_safe: bool = False) -> ExtendedIntegral:
     """Greatest common divisor of many extended integers.
+
+    Parameters
+    ----------
+    *args: ExtendedIntegral
+        Numbers whose gcd we are finding.
+    nan_safe : bool
+        If True, `nan`s will not propagate. Keyword only, default: False.
+
+    Returns
+    -------
+    the_gcd: ExtendedIntegral
+        Largest `d` such that `a % d == 0 for all a in args`.
 
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
@@ -412,8 +424,20 @@ def gcdn(*args, nan_safe=False):
 
 
 @eint_out
-def lcmn(*args, nan_safe=False):
+def lcmn(*args: ExtendedIntegral, nan_safe: bool = False) -> ExtendedIntegral:
     """Lowest common multiple of many extended integers.
+
+    Parameters
+    ----------
+    *args: ExtendedIntegral
+        Numbers whose lcm we are finding.
+    nan_safe : bool
+        If True, `nan`s will not propagate. Keyword only, default: False.
+
+    Returns
+    -------
+    the_lcm: ExtendedIntegral
+        Smallest `m` such that `m % a == 0 for all a in args`.
 
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
