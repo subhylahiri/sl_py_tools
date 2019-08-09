@@ -105,6 +105,9 @@ def defaults(optionals: _ty.Iterable[_ty.Optional[A]],
              default_vals: _ty.Iterable[A]) -> _ty.Tuple[A, ...]:
     """Replace arguments with defaults if they are None
 
+    If the `optionals` and `default_vals` have different lengths, the shorter
+    one is padded with `None`.
+
     Parameters
     ----------
     optionals : Iterable[A or None]
@@ -120,6 +123,9 @@ def defaults(optionals: _ty.Iterable[_ty.Optional[A]],
         The corresponding elements of `optionals` or `default_vals`, using
         the latter only when the former is `None`.
     """
+    extra = len(default_vals) - len(optionals)
+    optionals = tuple(optionals) + (None,) * extra
+    default_vals = tuple(default_vals) + (None,) * -extra
     return tuple(default(opt, df) for opt, df in zip(optionals, default_vals))
 
 
