@@ -183,7 +183,7 @@ def slice_to_range(the_slice: slice, size: int = None) -> erange:
         return erange(the_slice, the_slice + 1)
     if size is not None:
         return erange(*the_slice.indices(size))
-    return erange(*_indices(the_slice))
+    return erange(*slice_args(the_slice))
 
 
 class SliceRange():
@@ -239,11 +239,6 @@ srange = SliceRange()
 # =============================================================================
 # %%* Utilities
 # =============================================================================
-
-
-def _indices(the_slice: slice):
-    """Extract start, stop, step"""
-    return the_slice.start, the_slice.stop, the_slice.step
 
 
 def _unbounded(the_slice: slice) -> bool:
@@ -316,14 +311,7 @@ def _std_slice(the_slice: slice, size: int = None) -> slice:
     """
     if size is not None:
         the_slice = slice(*the_slice.indices(size))
-    start, stop, step = _indices(the_slice)
-    step = _ag.default(step, 1)
-    if step > 0:
-        start = _ag.default(start, 0)
-    elif step < 0:
-        stop = _ag.default(stop, -1)
-    else:
-        raise ValueError('slice step cannot be zero')
+    start, stop, step = slice_args_def(the_slice)
     if not _unbounded(the_slice):
         # if not _unbounded and step < 0, => start is not None
         # if not _unbounded and step > 0, => stop is not None
@@ -458,6 +446,41 @@ def _rectify(the_slice: slice, size: int = None) -> slice:
 # =============================================================================
 # %%* Slice properties
 # =============================================================================
+
+
+def slice_args(the_slice: slice) -> _ty.Tuple[_ty.Optional[int], ...]:
+    """Extract start, stop, step from slice
+    """
+    return the_slice.start, the_slice.stop, the_slice.step
+
+
+def slice_args_def(the_slice: slice) -> _ty.Tuple[_ty.Optional[int], ...]:
+    """Extract start, stop, step from slice, using defaults where possible
+
+    Parameters
+    ----------
+    the_slice : slice
+        An object that has integer attributes named `start`, `stop`, `step`,
+        e.g. `slice`, `range`, `DisplayCount`
+
+    Returns
+    -------
+    start : int or None
+        Start of slice, with default 0 if `step` > 0.
+    stop : int or None
+        Past end of slice, with default -1 if `step` < 0.
+    step : int
+        Increment of slice, with default 1.
+    """
+    start, stop, step = slice_args(the_slice)
+    step = _ag.default(step, 1)
+    if step > 0:
+        start = _ag.default(start, 0)
+    elif step < 0:
+        stop = _ag.default(stop, -1)
+    else:
+        raise ValueError('slice step cannot be zero')
+    return start, stop, step
 
 
 def last_value(obj, size: int = None) -> int:
