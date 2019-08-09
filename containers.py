@@ -25,18 +25,18 @@ Dictable = _ty.Union[_ty.Mapping[A, B], _ty.Iterable[_ty.Tuple[A, B]]]
 def tuplify(arg: InstanceOrIterable[A], num: int = 1) -> _ty.Tuple[A, ...]:
     """Make argument a tuple.
 
-    If it is an iterable, it is converted to a tuple.
-    Otherwise, it is placed in a tuple.
+    If it is an iterable (except for `str`), it is converted to a `tuple`.
+    Otherwise, it is placed in a `tuple`.
 
     Parameters
     ----------
     arg
-        Thing to be turned / put into a tuple.
+        Thing to be turned / put into a `tuple`.
     num : int, optional
-        Number of times to put `arg` in tuple, default: 1. Not used for
+        Number of times to put `arg` in `tuple`, default: 1. Not used for
         conversion of iterables.
     """
-    if isinstance(arg, cn.abc.Iterable):
+    if isinstance(arg, cn.abc.Iterable) and not isinstance(arg, str):
         return tuple(arg)
     return (arg,) * num
 
@@ -44,18 +44,18 @@ def tuplify(arg: InstanceOrIterable[A], num: int = 1) -> _ty.Tuple[A, ...]:
 def listify(arg: InstanceOrIterable[A], num: int = 1) -> _ty.List[A]:
     """Make argument a list.
 
-    If it is an iterable, it is converted to a list.
-    Otherwise, it is placed in a list.
+    If it is an iterable (except for `str`), it is converted to a `list`.
+    Otherwise, it is placed in a `list`.
 
     Parameters
     ----------
     arg
-        Thing to be turned / put into a list.
+        Thing to be turned / put into a `list`.
     num : int, optional
-        Number of times to put `arg` in tuple, default: 1. Not used for
+        Number of times to put `arg` in `list`, default: 1. Not used for
         conversion of iterables.
     """
-    if isinstance(arg, cn.abc.Iterable):
+    if isinstance(arg, cn.abc.Iterable) and not isinstance(arg, str):
         return list(arg)
     return [arg] * num
 
@@ -262,7 +262,7 @@ def _inv_dict_iter(to_invert: dict) -> _ty.Iterator:
     return ((v, k) for k, v in to_invert.items())
 
 
-def invert_dict(to_invert: dict) -> dict:
+def invert_dict(to_invert: dict, check=True) -> dict:
     """Swap keys and values.
 
     Assumes values are distinct and hashable.
@@ -272,10 +272,10 @@ def invert_dict(to_invert: dict) -> dict:
     TypeError
         If any of `to_invert.values()` are not hashable.
     ValueError
-        If any of `to_invert.values()` are repeated.
+        If `check` is `True` and any of `to_invert.values()` are repeated.
     """
     inverted = dict(_inv_dict_iter(to_invert))
-    if len(inverted) < len(to_invert):
+    if check and len(inverted) < len(to_invert):
         raise ValueError(f'Repeated values in {to_invert}?')
     return inverted
 
