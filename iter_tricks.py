@@ -327,6 +327,8 @@ class DisplayCount(_it.DisplayMixin, Collection):
 
         if name:
             self._state.prefix += name + ':'
+        if self.step < 0:
+            self._state.prefix += '-'
 
         if self.stop:
             self.stop = self.start + self.step * len(self)
@@ -347,7 +349,10 @@ class DisplayCount(_it.DisplayMixin, Collection):
         _raise_if_no_stop(self)
         self.start, self.stop = self.stop - self.step, self.start - self.step
         self.step *= -1
-        self._state.prefix += '-'
+        if self.step < 0:
+            self._state.prefix += '-'
+        else:
+            self._state.prefix.rstrip('-')
         return self
 
     def __next__(self):
