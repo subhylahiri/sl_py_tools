@@ -9,7 +9,7 @@ from . import integer_tricks as _ig
 from . import _iter_base as _ib
 
 
-def slice_str(*sliceobjs: slice) -> str:
+def slice_str(*sliceobjs: slice, bracket: bool = True) -> str:
     """String representation of slice
 
     Converts `slice(a, b, c)` to `'a:b:c'`, `np.s_[a:b, c:]` to `'a:b,c:'`,
@@ -25,13 +25,15 @@ def slice_str(*sliceobjs: slice) -> str:
     slc_str : str
         String representing slice.
     """
+    if bracket:
+        return '[' + slice_str(sliceobjs, bracket=False) + ']'
     if len(sliceobjs) == 0:
         return ''
     if len(sliceobjs) > 1:
-        return ','.join(slice_str(s) for s in sliceobjs)
+        return ','.join(slice_str(s, bracket=False) for s in sliceobjs)
     sliceobj = sliceobjs[0]
     if isinstance(sliceobj, tuple):
-        return slice_str(*sliceobj)
+        return slice_str(*sliceobj, bracket=False)
     if isinstance(sliceobj, int):
         return str(sliceobj)
     if sliceobj is Ellipsis:
@@ -39,7 +41,6 @@ def slice_str(*sliceobjs: slice) -> str:
     return (_ag.default_non_eval(sliceobj.start, str, '') + ':'
             + _ag.default_non_eval(sliceobj.stop, str, '')
             + _ag.default_non_eval(sliceobj.step, lambda x: f':{x}', ''))
-
 
 # =============================================================================
 # %%* Extended range
@@ -129,7 +130,7 @@ class ExtendedRange(_abc.Collection, _abc.Iterator):
         return type(self)(*args)
 
     def __repr__(self):
-        rpr = slice_str(self).replace(':', ', ')
+        rpr = slice_str(self, bracket=False).replace(':', ', ')
         return f"erange({rpr})"
 
 
