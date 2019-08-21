@@ -90,7 +90,12 @@ def extract_slice(args: SliceArgs, kwargs: SliceKeys) -> SliceArgs:
     To specify `step` without setting `start`, set `start` to 0 or `None`.
     Or use keyword arguments.
     """
-    inds = slice(*args) if args else slice(None)
+    if not args:
+        inds = slice(None)
+    elif len(args) == 1 and isinstance(args[0], slice):
+        inds = args[0]
+    else:
+        inds = slice(*args)
     start = kwargs.pop('start', inds.start)
     stop = kwargs.pop('stop', inds.stop)
     step = kwargs.pop('step', inds.step)

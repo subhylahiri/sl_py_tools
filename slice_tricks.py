@@ -4,18 +4,61 @@
 import typing as _ty
 import itertools as _it
 import operator as _op
+from abc import abstractmethod
 import collections.abc as _abc
 from numbers import Number
 from . import arg_tricks as _ag
 from . import integer_tricks as _ig
 from . import _iter_base as _ib
+from . import abc_tricks as _ab
 
 S = _ty.TypeVar('S')
 NumOp = _ty.Callable[[Number, Number], Number]
 SliceOrNum = _ty.Union[slice, Number]
 
+# =============================================================================
+# %%* ABCs
+# =============================================================================
 
-def slice_str(*sliceobjs: slice, bracket: bool = True) -> str:
+
+class SliceIsh(_ab.ABCauto, typecheckonly=True):
+    """ABC for slice-ish objects - those with start, stop, step attributes.
+
+    Intended for instance/subclass checks only.
+    """
+
+    @property
+    @abstractmethod
+    def start(self):
+        pass
+
+    @property
+    @abstractmethod
+    def stop(self):
+        pass
+
+    @property
+    @abstractmethod
+    def step(self):
+        pass
+
+
+class SliceLike(SliceIsh, typecheckonly=True):
+    """ABC fror slice-like objects: slice-ish objects with an indices method.
+
+    Intended for instance/subclass checks only.
+    """
+
+    @abstractmethod
+    def indices(self, length):
+        pass
+
+# =============================================================================
+# %%* Displaying slices
+# =============================================================================
+
+
+def slice_str(*sliceobjs: SliceIsh, bracket: bool = True) -> str:
     """String representation of slice
 
     Converts `slice(a, b, c)` to `'a:b:c'`, `np.s_[a:b, c:]` to `'a:b,c:'`,
@@ -159,7 +202,7 @@ erange = ExtendedRange
 # =============================================================================
 
 
-def range_to_slice(the_range: range) -> slice:
+def range_to_slice(the_range: SliceIsh) -> slice:
     """Convert a range object to a slice.
 
     Parameters
@@ -181,9 +224,11 @@ def slice_to_range(the_slice: slice, length: int = None) -> erange:
 
     Parameters
     ----------
-    the_slice
+    the_slice : slice
         The `slice` to convert. or any object that has integer attributes named
-        `start`, `stop` and `step` e.g. `slice`, `range`, `DisplayCount`
+        `start`, `stop` and `step` and an `indices` method that takes a single
+        integer argument and returns (`start`, `stop`, `step`).
+        e.g. `slice`, `erange`, `DisplayCount`
     length : int or None
         Replaces upper bound if upper bound is `None` or `> length`.
         Upper bound is `stop` if `step > 0` and `start+1` otherwise.
@@ -260,13 +305,13 @@ srange = SliceRange()
 # =============================================================================
 
 
-def slice_args(the_slice: slice) -> _ty.Tuple[_ty.Optional[int], ...]:
+def slice_args(the_slice: SliceIsh) -> _ty.Tuple[_ty.Optional[int], ...]:
     """Extract start, stop, step from slice
     """
     return the_slice.start, the_slice.stop, the_slice.step
 
 
-def slice_args_def(the_slice: slice) -> _ty.Tuple[_ty.Optional[int], ...]:
+def slice_args_def(the_slice: SliceIsh) -> _ty.Tuple[_ty.Optional[int], ...]:
     """Extract start, stop, step from slice, using defaults where possible
 
     Parameters
@@ -295,7 +340,7 @@ def slice_args_def(the_slice: slice) -> _ty.Tuple[_ty.Optional[int], ...]:
     return start, stop, step
 
 
-def last_value(obj, length: int = None) -> int:
+def last_value(obj: SliceIsh, length: int = None) -> int:
     """Last value in range
 
     Parameters
@@ -437,7 +482,7 @@ def slice_sub(left: SliceOrNum, right: SliceOrNum) -> slice:
 # -----------------------------------------------------------------------------
 
 
-def _raise_if_no_stop(obj):
+def _raise_if_no_stop(obj: SliceIsh):
     """raise ValueError if obj.stop is None/inf"""
     if _isinf(obj):
         raise ValueError("Need a finite value for stop")
@@ -476,12 +521,12 @@ def _raise_if_none(obj):
 # -----------------------------------------------------------------------------
 
 
-def _isinf(obj):
+def _isinf(obj: SliceIsh):
     """is obj.stop None/inf?"""
     return obj.stop is None or _ig.isinf(obj.stop)
 
 
-def _unbounded(the_slice: slice) -> bool:
+def _unbounded(the_slice: SliceIsh) -> bool:
     """Could slice include infinity?"""
     if the_slice.step is None or the_slice.step > 0:
         return the_slice.stop is None
@@ -554,7 +599,7 @@ def _stop_bound(start: int, stop: int, step: int) -> int:
     return _last_val(start, stop, step) + step
 
 
-def _slice_sup(the_slice: slice) -> _ty.Optional[int]:
+def _slice_sup(the_slice: SliceIsh) -> _ty.Optional[int]:
     """Smallest value one step after slice, or None
 
     Assume standardised:
@@ -569,7 +614,7 @@ def _slice_sup(the_slice: slice) -> _ty.Optional[int]:
     return the_slice.start - the_slice.step
 
 
-def _slice_max(the_slice: slice) -> _ty.Optional[int]:
+def _slice_max(the_slice: SliceIsh) -> _ty.Optional[int]:
     """Largest value in slice, or None
 
     Assume standardised:
@@ -584,7 +629,7 @@ def _slice_max(the_slice: slice) -> _ty.Optional[int]:
     return _last_val(the_slice.start, the_slice.stop, the_slice.step)
 
 
-def _slice_min(the_slice: slice) -> _ty.Optional[int]:
+def _slice_min(the_slice: SliceIsh) -> _ty.Optional[int]:
     """Upper bound on smallest value in slice
 
     Assume standardised:
@@ -602,7 +647,7 @@ def _slice_min(the_slice: slice) -> _ty.Optional[int]:
     return _last_val(the_slice.start, the_slice.stop, the_slice.step)
 
 
-def _slice_inf(the_slice: slice) -> _ty.Optional[int]:
+def _slice_inf(the_slice: SliceIsh) -> _ty.Optional[int]:
     """Lower bound on Largest value one step before slice
 
     Assume standardised:

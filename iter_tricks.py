@@ -121,7 +121,7 @@ __all__ = [
 import itertools
 # All of these imports could be removed:
 from collections.abc import Iterator, Collection
-from typing import Optional
+from typing import Optional, Tuple
 import sys
 
 from . import _iter_base as _it
@@ -398,6 +398,26 @@ class DisplayCount(_it.DisplayMixin, Collection):
         """
         counter = _ag.default(counter, self.counter)
         return (counter - self.start) // self.step
+
+    def indices(self, length: int = None) -> Tuple[int, ...]:
+        """Start, stop, step of equivalent slice
+
+        Parameters
+        ----------
+        length : int or None
+            This method takes a single integer argument length and computes
+            information about the slice that the object would describe if
+            applied to a sequence of `length` items.
+
+        Returns
+        -------
+        (start, stop, step)
+            a tuple of three integers; respectively these are the start and
+            stop indices and the step or stride length of the slice. Missing or
+            out-of-bounds indices are handled in a manner consistent with
+            regular slices.
+        """
+        return self._range().indices(length)
 
 
 class DisplayBatch(DisplayCount):
