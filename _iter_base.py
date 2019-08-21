@@ -32,7 +32,7 @@ DSliceKeys = Dict[str, DSliceArg]
 Keys = Dict[str, Arg]
 DKeys = Dict[str, DArg]
 # =============================================================================
-# %%* Convenience functions
+# %%* Utility functions
 # =============================================================================
 
 
@@ -110,7 +110,12 @@ def counter_format(num: int) -> str:
     return formatter
 
 
-def and_reverse(it_func: Callable):
+# -----------------------------------------------------------------------------
+# %%* Decorators/wrappers
+# -----------------------------------------------------------------------------
+
+
+def and_reverse(it_func: Callable[..., Iterable]) -> Callable[..., Iterable]:
     """Wrap iterator factory with reversed
     """
     @wraps(it_func)
@@ -125,7 +130,7 @@ def and_reverse(it_func: Callable):
     return it_func
 
 
-def without_disp(it_func: Callable):
+def without_disp(it_func: Callable[..., Iterable]) -> Callable[..., Iterable]:
     """Create iterator factory with non displaying version
 
     Parameters

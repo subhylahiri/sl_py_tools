@@ -358,7 +358,7 @@ class DisplayCount(_it.DisplayMixin, Collection):
     def __next__(self):
         """Increment counter, erase previous counter and display new one."""
         self.counter += self.step
-        if (self.stop is None) or self.step*(self.stop - self.counter) > 0:
+        if self.counter in self:
             self.update()
             return self.counter
         self.end()
@@ -396,8 +396,7 @@ class DisplayCount(_it.DisplayMixin, Collection):
     def count_steps(self, counter=None) -> int:
         """How many steps have been taken?
         """
-        if counter is None:
-            counter = self.counter
+        counter = _ag.default(counter, self.counter)
         return (counter - self.start) // self.step
 
 

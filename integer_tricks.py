@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 """Tricks for working with integers
+
+Requires
+--------
+gmpy2
 """
 import abc
 import math

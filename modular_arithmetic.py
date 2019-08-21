@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 """Modular arithmetic
+
+Requires
+--------
+gmpy2
 """
 from __future__ import annotations
 import operator

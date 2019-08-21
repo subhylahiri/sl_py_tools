@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tricks for manipulating slices
+"""Tricks for manipulating slices and ranges
 """
 import typing as _ty
 import itertools as _it
@@ -9,6 +9,10 @@ from numbers import Number
 from . import arg_tricks as _ag
 from . import integer_tricks as _ig
 from . import _iter_base as _ib
+
+S = _ty.TypeVar('S')
+NumOp = _ty.Callable[[Number, Number], Number]
+SliceOrNum = _ty.Union[slice, Number]
 
 
 def slice_str(*sliceobjs: slice, bracket: bool = True) -> str:
@@ -43,46 +47,6 @@ def slice_str(*sliceobjs: slice, bracket: bool = True) -> str:
     return (_ag.default_non_eval(sliceobj.start, str, '') + ':'
             + _ag.default_non_eval(sliceobj.stop, str, '')
             + _ag.default_non_eval(sliceobj.step, lambda x: f':{x}', ''))
-
-
-def _isinf(obj):
-    """is obj.stop None/inf?"""
-    return _ig.isinf(obj.stop)
-
-
-def _raise_if_no_stop(obj):
-    """raise ValueError if obj.stop is None/inf"""
-    if _isinf(obj):
-        raise ValueError("Need a finite value for stop")
-
-
-def _raise_non_determinable(the_slice: slice):
-    """Raise if lowest value in slice is not determinable.
-
-    Parameters
-    ----------
-    the_slice : slice
-        An object that has integer attributes named `start`, `stop` and `step`
-        e.g. `slice`, `range`, `DisplayCount`.
-
-        Assume standardised:
-            `start,stop` can only be `None` if _unbounded.
-            `step` is not `None`.
-            `stop = start + integer * step` unless _unbounded.
-
-    Raises
-    ------
-    ValueError
-        If lowest value in slice is not determined.
-    """
-    if _unbounded(the_slice) and the_slice.step < -1:
-        raise ValueError('Must specify size or start if step < -1')
-
-
-def _raise_if_none(obj):
-    """raise ValueError if obj.stop is None/inf"""
-    if obj is None:
-        raise TypeError("Unsupported operation")
 
 # =============================================================================
 # %%* Extended range
@@ -138,6 +102,30 @@ class ExtendedRange(_abc.Collection, _abc.Iterator):
             raise ValueError(f"{value} is not in range")
         return (value - self.stop) // self.step
 
+    def indices(self, length: int = None) -> _ty.Tuple[int, ...]:
+        """Start, stop, step of equivalent slice
+
+        Parameters
+        ----------
+        length : int or None
+            This method takes a single integer argument length and computes
+            information about the slice that the object would describe if
+            applied to a sequence of `length` items.
+
+        Returns
+        -------
+        (start, stop, step)
+            a tuple of three integers; respectively these are the start and
+            stop indices and the step or stride length of the slice. Missing or
+            out-of-bounds indices are handled in a manner consistent with
+            regular slices.
+        """
+        if length is None:
+            return tuple(_nonify(val) for val in slice_args(self))
+        if _isinf(self):
+            return slice(*self.indices()).indices(length)
+        return range_to_slice(self).indices(length)
+
     def __iter__(self):
         return iter(self._iter)
 
@@ -172,7 +160,7 @@ erange = ExtendedRange
 
 
 def range_to_slice(the_range: range) -> slice:
-    """Convert a slice object to a range.
+    """Convert a range object to a slice.
 
     Parameters
     ----------
@@ -185,10 +173,10 @@ def range_to_slice(the_range: range) -> slice:
     sliceobj
         `slice` object with `start`, `stop` and `step` taken from `the_range`.
     """
-    return slice(the_range.start, the_range.stop, the_range.step)
+    return slice(*slice_args(the_range))
 
 
-def slice_to_range(the_slice: slice, size: int = None) -> erange:
+def slice_to_range(the_slice: slice, length: int = None) -> erange:
     """Convert a slice object to an erange.
 
     Parameters
@@ -196,24 +184,24 @@ def slice_to_range(the_slice: slice, size: int = None) -> erange:
     the_slice
         The `slice` to convert. or any object that has integer attributes named
         `start`, `stop` and `step` e.g. `slice`, `range`, `DisplayCount`
-    size : int or None
-        Replaces upper bound if upper bound is `None` or `> size`.
+    length : int or None
+        Replaces upper bound if upper bound is `None` or `> length`.
         Upper bound is `stop` if `step > 0` and `start+1` otherwise.
 
     Returns
     -------
-    the_range : erange
+    rangeobj : erange
         `erange` object with `start`, `stop` and `step` taken from `the_slice`.
 
     Notes
     -----
-    Negative `start`, `stop` interpreted relative to `size` if it is not `None`
-    and relative to `0` otherwise.
+    Negative `start`, `stop` interpreted relative to `length` if it is not
+    `None` and relative to `0` otherwise.
     """
     if isinstance(the_slice, int):
         return erange(the_slice, the_slice + 1)
-    if size is not None and hasattr(the_slice, 'indices'):
-        return erange(*the_slice.indices(size))
+    if length is not None and hasattr(the_slice, 'indices'):
+        return erange(*the_slice.indices(length))
     return erange(*slice_args(the_slice))
 
 
@@ -225,8 +213,8 @@ class SliceRange():
 
     Parameters
     ----------
-    size : int or None
-        Replaces slice upper bound if upper bound is `None` or `> size`.
+    length : int or None
+        Replaces slice upper bound if upper bound is `None` or `> length`.
         Upper bound is `stop` if `step > 0` and `start+1` otherwise.
 
     Returns
@@ -236,20 +224,20 @@ class SliceRange():
 
     Notes
     -----
-    Negative `start`, `stop` interpreted relative to `size` if it is not `None`
-    and relative to `0` otherwise.
+    Negative `start`, `stop` interpreted relative to `length` if it is not
+    `None` and relative to `0` otherwise.
     """
-    size: _ty.Optional[int]
+    length: _ty.Optional[int]
 
-    def __init__(self, size: int = None):
+    def __init__(self, length: int = None):
         """
         Parameters
         ----------
-        size : int or None
-            Replaces slice upper bound if upper bound is `None` or `> size`.
+        length : int or None
+            Replaces slice upper bound if upper bound is `None` or `> length`.
             Upper bound is `stop` if `step > 0` and `start+1` otherwise.
         """
-        self.size = size
+        self.length = length
 
     def __getitem__(self, arg) -> erange:
         """
@@ -263,13 +251,234 @@ class SliceRange():
         the_range : range
             `range` object with `start`, `stop` and `step` from `the_slice`.
         """
-        return slice_to_range(arg, self.size)
+        return slice_to_range(arg, self.length)
 
 
 srange = SliceRange()
 # =============================================================================
+# %%* Slice properties
+# =============================================================================
+
+
+def slice_args(the_slice: slice) -> _ty.Tuple[_ty.Optional[int], ...]:
+    """Extract start, stop, step from slice
+    """
+    return the_slice.start, the_slice.stop, the_slice.step
+
+
+def slice_args_def(the_slice: slice) -> _ty.Tuple[_ty.Optional[int], ...]:
+    """Extract start, stop, step from slice, using defaults where possible
+
+    Parameters
+    ----------
+    the_slice : slice
+        An object that has integer attributes named `start`, `stop`, `step`,
+        e.g. `slice`, `range`, `DisplayCount`
+
+    Returns
+    -------
+    start : int or None
+        Start of slice, with default 0 if `step` > 0.
+    stop : int or None
+        Past end of slice, with default -1 if `step` < 0.
+    step : int
+        Increment of slice, with default 1.
+    """
+    start, stop, step = slice_args(the_slice)
+    step = _ag.default(step, 1)
+    if step > 0:
+        start = _ag.default(start, 0)
+    elif step < 0:
+        stop = _ag.default(stop, -1)
+    else:
+        raise ValueError('slice step cannot be zero')
+    return start, stop, step
+
+
+def last_value(obj, length: int = None) -> int:
+    """Last value in range
+
+    Parameters
+    ----------
+    obj
+        An object that has integer attributes named `start`, `stop` and `step`
+        e.g. `slice`, `range`, `DisplayCount`.
+    length : int or None
+        Replaces upper bound if upper bound is `None` or `> length`.
+        Upper bound is `stop` if `step > 0` and `start+1` otherwise.
+
+    Returns
+    -------
+    val : int or None
+        Last entry in iterable or slice, taking `start` and `step` into account
+        or `None` if `step > 0` and `length, stop` are `None`.
+
+    Raises
+    ------
+    ValueError
+        If `length, start` are `None` and `step < -1`. Or if `step == 0`.
+    """
+    obj = _std_slice(obj, length)
+    if obj.step > 0:
+        return _slice_max(obj)
+    _raise_non_determinable(obj)
+    return _slice_min(obj)
+
+
+def stop_step(obj, length: int = None) -> int:
+    """One step beyond last value in range
+
+    Parameters
+    ----------
+    obj
+        An object that has integer attributes named `start`, `stop` and `step`
+        e.g. `slice`, `range`, `DisplayCount`.
+    length : int or None
+        Replaces upper bound if upper bound is `None` or `> length`.
+        Upper bound is `stop` if `step > 0` and `start+1` otherwise.
+
+    Returns
+    -------
+    stop : int or None
+        Sets `stop = start + integer * step` without changing last value,
+        or `None` if `step > 0` and `length, stop` are `None`.
+
+    Raises
+    ------
+    ValueError
+        If `length, start` are `None` and `step < -1`. Or if `step == 0`.
+    """
+    obj = _std_slice(obj, length)
+    if obj.step > 0:
+        return _slice_sup(obj)
+    _raise_non_determinable(obj)
+    return _slice_inf(obj)
+
+# =============================================================================
+# %%* Slice tests
+# =============================================================================
+
+
+def in_slice(val: int, the_slice: slice):
+    """Does slice contain value?
+    """
+    if val is None:
+        return _unbounded(the_slice)
+    return val in slice_to_range(the_slice)
+
+
+def is_subslice(subslice: slice, the_slice: slice):
+    """Does slice contain subslice?
+    """
+    subslice, the_slice = _rectify(subslice), _rectify(the_slice)
+    return all(subslice.step % the_slice.step == 0,
+               in_slice(subslice.start, the_slice),
+               in_slice(subslice.stop, the_slice))
+
+
+def disjoint_slice(slc1: slice, slc2: slice):
+    """Do slices fail to overlap?
+    """
+    from .modular_arithmetic import and_
+    slc1, slc2 = _rectify(slc1), _rectify(slc2)
+    overlap, step = and_(slc1.start, slc1.step, slc2.start, slc2.step)
+    return not (in_slice(overlap, slc1) and in_slice(overlap, slc2))
+
+
+# =============================================================================
+# %%* Slice arithmetic
+# =============================================================================
+
+
+def slice_mul(left: SliceOrNum, right: SliceOrNum, step: bool = True) -> slice:
+    """Multiply slice by a number.
+
+    Parameters
+    ----------
+    step : bool
+        Also multiply step?
+    """
+    return _all_slice_op(left, right, _op.mul, (None, step, step))
+
+
+def slice_div(sliceobj: slice, other: Number, step: bool = True) -> slice:
+    """divide slice by a number.
+
+    Parameters
+    ----------
+    step : bool
+        Also divide step?
+    """
+    return _all_slice_op(sliceobj, other, _op.floordiv, (None, step, None))
+
+
+def slice_add(left: SliceOrNum, right: SliceOrNum) -> slice:
+    """Add slices / numbers.
+    """
+    return _all_slice_op(left, right, _op.add, (False,)*3)
+
+
+def slice_sub(left: SliceOrNum, right: SliceOrNum) -> slice:
+    """Subtract slices / numbers.
+    """
+    result = _all_slice_op(left, right, _op.sub, (False,)*3)
+    if any((isinstance(left, slice),
+            not isinstance(right, slice),
+            result.step is None)):
+        return result
+    return slice(result.start, result.stop, -result.step)
+
+# =============================================================================
 # %%* Utilities
 # =============================================================================
+
+# -----------------------------------------------------------------------------
+# %%* Exceptions
+# -----------------------------------------------------------------------------
+
+
+def _raise_if_no_stop(obj):
+    """raise ValueError if obj.stop is None/inf"""
+    if _isinf(obj):
+        raise ValueError("Need a finite value for stop")
+
+
+def _raise_non_determinable(the_slice: slice):
+    """Raise if lowest value in slice is not determinable.
+
+    Parameters
+    ----------
+    the_slice : slice
+        An object that has integer attributes named `start`, `stop` and `step`
+        e.g. `slice`, `range`, `DisplayCount`.
+
+        Assume standardised:
+            `start,stop` can only be `None` if _unbounded.
+            `step` is not `None`.
+            `stop = start + integer * step` unless _unbounded.
+
+    Raises
+    ------
+    ValueError
+        If lowest value in slice is not determined.
+    """
+    if _unbounded(the_slice) and the_slice.step < -1:
+        raise ValueError('Must specify length or start if step < -1')
+
+
+def _raise_if_none(obj):
+    """raise TypeError if obj is None"""
+    if obj is None:
+        raise TypeError("Unsupported operation")
+
+# -----------------------------------------------------------------------------
+# %%* Tests
+# -----------------------------------------------------------------------------
+
+
+def _isinf(obj):
+    """is obj.stop None/inf?"""
+    return obj.stop is None or _ig.isinf(obj.stop)
 
 
 def _unbounded(the_slice: slice) -> bool:
@@ -279,6 +488,31 @@ def _unbounded(the_slice: slice) -> bool:
     if the_slice.step == 0:
         return False
     return the_slice.start is None
+
+
+def _determinable(the_slice: slice, length: int = None) -> bool:
+    """Is lowest value in slice determinable?
+
+    Parameters
+    ----------
+    the_slice : slice
+        An object that has integer attributes named `start`, `stop` and `step`
+        e.g. `slice`, `range`, `DisplayCount`
+    length : int or None
+        Replaces upper bound if upper bound is `None` or `> length`.
+        Upper bound is `stop` if `step > 0` and `start+1` otherwise.
+
+    Returns
+    -------
+    determinable : bool
+        True if lowest value in slice is determined.
+    """
+    the_slice = _std_slice(the_slice, length)
+    return not (_unbounded(the_slice) and the_slice.step < -1)
+
+# -----------------------------------------------------------------------------
+# %%* Properties
+# -----------------------------------------------------------------------------
 
 
 def _last_val(start: int, stop: int, step: int) -> int:
@@ -320,57 +554,6 @@ def _stop_bound(start: int, stop: int, step: int) -> int:
     return _last_val(start, stop, step) + step
 
 
-def _std_slice(the_slice: slice, size: int = None) -> slice:
-    """Equivalent slice with default values where possible
-
-    Also sets `stop = start + integer * step` without changing last value, if
-    possible. Not possible when unbounded, unless `step == -1`.
-
-    Parameters
-    ----------
-    the_slice : slice
-        An object that has integer attributes named `start`, `stop` and `step`
-        e.g. `slice`, `range`, `DisplayCount`
-    size : int or None
-        Replaces upper bound if upper bound is `None` or `> size`.
-        Upper bound is `stop` if `step > 0` and `start+1` otherwise.
-
-    Returns
-    -------
-    the_slice : slice
-        Slice object with default values where possible.
-    """
-    if size is not None:
-        the_slice = slice(*the_slice.indices(size))
-    start, stop, step = slice_args_def(the_slice)
-    if not _unbounded(the_slice):
-        # if not _unbounded and step < 0, => start is not None
-        # if not _unbounded and step > 0, => stop is not None
-        stop = _stop_bound(start, stop, step)
-    return slice(start, stop, step)
-
-
-def _determinable(the_slice: slice, size: int = None) -> bool:
-    """Is lowest value in slice determinable?
-
-    Parameters
-    ----------
-    the_slice : slice
-        An object that has integer attributes named `start`, `stop` and `step`
-        e.g. `slice`, `range`, `DisplayCount`
-    size : int or None
-        Replaces upper bound if upper bound is `None` or `> size`.
-        Upper bound is `stop` if `step > 0` and `start+1` otherwise.
-
-    Returns
-    -------
-    determinable : bool
-        True if lowest value in slice is determined.
-    """
-    the_slice = _std_slice(the_slice, size)
-    return not (_unbounded(the_slice) and the_slice.step < -1)
-
-
 def _slice_sup(the_slice: slice) -> _ty.Optional[int]:
     """Smallest value one step after slice, or None
 
@@ -402,7 +585,7 @@ def _slice_max(the_slice: slice) -> _ty.Optional[int]:
 
 
 def _slice_min(the_slice: slice) -> _ty.Optional[int]:
-    """Upper bound on smallest value slice
+    """Upper bound on smallest value in slice
 
     Assume standardised:
         `start,stop` can only be `None` if _unbounded.
@@ -436,185 +619,114 @@ def _slice_inf(the_slice: slice) -> _ty.Optional[int]:
         return the_slice.stop + the_slice.step + 1
     return _stop_bound(the_slice.start, the_slice.stop, the_slice.step)
 
+# -----------------------------------------------------------------------------
+# %%* Standardising
+# -----------------------------------------------------------------------------
 
-def _rectify(the_slice: slice, size: int = None) -> slice:
+
+def _std_slice(the_slice: slice, length: int = None) -> slice:
+    """Equivalent slice with default values where possible
+
+    Also sets `stop = start + integer * step` without changing last value, if
+    possible. Not possible when unbounded, unless `step == -1`.
+
+    Parameters
+    ----------
+    the_slice : slice
+        An object that has integer attributes named `start`, `stop` and `step`
+        e.g. `slice`, `range`, `DisplayCount`
+    length : int or None
+        Replaces upper bound if upper bound is `None` or `> length`.
+        Upper bound is `stop` if `step > 0` and `start+1` otherwise.
+
+    Returns
+    -------
+    the_slice : slice
+        Slice object with default values where possible.
+    """
+    if length is not None:
+        the_slice = slice(*the_slice.indices(length))
+    start, stop, step = slice_args_def(the_slice)
+    if not _unbounded(the_slice):
+        # if not _unbounded and step < 0, => start is not None
+        # if not _unbounded and step > 0, => stop is not None
+        stop = _stop_bound(start, stop, step)
+    return slice(start, stop, step)
+
+
+def _rectify(the_slice: slice, length: int = None) -> slice:
     """Equivalent slice with positive step
 
     Raises
     ------
     ValueError
-        If `size, start` are `None` and `step < -1`. Or if `step == 0`.
+        If `length, start` are `None` and `step < -1`. Or if `step == 0`.
     """
-    the_slice = _std_slice(the_slice, size)
+    the_slice = _std_slice(the_slice, length)
     if the_slice.step > 0:
         return the_slice
     _raise_non_determinable(the_slice)
     return slice(_slice_min(the_slice), _slice_sup(the_slice), -the_slice.step)
 
-# =============================================================================
-# %%* Slice properties
-# =============================================================================
 
-
-def slice_args(the_slice: slice) -> _ty.Tuple[_ty.Optional[int], ...]:
-    """Extract start, stop, step from slice
-    """
-    return the_slice.start, the_slice.stop, the_slice.step
-
-
-def slice_args_def(the_slice: slice) -> _ty.Tuple[_ty.Optional[int], ...]:
-    """Extract start, stop, step from slice, using defaults where possible
-
-    Parameters
-    ----------
-    the_slice : slice
-        An object that has integer attributes named `start`, `stop`, `step`,
-        e.g. `slice`, `range`, `DisplayCount`
-
-    Returns
-    -------
-    start : int or None
-        Start of slice, with default 0 if `step` > 0.
-    stop : int or None
-        Past end of slice, with default -1 if `step` < 0.
-    step : int
-        Increment of slice, with default 1.
-    """
-    start, stop, step = slice_args(the_slice)
-    step = _ag.default(step, 1)
-    if step > 0:
-        start = _ag.default(start, 0)
-    elif step < 0:
-        stop = _ag.default(stop, -1)
-    else:
-        raise ValueError('slice step cannot be zero')
-    return start, stop, step
-
-
-def last_value(obj, size: int = None) -> int:
-    """Last value in range
-
-    Parameters
-    ----------
-    obj
-        An object that has integer attributes named `start`, `stop` and `step`
-        e.g. `slice`, `range`, `DisplayCount`.
-    size : int or None
-        Replaces upper bound if upper bound is `None` or `> size`.
-        Upper bound is `stop` if `step > 0` and `start+1` otherwise.
-
-    Returns
-    -------
-    val : int or None
-        Last entry in iterable or slice, taking `start` and `step` into account
-        or `None` if `step > 0` and `size, stop` are `None`.
-
-    Raises
-    ------
-    ValueError
-        If `size, start` are `None` and `step < -1`. Or if `step == 0`.
-    """
-    obj = _std_slice(obj, size)
-    if obj.step > 0:
-        return _slice_max(obj)
-    _raise_non_determinable(obj)
-    return _slice_min(obj)
-
-
-def stop_step(obj, size: int = None) -> int:
-    """One step beyond last value in range
-
-    Parameters
-    ----------
-    obj
-        An object that has integer attributes named `start`, `stop` and `step`
-        e.g. `slice`, `range`, `DisplayCount`.
-    size : int or None
-        Replaces upper bound if upper bound is `None` or `> size`.
-        Upper bound is `stop` if `step > 0` and `start+1` otherwise.
-
-    Returns
-    -------
-    stop : int or None
-        Sets `stop = start + integer * step` without changing last value,
-        or `None` if `step > 0` and `size, stop` are `None`.
-
-    Raises
-    ------
-    ValueError
-        If `size, start` are `None` and `step < -1`. Or if `step == 0`.
-    """
-    obj = _std_slice(obj, size)
-    if obj.step > 0:
-        return _slice_sup(obj)
-    _raise_non_determinable(obj)
-    return _slice_inf(obj)
-
-
-def in_slice(val: int, the_slice: slice):
-    """Does slice contain value?
+def _nonify(val: _ty.Optional[_ig.Eint]) -> _ty.Optional[int]:
+    """Replace inf with None
     """
     if val is None:
-        return _unbounded(the_slice)
-    if not _unbounded(the_slice):
-        return val in slice_to_range(the_slice)
-    rslice = _rectify(the_slice)
-    return (val >= rslice.start) and ((val - rslice.start) % rslice.step == 0)
-
-
-def is_subslice(subslice: slice, the_slice: slice):
-    """Does slice contain subslice?
-    """
-    subslice, the_slice = _rectify(subslice), _rectify(the_slice)
-    return all(subslice.step % the_slice.step == 0,
-               in_slice(subslice.start, the_slice),
-               in_slice(subslice.stop, the_slice))
-
-
-def disjoint_slice(slc1: slice, slc2: slice):
-    """Do slices fail to overlap?
-    """
-    from .modular_arithmetic import and_
-    slc1, slc2 = _rectify(slc1), _rectify(slc2)
-    overlap, step = and_(slc1.start, slc1.step, slc2.start, slc2.step)
-    return not (in_slice(overlap, slc1) and in_slice(overlap, slc2))
-
+        return val
+    if _ig.isfinite(val):
+        return int(val)
+    return None
 
 # -----------------------------------------------------------------------------
-# %%* Slice arithmetic
+# %%* Arithmetic
 # -----------------------------------------------------------------------------
-S = _ty.TypeVar('S')
-NumOp = _ty.Callable[[Number, Number], Number]
-SliceOrNum = _ty.Union[slice, Number]
 
 
-def _num_only(op: NumOp) -> _ty.Callable[[S, Number], S]:
+def _num_only_l(op: NumOp) -> _ty.Callable[[S, Number], S]:
     """Wrap an operator to only act on numbers
     """
-    def wrapper(first: S, other: Number) -> S:
-        if isinstance(first, Number):
-            return op(first, other)
-        return first
+    def wrapper(left: S, right: Number) -> S:
+        if isinstance(left, Number):
+            return op(left, right)
+        return left
     return wrapper
 
 
-def _slices_op(sliceobj: slice, other_slice: slice, op: NumOp) -> slice:
-    """Perform operation on slice."""
-    if not any((sliceobj.step is None,
-                other_slice.step is None,
-                sliceobj.step == other_slice.step)):
-        raise ValueError(f"incompatible steps: {sliceobj.step}"
-                         f" and {other_slice.step}")
+def _num_only_r(op: NumOp) -> _ty.Callable[[Number, S], S]:
+    """Wrap an operator to only act on numbers
+    """
+    def wrapper(left: Number, right: S) -> S:
+        if isinstance(right, Number):
+            return op(left, right)
+        return right
+    return wrapper
+
+
+def _num_only(op: NumOp) -> _ty.Callable[[S, S], S]:
+    """Wrap an operator to only act on numbers
+    """
+    return _num_only_l(_num_only_r(op))
+
+
+def _slices_op(left: slice, right: slice, op: NumOp, step: bool) -> slice:
+    """Perform operation on two slices."""
+    if step:
+        flex_op = _num_only(op)
+        lslc_args, rslc_args = slice_args(left), slice_args(right)
+        return slice(*[flex_op(s, t) for s, t in zip(lslc_args, rslc_args)])
+    lstep, rstep = left.step, right.step
+    if not ((lstep is None) or (rstep is None) or (lstep == rstep)):
+        raise ValueError(f"incompatible steps: {lstep} and {rstep}")
     flex_op = _num_only(op)
-    slc_args = slice_args(sliceobj)[:2]
-    oslc_args = slice_args(other_slice)[:2]
-    new_args = [flex_op(s, t) for s, t in zip(slc_args, oslc_args)]
-    new_args.append(_ag.default(sliceobj.step, other_slice.step))
+    lslc_args, rslc_args = slice_args(left)[:2], slice_args(right)[:2]
+    new_args = [flex_op(s, t) for s, t in zip(lslc_args, rslc_args)]
+    new_args.append(_ag.default(lstep, rstep))
     return slice(*new_args)
 
 
-def _slice_op(sliceobj: slice, other: Number, op: NumOp, step: bool) -> slice:
-    """Perform operation on slice."""
+def _lslice_op(sliceobj: slice, other: Number, op: NumOp, step: bool) -> slice:
+    """Perform operation on slice & number."""
     flex_op = _num_only(op)
     slc_args = slice_args(sliceobj)
     new_args = [flex_op(s, other) for s in slc_args]
@@ -624,7 +736,7 @@ def _slice_op(sliceobj: slice, other: Number, op: NumOp, step: bool) -> slice:
 
 
 def _rslice_op(other: Number, sliceobj: slice, op: NumOp, step: bool) -> slice:
-    """Perform operation on slice."""
+    """Perform operation on number & slice."""
     flex_op = _num_only(op)
     slc_args = slice_args(sliceobj)
     new_args = [flex_op(other, s) for s in slc_args]
@@ -633,56 +745,16 @@ def _rslice_op(other: Number, sliceobj: slice, op: NumOp, step: bool) -> slice:
     return slice(*new_args)
 
 
-def _all_slice_op(first: SliceOrNum, second: SliceOrNum,
-                  op: NumOp, step: _ty.Tuple[bool, ...]) -> slice:
-    """Perform operation on slice."""
-    if isinstance(first, slice) and isinstance(second, slice):
+def _all_slice_op(left: SliceOrNum, right: SliceOrNum, op: NumOp,
+                  step: _ty.Tuple[bool, ...]) -> slice:
+    """Perform operation on slices/numbers."""
+    if isinstance(left, slice) and isinstance(right, slice):
         _raise_if_none(step[0])
-        return _slices_op(first, second, op)
-    if isinstance(first, slice):
+        return _slices_op(left, right, op, step[0])
+    if isinstance(left, slice):
         _raise_if_none(step[1])
-        return _slice_op(first, second, op)
-    if isinstance(second, slice):
+        return _lslice_op(left, right, op, step[1])
+    if isinstance(right, slice):
         _raise_if_none(step[2])
-        return _rslice_op(first, second, op)
-    return op(first, second)
-
-
-def slice_mul(first: SliceOrNum, second: SliceOrNum,
-              step: bool = True) -> slice:
-    """Multiply slice by a number.
-
-    Parameters
-    ----------
-    step : bool
-        Also multiply step?
-    """
-    return _all_slice_op(first, second, _op.mul, (None, step, step))
-
-
-def slice_div(sliceobj: slice, other: Number, step: bool = True) -> slice:
-    """divide slice by a number.
-
-    Parameters
-    ----------
-    step : bool
-        Also divide step?
-    """
-    return _all_slice_op(sliceobj, other, _op.floordiv, (None, step, None))
-
-
-def slice_add(first: SliceOrNum, second: SliceOrNum) -> slice:
-    """Add slices / numbers.
-    """
-    return _all_slice_op(first, second, _op.add, (False,)*3)
-
-
-def slice_sub(first: SliceOrNum, second: SliceOrNum) -> slice:
-    """Subtract slices / numbers.
-    """
-    result = _all_slice_op(first, second, _op.sub, (False,)*3)
-    if all((result.step is not None,
-            not isinstance(first, slice),
-            isinstance(second, slice))):
-        return slice(result.start, result.stop, -result.step)
-    return result
+        return _rslice_op(left, right, op, step[2])
+    return op(left, right)
