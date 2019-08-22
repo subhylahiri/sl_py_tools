@@ -29,8 +29,8 @@ Examples
 
 import numpy as np
 from numpy.lib.mixins import _numeric_methods
+from numpy_linalg import matldiv, matrdiv
 from ._lnarray import lnarray
-from ._linalg import matldiv, matrdiv
 
 # =============================================================================
 # Class: ldarray
@@ -95,11 +95,5 @@ class ldarray(lnarray):
         # Finally, we must return the newly created object:
         return obj
 
-#    def __array_finalize__(self, obj):
-#        # We are not adding any attributes
-#        pass
-
-    __lshift__, __rlshift__, __ilshift__ = _numeric_methods(matldiv,
-                                                            'matldiv')
-    __rshift__, __rrshift__, __irshift__ = _numeric_methods(matrdiv,
-                                                            'matrdiv')
+    __lshift__, __rlshift__, __ilshift__ = _numeric_methods(matldiv, 'matldiv')
+    __rshift__, __rrshift__, __irshift__ = _numeric_methods(matrdiv, 'matrdiv')

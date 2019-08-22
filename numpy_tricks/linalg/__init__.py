@@ -71,21 +71,12 @@ Examples
 >>> d = (a >> b)
 """
 
-from ._lnarray import lnarray, pinvarray, invarray, lnmatrix
+from ._lnarray import lnarray, lnmatrix
 from ._ldarray import ldarray
-from ._linalg import (transpose, dagger, col, row, scalar, qr, lu,
-                      matmul, solve, rsolve, lstsq, rlstsq, matldiv, matrdiv)
-from .gufuncs import norm
-from . import gufuncs
 from . import _ln_wrap as wrappers
 from ._ln_creation import *
 from ._ln_manipulation import *
 # import _ld_wrap as wrappers
 # from ._ld_creation import *
 # from ._ld_manipulation import *
-assert gufuncs
-assert wrappers
-assert norm
-assert all((lnarray, pinvarray, invarray, lnmatrix, ldarray))
-assert all((transpose, dagger, col, row, scalar, qr, lu, matmul, solve, rsolve,
-            lstsq, rlstsq, matldiv, matrdiv))
+assert all((lnarray, lnmatrix, ldarray, wrappers))

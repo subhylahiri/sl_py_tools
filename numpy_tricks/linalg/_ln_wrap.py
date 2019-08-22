@@ -30,9 +30,9 @@ wrap_subsome
     non-array outputs, passing through subclasses.
 """
 
-from ._lnarray import lnarray as _array
 from functools import wraps as _wraps
 import numpy as _np
+from ._lnarray import lnarray as _array
 
 
 # =============================================================================

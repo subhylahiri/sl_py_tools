@@ -10,9 +10,9 @@ To use some other array class, change the first import statement and the
 docstrings.
 """
 
-from ._ldarray import ldarray as _array
 from functools import wraps as _wraps
 import numpy as _np
+from ._ldarray import ldarray as _array
 
 
 # =============================================================================
