@@ -234,6 +234,11 @@ isfinite = eint_in(math.isfinite)
 mod = eint_out(mod)
 divmod_ = eint_out(divmod_)
 
+
+def isinfnone(val: Optional[Eint]) -> bool:
+    """is val None/inf?"""
+    return val is None or isinf(val)
+
 # =============================================================================
 # %%* More modulo for Extended Integers
 # =============================================================================

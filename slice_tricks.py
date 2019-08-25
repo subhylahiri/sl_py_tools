@@ -3,15 +3,11 @@
 """
 from __future__ import annotations
 import typing as _ty
-import itertools as _it
-import operator as _op
 from abc import abstractmethod
-import collections.abc as _abc
 from numbers import Number
+from . import range_tricks as _rt
 from . import arg_tricks as _ag
 from . import integer_tricks as _ig
-from . import _iter_base as _ib
-from . import abc_tricks as _ab
 
 S = _ty.TypeVar('S')
 NumOp = _ty.Callable[[Number, Number], Number]
@@ -23,26 +19,11 @@ SliceArgs = _ty.Tuple[SliceArg, SliceArg, SliceArg]
 # =============================================================================
 
 
-class SliceIsh(_ab.ABCauto, typecheckonly=True):
+class SliceIsh(_rt.RangeIsh, typecheckonly=True):
     """ABC for slice-ish objects - those with start, stop, step attributes.
 
     Intended for instance/subclass checks only.
     """
-
-    @property
-    @abstractmethod
-    def start(self) -> SliceArg:
-        pass
-
-    @property
-    @abstractmethod
-    def stop(self) -> SliceArg:
-        pass
-
-    @property
-    @abstractmethod
-    def step(self) -> SliceArg:
-        pass
 
 
 class SliceLike(SliceIsh, typecheckonly=True):
@@ -55,150 +36,111 @@ class SliceLike(SliceIsh, typecheckonly=True):
     def indices(self, length: int) -> SliceArgs:
         pass
 
+
+class ContainerMixin(_rt.ContainerMixin):
+    """Mixin class to add extra Collection methods to SliceIsh classes
+
+    Should be used with `SliceCollectionMixin` or `RangeCollectionMixin`
+    """
+
+    def indices(self, length: int = None) -> SliceArgs:
+        """Start, stop, step of equivalent slice
+
+        This method takes a single integer argument length and computes
+        information about the slice that the object would describe if
+        applied to a sequence of `length` items.
+
+        Parameters
+        ----------
+        length : int or None
+            Length of sequence that equivalent `slice` is applied to.
+
+        Returns
+        -------
+        (start, stop, step) : int
+            a tuple of three integers; the start and stop indices and the step
+            or stride length of the slice. Missing or out-of-bounds indices are
+            handled in a manner consistent with regular slices.
+        """
+        if length is None:
+            return tuple(_nonify(val) for val in slice_args(self))
+        return range_to_slice(self).indices(length)
+
+
+class SliceCollectionMixin(ContainerMixin):
+    """Mixin class to add slice-container methods to SliceIsh classes"""
+
+    def __len__(self) -> int:
+        # slice behaviour
+        std = _std_slice(self)
+        if _unbounded(std):
+            return _ig.inf
+        return len(range(*slice_args(std)))
+
+    def __contains__(self, arg: _ig.Eint) -> bool:
+        # slice behaviour
+        return in_slice(arg, self)
+
+
 # =============================================================================
 # %%* Displaying slices
 # =============================================================================
 
 
 def slice_str(*sliceobjs: SliceIsh, bracket: bool = True) -> str:
-    """String representation of slice
+    """String representation of slice(s)
 
-    Converts `slice(a, b, c)` to `'a:b:c'`, `np.s_[a:b, c:]` to `'a:b,c:'`,
-    `*np.s_[::c, :4]` to `'::c,:4'`, `np.s_[:]` to `':'`, etc.
+    Converts `slice(a, b, c)` to `'[a:b:c]'`, `np.s_[a:b, c:]` to `'[a:b,c:]'`,
+    `*np.s_[::c, :4]` to `'[::c,:4]'`, `np.s_[:]` to `'[:]'`, etc.
 
     Parameters
     ----------
-    sliceobj : slice or range
-        Instance(s) to represent (or int, Ellipsis, hasattr{start,stop,step}).
+    sliceobj : SliceIsh
+        Instance(s) to represent (or int, Ellipsis).
+    bracket : bool, optional
+        Do we enclose result in []? default: True
 
     Returns
     -------
     slc_str : str
         String representing slice.
     """
+    def func(sliceobj):
+        """Format a single slice
+        """
+        return (_ag.default_non_eval(sliceobj.start, str, '') + ':'
+                + _ag.default_non_eval(sliceobj.stop, str, '')
+                + _ag.default_non_eval(sliceobj.step, lambda x: f':{x}', ''))
     if bracket:
-        return '[' + slice_str(sliceobjs, bracket=False) + ']'
-    if len(sliceobjs) == 0:
-        return ''
-    if len(sliceobjs) > 1:
-        return ','.join(slice_str(s, bracket=False) for s in sliceobjs)
-    sliceobj = sliceobjs[0]
-    if isinstance(sliceobj, tuple):
-        return slice_str(*sliceobj, bracket=False)
-    if isinstance(sliceobj, int):
-        return str(sliceobj)
-    if sliceobj is Ellipsis:
-        return '...'
-    return (_ag.default_non_eval(sliceobj.start, str, '') + ':'
-            + _ag.default_non_eval(sliceobj.stop, str, '')
-            + _ag.default_non_eval(sliceobj.step, lambda x: f':{x}', ''))
-
-# =============================================================================
-# %%* Extended range
-# =============================================================================
+        return _slice_disp(func, sliceobjs, '[{}]')
+    return _slice_disp(func, sliceobjs)
 
 
-class ExtendedRange(_abc.Collection, _abc.Iterator):
-    """Combination of range and itertools.count
+def slice_repr(*sliceobjs: SliceIsh, bracket: bool = True) -> str:
+    """Faithful string representation of slice(s)
 
-    Any parameter can be given as `None` and the default will be used. `stop`
-    can also be `+/-inf`.
+    Minimal string such that 'slice(' slice_repr(input) ')' evaluates to input.
 
     Parameters
     ----------
-    start : int or None, optional, default=0
-        initial counter value (inclusive).
-    stop : int or None, optional, default={inf,-1} if step {>0,<0}
-        value of counter at, or above which, the loop terminates (exclusive).
-    step : int or None, optional, default=1
-        increment of counter after each loop.
+    sliceobj : slice or range
+        Instance(s) to represent (or int, Ellipsis, hasattr{start,stop,step}).
+    bracket : bool, optional
+        Do we enclose result in ()? default: True
+
+    Returns
+    -------
+    slc_str : str
+        String representing slice.
     """
-    start: _ig.Integral
-    stop: _ig.Eint
-    step: _ig.Integral
-    _iter: _ty.Union[range, _it.count]
-
-    def __init__(self, *args, **kwds):
-        super().__init__()
-        self.start, self.stop, self.step = _ib.extract_slice(args, kwds)
-        if self.step < 0:
-            self.stop = _ag.default(self.stop, -1)
-        else:
-            self.stop = _ag.default(self.stop, _ig.inf)
-        if _isinf(self):
-            self._iter = _it.count(self.start, self.step)
-        else:
-            self.stop = _stop_bound(self.start, self.stop, self.step)
-            self._iter = range(self.start, self.stop, self.step)
-
-    def count(self, value: _ig.Eint) -> int:
-        """return number of occurences of value"""
-        if not _isinf(self):
-            return self._iter.count(value)
-        return int(value in self)
-
-    def index(self, value: _ig.Eint) -> _ig.Eint:
-        """return index of value.
-        Raise ValueError if the value is not present.
+    def func(sliceobj):
+        """Format a single slice
         """
-        if not _isinf(self):
-            return self._iter.index(value)
-        if value not in self:
-            raise ValueError(f"{value} is not in range")
-        return (value - self.stop) // self.step
+        return _rt.range_repr(sliceobj, False)
+    if bracket:
+        return _slice_disp(func, sliceobjs, '({})')
+    return _slice_disp(func, sliceobjs)
 
-    def indices(self, length: int = None) -> SliceArgs:
-        """Start, stop, step of equivalent slice
-
-        Parameters
-        ----------
-        length : int or None
-            This method takes a single integer argument length and computes
-            information about the slice that the object would describe if
-            applied to a sequence of `length` items.
-
-        Returns
-        -------
-        (start, stop, step)
-            a tuple of three integers; respectively these are the start and
-            stop indices and the step or stride length of the slice. Missing or
-            out-of-bounds indices are handled in a manner consistent with
-            regular slices.
-        """
-        if length is None:
-            return tuple(_nonify(val) for val in slice_args(self))
-        if _isinf(self):
-            return slice(*self.indices()).indices(length)
-        return range_to_slice(self).indices(length)
-
-    def __iter__(self) -> ExtendedRange:
-        return iter(self._iter)
-
-    def __next__(self) -> int:
-        return next(self._iter)
-
-    def __len__(self) -> int:
-        if _isinf(self):
-            return _ig.inf
-        return len(self._iter)
-
-    def __contains__(self, arg: _ig.Eint) -> bool:
-        if not _isinf(self):
-            return (arg in self._iter)
-        return ((arg - self.start) * self.step >= 0
-                and (arg - self.start) % self.step == 0)
-
-    def __reversed__(self) -> ExtendedRange:
-        _raise_if_no_stop(self)
-        args = self.stop - self.step, self.start - self.step, -self.step
-        return type(self)(*args)
-
-    def __repr__(self) -> str:
-        rpr = slice_str(self, bracket=False).replace(':', ', ')
-        return f"erange({rpr})"
-
-
-erange = ExtendedRange
 # =============================================================================
 # %%* Range conversion
 # =============================================================================
@@ -218,10 +160,10 @@ def range_to_slice(the_range: SliceIsh) -> slice:
     sliceobj
         `slice` object with `start`, `stop` and `step` taken from `the_range`.
     """
-    return slice(*slice_args(the_range))
+    return slice(*[_nonify(val) for val in slice_args(the_range)])
 
 
-def slice_to_range(the_slice: SliceLike, length: int = None) -> erange:
+def slice_to_range(the_slice: SliceIsh, length: int = None) -> _rt.erange:
     """Convert a slice object to an erange.
 
     Parameters
@@ -246,10 +188,14 @@ def slice_to_range(the_slice: SliceLike, length: int = None) -> erange:
     `None` and relative to `0` otherwise.
     """
     if isinstance(the_slice, int):
-        return erange(the_slice, the_slice + 1)
-    if length is not None and hasattr(the_slice, 'indices'):
-        return erange(*the_slice.indices(length))
-    return erange(*slice_args(the_slice))
+        return _rt.erange(the_slice, the_slice + 1)
+    # if length is not None and hasattr(the_slice, 'indices'):
+    if length is not None and isinstance(the_slice, SliceLike):
+        return _rt.erange(*the_slice.indices(length))
+    # enforce slice defaults
+    # return erange(*slice_args_def(the_slice))
+    # enforce range defaults
+    return _rt.erange(*slice_args(the_slice))
 
 
 class SliceRange():
@@ -286,7 +232,7 @@ class SliceRange():
         """
         self.length = length
 
-    def __getitem__(self, arg) -> erange:
+    def __getitem__(self, arg) -> _rt.erange:
         """
         Parameters
         ----------
@@ -312,7 +258,7 @@ srange = SliceRange()
 def slice_args(the_slice: SliceIsh) -> SliceArgs:
     """Extract start, stop, step from slice
     """
-    return the_slice.start, the_slice.stop, the_slice.step
+    return _rt.range_args(the_slice)
 
 
 def slice_args_def(the_slice: SliceIsh) -> SliceArgs:
@@ -413,7 +359,8 @@ def in_slice(val: SliceArg, the_slice: SliceLike) -> bool:
     """
     if val is None:
         return _unbounded(the_slice)
-    return val in slice_to_range(the_slice)
+    _raise_non_determinable(the_slice)
+    return val in slice_to_range(_std_slice(the_slice))
 
 
 def is_subslice(subslice: SliceLike, the_slice: SliceLike) -> bool:
@@ -440,43 +387,74 @@ def disjoint_slice(slc1: SliceLike, slc2: SliceLike) -> bool:
 SliceOrNum = _ty.Union[SliceIsh, Number]
 
 
+def slice_add(left: SliceOrNum, right: SliceOrNum) -> slice:
+    """Add slices / numbers.
+
+    Parameters
+    ----------
+    left, right : SliceIsh or Number
+        Arguments to add.
+
+    Raises
+    ------
+    ValueError
+     If `step`s are incompatible.
+    """
+    return _rt.arg_add(slice, left, right)
+
+
+def slice_sub(left: SliceOrNum, right: SliceOrNum) -> slice:
+    """Subtract slices / numbers.
+
+    Parameters
+    ----------
+    left, right : RangeIsh or Number
+        Arguments to subtract.any(iterable)
+
+    Raises
+    ------
+    ValueError
+     If `step`s are incompatible
+    """
+    return _rt.arg_sub(slice, left, right)
+
+
 def slice_mul(left: SliceOrNum, right: SliceOrNum, step: bool = True) -> slice:
     """Multiply slice by a number.
 
     Parameters
     ----------
+    left, right : SliceIsh or Number
+        Arguments to multiply. Cannot both be `SliceIsh`.
     step : bool
         Also multiply step?
+
+    Raises
+    ------
+    TypeError
+        If neither `left` nor `right is a number.`
     """
-    return _all_slice_op(left, right, _op.mul, (None, step, step))
+    return _rt.arg_mul(slice, left, right, step)
 
 
-def slice_div(sliceobj: SliceIsh, other: Number, step: bool = True) -> slice:
+def slice_div(left: SliceIsh, right: Number, step: bool = True) -> slice:
     """divide slice by a number.
 
     Parameters
     ----------
+    left : SliceIsh or Number
+        Argument to divide.
+    right : Number
+        Argument to divide by.
     step : bool
         Also divide step?
+
+    Raises
+    ------
+    TypeError
+        If `right` is not a number.
     """
-    return _all_slice_op(sliceobj, other, _op.floordiv, (None, step, None))
-
-
-def slice_add(left: SliceOrNum, right: SliceOrNum) -> slice:
-    """Add slices / numbers.
-    """
-    return _all_slice_op(left, right, _op.add, (False,)*3)
-
-
-def slice_sub(left: SliceOrNum, right: SliceOrNum) -> slice:
-    """Subtract slices / numbers.
-    """
-    result = _all_slice_op(left, right, _op.sub, (False,)*3)
-    if any((isinstance(left, slice),
-            not isinstance(right, slice),
-            result.step is None)):
-        return result
-    return slice(result.start, result.stop, -result.step)
+    return _rt.arg_div(slice, left, right, step)
 
 # =============================================================================
 # %%* Utilities
@@ -487,18 +465,13 @@ def slice_sub(left: SliceOrNum, right: SliceOrNum) -> slice:
 # -----------------------------------------------------------------------------
 
 
-def _isinf(obj: SliceIsh) -> bool:
-    """is obj.stop None/inf?"""
-    return obj.stop is None or _ig.isinf(obj.stop)
-
-
 def _unbounded(the_slice: SliceIsh) -> bool:
-    """Could slice include infinity?"""
+    """Could slice include +infinity?"""
     if the_slice.step is None or the_slice.step > 0:
-        return the_slice.stop is None
+        return _ig.isinfnone(the_slice.stop)
     if the_slice.step == 0:
         return False
-    return the_slice.start is None
+    return _ig.isinfnone(the_slice.start)
 
 
 def _determinable(the_slice: SliceLike, length: int = None) -> bool:
@@ -524,12 +497,6 @@ def _determinable(the_slice: SliceLike, length: int = None) -> bool:
 # -----------------------------------------------------------------------------
 # %%* Exceptions
 # -----------------------------------------------------------------------------
-
-
-def _raise_if_no_stop(obj: SliceIsh):
-    """raise ValueError if obj.stop is None/inf"""
-    if _isinf(obj):
-        raise ValueError("Need a finite value for stop")
 
 
 def _raise_non_determinable(the_slice: SliceIsh):
@@ -562,7 +529,7 @@ def _raise_if_none(obj: _ty.Any):
 
 
 def _raise_if_steps(left: SliceIsh, right: SliceIsh):
-    """raise TypeError if obj is None"""
+    """raise ValueError if steps do not match"""
     lstep, rstep = left.step, right.step
     if not ((lstep is None) or (rstep is None) or (lstep == rstep)):
         raise ValueError(f"Incompatible steps: {lstep} and {rstep}")
@@ -689,9 +656,10 @@ def _std_slice(the_slice: SliceLike, length: int = None) -> slice:
 
     Parameters
     ----------
-    the_slice : slice
+    the_slice : SliceLike
         An object that has integer attributes named `start`, `stop` and `step`
-        e.g. `slice`, `range`, `DisplayCount`
+        e.g. `slice`, `range`, `DisplayCount`.
+        If `length is None`, `SliceIsh` is ok.
     length : int or None
         Replaces upper bound if upper bound is `None` or `> length`.
         Upper bound is `stop` if `step > 0` and `start+1` otherwise.
@@ -736,81 +704,42 @@ def _nonify(val: _ty.Optional[_ig.Eint]) -> SliceArg:
     return None
 
 # -----------------------------------------------------------------------------
-# %%* Arithmetic
+# %%* Displaying
 # -----------------------------------------------------------------------------
 
 
-def _num_only_l(op: NumOp) -> _ty.Callable[[S, Number], S]:
-    """Wrap an operator to only act on numbers
+def _slice_disp(func: _ty.Callable[[SliceIsh], str],
+                sliceobjs: _ty.Tuple[SliceIsh],
+                bracket: str = '') -> str:
+    """String representation of slice(s)
+
+    Parameters
+    ----------
+    func : Callable[SliceIsh -> str]
+        Function to convert a single slice to a string.
+    sliceobjs : tuple(SliceIsh)
+        Instance(s) to represent (or int, Ellipsis, hasattr{start,stop,step}).
+    bracket : str, optional
+        If nonempty, String whose `format` method to apply, e.g. '[{}]'.
+        default: ''.
+
+    Returns
+    -------
+    slc_str : str
+        String representing slice.
     """
-    def wrapper(left: S, right: Number) -> S:
-        if isinstance(left, Number):
-            return op(left, right)
-        return left
-    return wrapper
-
-
-def _num_only_r(op: NumOp) -> _ty.Callable[[Number, S], S]:
-    """Wrap an operator to only act on numbers
-    """
-    def wrapper(left: Number, right: S) -> S:
-        if isinstance(right, Number):
-            return op(left, right)
-        return right
-    return wrapper
-
-
-def _num_only(op: NumOp) -> _ty.Callable[[S, S], S]:
-    """Wrap an operator to only act on numbers
-    """
-    return _num_only_l(_num_only_r(op))
-
-
-def _slcs_op(left: SliceIsh, right: SliceIsh, op: NumOp, step: bool) -> slice:
-    """Perform operation on two slices."""
-    if step:
-        flex_op = _num_only(op)
-        lslc_args, rslc_args = [slice_args(x) for x in (left, right)]
-        return slice(*[flex_op(s, t) for s, t in zip(lslc_args, rslc_args)])
-    _raise_if_steps(left, right)
-    flex_op = _num_only(op)
-    lslc_args, rslc_args = [slice_args(x)[:2] for x in (left, right)]
-    new_args = [flex_op(s, t) for s, t in zip(lslc_args, rslc_args)]
-    new_args.append(_ag.default(left.step, right.step))
-    return slice(*new_args)
-
-
-def _l_slc_op(left: SliceIsh, other: Number, op: NumOp, step: bool) -> slice:
-    """Perform operation on slice & number."""
-    flex_op = _num_only(op)
-    slc_args = slice_args(left)
-    new_args = [flex_op(s, other) for s in slc_args]
-    if not step:
-        new_args[-1] = slc_args[-1]
-    return slice(*new_args)
-
-
-def _r_slc_op(other: Number, right: SliceIsh, op: NumOp, step: bool) -> slice:
-    """Perform operation on number & slice."""
-    flex_op = _num_only(op)
-    slc_args = slice_args(right)
-    new_args = [flex_op(other, s) for s in slc_args]
-    if not step:
-        new_args[-1] = slc_args[-1]
-    return slice(*new_args)
-
-
-def _all_slice_op(left: SliceOrNum, right: SliceOrNum, op: NumOp,
-                  step: _ty.Tuple[bool, ...]) -> slice:
-    """Perform operation on slices/numbers."""
-    is_slc = [isinstance(x, slice) for x in (left, right)]
-    if all(is_slc):
-        _raise_if_none(step[0])
-        return _slcs_op(left, right, op, step[0])
-    if is_slc[0]:
-        _raise_if_none(step[1])
-        return _l_slc_op(left, right, op, step[1])
-    if is_slc[1]:
-        _raise_if_none(step[2])
-        return _r_slc_op(left, right, op, step[2])
-    return op(left, right)
+    if bracket:
+        return bracket.format(_slice_disp(func, sliceobjs))
+    if len(sliceobjs) == 0:
+        return ''
+    if len(sliceobjs) > 1:
+        return ','.join(_slice_disp(func, s) for s in sliceobjs)
+    sliceobj = sliceobjs[0]
+    if isinstance(sliceobj, tuple):
+        # in case we forgot to unpack a tuple originally
+        return _slice_disp(func, sliceobj)
+    if isinstance(sliceobj, int):
+        return str(sliceobj)
+    if sliceobj is Ellipsis:
+        return '...'
+    return func(sliceobj)

@@ -120,17 +120,20 @@ __all__ = [
     ]
 import itertools
 # All of these imports could be removed:
-from collections.abc import Iterator, Collection
-from typing import Optional, Tuple
+from collections.abc import Iterator
+from typing import Optional
 import sys
 
 from . import _iter_base as _it
 from . import arg_tricks as _ag
 from .display_tricks import delay_warnings
-from .slice_tricks import (range_to_slice, slice_to_range, SliceRange, srange,
-                           erange)
+from .range_tricks import erange
+from .slice_tricks import range_to_slice, slice_to_range, SliceRange, srange
+from .range_tricks import RangeCollectionMixin as _RangeCollectionMixin
+from .slice_tricks import ContainerMixin as _ContainerMixin
 
-_ag.Export[delay_warnings, slice_to_range, SliceRange, srange, range_to_slice]
+_ag.Export[delay_warnings, erange]
+_ag.Export[range_to_slice, slice_to_range, SliceRange, srange]
 assert sys.version_info[:2] >= (3, 6)
 
 # =============================================================================
@@ -212,7 +215,7 @@ def _raise_if_no_stop(obj):
 # =============================================================================
 
 
-class DisplayCount(_it.DisplayMixin, Collection):
+class DisplayCount(_it.DisplayMixin, _RangeCollectionMixin, _ContainerMixin):
     """Iterator for displaying loop counters.
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -364,20 +367,6 @@ class DisplayCount(_it.DisplayMixin, Collection):
         self.end()
         raise StopIteration()
 
-    def _range(self) -> erange:
-        """equivalent range object"""
-        return slice_to_range(self)
-
-    def __len__(self):
-        """Number of entries"""
-        _raise_if_no_stop(self)
-        return len(self._range())
-
-    def __contains__(self, val):
-        """Is val a valid counter value?"""
-        # not using _range in case stop is None
-        return val in self._range()
-
     def _check_ctr(self) -> str:
         """Ensure that DisplayCount's are properly used"""
         # raise error if ctr is outside range
@@ -393,31 +382,10 @@ class DisplayCount(_it.DisplayMixin, Collection):
         if self.debug:
             self._state.check(self._check_ctr())
 
-    def count_steps(self, counter=None) -> int:
+    def count_steps(self) -> int:
         """How many steps have been taken?
         """
-        counter = _ag.default(counter, self.counter)
-        return (counter - self.start) // self.step
-
-    def indices(self, length: int = None) -> Tuple[int, ...]:
-        """Start, stop, step of equivalent slice
-
-        Parameters
-        ----------
-        length : int or None
-            This method takes a single integer argument length and computes
-            information about the slice that the object would describe if
-            applied to a sequence of `length` items.
-
-        Returns
-        -------
-        (start, stop, step)
-            a tuple of three integers; respectively these are the start and
-            stop indices and the step or stride length of the slice. Missing or
-            out-of-bounds indices are handled in a manner consistent with
-            regular slices.
-        """
-        return self._range().indices(length)
+        return self.index(self.counter)
 
 
 class DisplayBatch(DisplayCount):
@@ -857,7 +825,7 @@ rdzip = dzip.rev
 # ==============================================================================
 # %%* Non-displaying iterator functions
 # ==============================================================================
-undcount = _it.without_disp(range)
+undcount = _it.without_disp(erange)
 undbatch = _it.without_disp(batch)
 undenumerate = _it.without_disp(zenumerate)
 undzip = _it.without_disp(zip)
