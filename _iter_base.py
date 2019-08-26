@@ -5,13 +5,15 @@
 # @author: Subhy
 # =============================================================================
 """
-Base classes and behind the scenes work for modules ``display_tricks`` and
-``iter_tricks``.
+Base classes and behind the scenes work for `iter_tricks`, `range_tricks`
+and `slice_tricks` modules.
 """
 from abc import abstractmethod
 from collections.abc import Sized, Iterator
-from typing import Optional, Union, Tuple, Iterable, Dict, Callable
+from typing import Optional, Union, Tuple, Iterable, Dict, Callable, TypeVar
 from functools import wraps
+from numbers import Number
+from operator import add, mul, floordiv
 
 from .display_tricks import _DisplayState as DisplayState
 from .display_tricks import DisplayTemporary
@@ -31,6 +33,14 @@ SliceKeys = Dict[str, SliceArg]
 DSliceKeys = Dict[str, DSliceArg]
 Keys = Dict[str, Arg]
 DKeys = Dict[str, DArg]
+
+N = TypeVar('N', Number, None)
+NumOp = Callable[[Number, Number], Number]
+S = TypeVar('S')
+SorNum = Union[S, Number]
+SArgsOrNum = Union[SliceArgs, Number]
+ConvIn = Callable[[S], SliceArgs]
+ConvOut = Callable[[SliceArg, SliceArg, SliceArg], S]
 # =============================================================================
 # %%* Utility functions
 # =============================================================================
@@ -155,9 +165,148 @@ def without_disp(it_func: Callable[..., Iterable]) -> Callable[..., Iterable]:
 
     return no_disp_it_func
 
+# -----------------------------------------------------------------------------
+# %%* Arithmetic operations
+# -----------------------------------------------------------------------------
+
+
+def _num_only_l(op: NumOp) -> Callable[[N, Number], N]:
+    """Wrap an operator to only act on numbers
+    """
+    def wrapper(left: S, right: Number) -> S:
+        if isinstance(left, Number):
+            return op(left, right)
+        return left
+    return wrapper
+
+
+def _num_only_r(op: NumOp) -> Callable[[Number, N], N]:
+    """Wrap an operator to only act on numbers
+    """
+    def wrapper(left: Number, right: S) -> S:
+        if isinstance(right, Number):
+            return op(left, right)
+        return right
+    return wrapper
+
+
+def num_only(op: NumOp) -> Callable[[N, N], N]:
+    """Wrap an operator to only act on numbers
+    """
+    return _num_only_l(_num_only_r(op))
+
+
+def raise_if_steps(left: SliceArgs, right: SliceArgs):
+    """raise ValueError if steps do not match"""
+    lstep, rstep = left[2], right[2]
+    if not ((lstep is None) or (rstep is None) or (lstep == rstep)):
+        raise ValueError(f"Incompatible steps: {lstep} and {rstep}")
+
+
+def wrap_op(args: Tuple[SArgsOrNum, ...], op: NumOp, step: bool) -> SliceArgs:
+    """Perform operation on range arguments."""
+    flex_op = num_only(op)
+    if step:
+        return [flex_op(s, t) for s, t in zip(*args)]
+    raise_if_steps(*args)
+    ops = (flex_op, flex_op, default)
+    return [_op(s, t) for _op, s, t in zip(ops, *args)]
+    # new_args[2] = default(arg1[2], arg2[2])
+
+
+def conv_in_wrap(func: ConvIn) -> Callable[[SorNum], Tuple[SliceArgs, bool]]:
+    """wrap a function that converts Iterator to (start, top, step)."""
+    def conv_range_args(arg: SorNum) -> Tuple[SliceArgs, bool]:
+        """return range (args), True or (arg,arg,arg), False."""
+        if isinstance(arg, Number):
+            return (arg, arg, None), False
+        return func(arg), True
+    return conv_range_args
+
+
+def _range_ops(op: NumOp, case_steps: Tuple[bool, ...],
+               conv_in: ConvIn, conv_out: ConvOut, *args: SorNum) -> S:
+    """Perform operation on ranges/numbers.
+
+    Parameters
+    ----------
+    args
+        [left, right]
+    case_steps : tuple(bool, bool, bool)
+        if (both, left, right) isinstance(S), that element passed to wrap_op.
+    conv_in
+        function to convert inputs to input argument
+    conv_out
+        function to convert output arguments to output
+    op
+        operator to use
+    """
+    conv_in = conv_in_wrap(conv_in)
+    args, is_rng = zip(*[conv_in(x) for x in args])
+    if not any(is_rng):
+        return op(*args)
+    is_rng = (all(is_rng),) + is_rng
+    case_steps = case_steps[is_rng.index(True)]
+    if case_steps is None:
+        raise TypeError("Unsupported operation")
+    return conv_out(*wrap_op(*args, op, case_steps))
+
+
+def arg_mul(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum,
+            step: bool = True) -> S:
+    """multiply range by a number.
+
+    Parameters
+    ----------
+    arg1, arg2 : RangeIsh or Number
+        Arguments to multiply
+    step : bool
+        Also multiply step?
+    """
+    return _range_ops(mul, (None, step, step), cin, cout, arg1, arg2)
+
+
+def arg_div(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: Number,
+            step: bool = True) -> S:
+    """divide range by a number.
+
+    Parameters
+    ----------
+    arg1, arg2 : RangeIsh or Number
+        Arguments to divide
+    step : bool
+        Also divide step?
+    """
+    return _range_ops(floordiv, (None, step, None), cin, cout, arg1, arg2)
+
+
+def arg_add(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum) -> S:
+    """add ranges / numbers.
+
+    Parameters
+    ----------
+    arg1, arg2 : RangeIsh or Number
+        Arguments to add
+    """
+    return _range_ops(add, (False, False, False), cin, cout, arg1, arg2)
+
+
+def arg_sub(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum) -> S:
+    """subtract ranges / numbers.
+
+    Parameters
+    ----------
+    arg1, arg2 : RangeIsh or Number
+        Arguments to subtract
+    """
+    try:
+        return arg_add(cin, cout, arg1, arg_mul(cin, cout, arg2, -1, True))
+    except ValueError:
+        return arg_add(cin, cout, arg1, arg_mul(cin, cout, arg2, -1, False))
+
 
 # =============================================================================
-# %%* Client class
+# %%* Client class for DisplayCount
 # =============================================================================
 
 

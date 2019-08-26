@@ -5,17 +5,16 @@ from __future__ import annotations
 import typing as _ty
 from abc import abstractmethod
 from numbers import Number
+from . import _iter_base as _ib
 from . import range_tricks as _rt
 from . import arg_tricks as _ag
 from . import integer_tricks as _ig
 
-S = _ty.TypeVar('S')
-NumOp = _ty.Callable[[Number, Number], Number]
 SliceArg = _ty.Optional[int]
 SliceArgs = _ty.Tuple[SliceArg, SliceArg, SliceArg]
 
 # =============================================================================
-# %%* ABCs
+# %%* ABCs & mixins
 # =============================================================================
 
 
@@ -63,7 +62,7 @@ class ContainerMixin(_rt.ContainerMixin):
             handled in a manner consistent with regular slices.
         """
         if length is None:
-            return tuple(_nonify(val) for val in slice_args(self))
+            return tuple(_nonify_args(self))
         return range_to_slice(self).indices(length)
 
 
@@ -160,7 +159,7 @@ def range_to_slice(the_range: SliceIsh) -> slice:
     sliceobj
         `slice` object with `start`, `stop` and `step` taken from `the_range`.
     """
-    return slice(*[_nonify(val) for val in slice_args(the_range)])
+    return slice(*_nonify_args(the_range))
 
 
 def slice_to_range(the_slice: SliceIsh, length: int = None) -> _rt.erange:
@@ -314,10 +313,8 @@ def last_value(obj: SliceIsh, length: int = None) -> int:
         If `length, start` are `None` and `step < -1`. Or if `step == 0`.
     """
     obj = _std_slice(obj, length)
-    if obj.step > 0:
-        return _slice_max(obj)
     _raise_non_determinable(obj)
-    return _slice_min(obj)
+    return obj.stop - obj.step
 
 
 def stop_step(obj: SliceLike, length: int = None) -> int:
@@ -344,10 +341,8 @@ def stop_step(obj: SliceLike, length: int = None) -> int:
         If `length, start` are `None` and `step < -1`. Or if `step == 0`.
     """
     obj = _std_slice(obj, length)
-    if obj.step > 0:
-        return _slice_sup(obj)
     _raise_non_determinable(obj)
-    return _slice_inf(obj)
+    return obj.stop
 
 # =============================================================================
 # %%* Slice tests
@@ -400,7 +395,7 @@ def slice_add(left: SliceOrNum, right: SliceOrNum) -> slice:
     ValueError
      If `step`s are incompatible.
     """
-    return _rt.arg_add(slice, left, right)
+    return _ib.arg_add(slice_args, slice, left, right)
 
 
 def slice_sub(left: SliceOrNum, right: SliceOrNum) -> slice:
@@ -409,14 +404,14 @@ def slice_sub(left: SliceOrNum, right: SliceOrNum) -> slice:
     Parameters
     ----------
     left, right : RangeIsh or Number
-        Arguments to subtract.any(iterable)
+        Arguments to subtract.
 
     Raises
     ------
     ValueError
      If `step`s are incompatible
     """
-    return _rt.arg_sub(slice, left, right)
+    return _ib.arg_sub(slice_args, slice, left, right)
 
 
 def slice_mul(left: SliceOrNum, right: SliceOrNum, step: bool = True) -> slice:
@@ -434,7 +429,7 @@ def slice_mul(left: SliceOrNum, right: SliceOrNum, step: bool = True) -> slice:
     TypeError
         If neither `left` nor `right is a number.`
     """
-    return _rt.arg_mul(slice, left, right, step)
+    return _ib.arg_mul(slice_args, slice, left, right, step)
 
 
 def slice_div(left: SliceIsh, right: Number, step: bool = True) -> slice:
@@ -454,7 +449,7 @@ def slice_div(left: SliceIsh, right: Number, step: bool = True) -> slice:
     TypeError
         If `right` is not a number.
     """
-    return _rt.arg_div(slice, left, right, step)
+    return _ib.arg_div(slice_args, slice, left, right, step)
 
 # =============================================================================
 # %%* Utilities
@@ -491,8 +486,7 @@ def _determinable(the_slice: SliceLike, length: int = None) -> bool:
     determinable : bool
         True if lowest value in slice is determined.
     """
-    the_slice = _std_slice(the_slice, length)
-    return not (_unbounded(the_slice) and the_slice.step < -1)
+    return not (_unbounded(the_slice) and _ag.default(the_slice.step, 1) < -1)
 
 # -----------------------------------------------------------------------------
 # %%* Exceptions
@@ -518,24 +512,11 @@ def _raise_non_determinable(the_slice: SliceIsh):
     ValueError
         If lowest value in slice is not determined.
     """
-    if _unbounded(the_slice) and the_slice.step < -1:
+    if not _determinable(the_slice):
         raise ValueError('Must specify length or start if step < -1')
 
-
-def _raise_if_none(obj: _ty.Any):
-    """raise TypeError if obj is None"""
-    if obj is None:
-        raise TypeError("Unsupported operation")
-
-
-def _raise_if_steps(left: SliceIsh, right: SliceIsh):
-    """raise ValueError if steps do not match"""
-    lstep, rstep = left.step, right.step
-    if not ((lstep is None) or (rstep is None) or (lstep == rstep)):
-        raise ValueError(f"Incompatible steps: {lstep} and {rstep}")
-
 # -----------------------------------------------------------------------------
-# %%* Properties
+# %%* Properties from args
 # -----------------------------------------------------------------------------
 
 
@@ -576,6 +557,10 @@ def _stop_bound(start: int, stop: int, step: int) -> int:
         last value.
     """
     return _last_val(start, stop, step) + step
+
+# -----------------------------------------------------------------------------
+# %%* Properties
+# -----------------------------------------------------------------------------
 
 
 def _slice_sup(the_slice: SliceIsh) -> SliceArg:
@@ -673,8 +658,8 @@ def _std_slice(the_slice: SliceLike, length: int = None) -> slice:
         the_slice = slice(*the_slice.indices(length))
     start, stop, step = slice_args_def(the_slice)
     if not _unbounded(the_slice):
-        # if not _unbounded and step < 0, => start is not None
-        # if not _unbounded and step > 0, => stop is not None
+        # step > 0 => start is not None, and not unbounded => stop  is not None
+        # step < 0 => stop  is not None, and not unbounded => start is not None
         stop = _stop_bound(start, stop, step)
     return slice(start, stop, step)
 
@@ -691,17 +676,20 @@ def _rectify(the_slice: SliceLike, length: int = None) -> slice:
     if the_slice.step > 0:
         return the_slice
     _raise_non_determinable(the_slice)
-    return slice(_slice_min(the_slice), _slice_sup(the_slice), -the_slice.step)
+    the_slice = slice_sub(the_slice, the_slice.step)
+    return slice(the_slice.stop, the_slice.start, -the_slice.step)
 
 
-def _nonify(val: _ty.Optional[_ig.Eint]) -> SliceArg:
-    """Replace inf with None
+def _nonify_args(the_range: _rt.RangeIsh) -> SliceArgs:
+    """Replace inf with None in range args
     """
-    if val is None:
-        return val
-    if _ig.isfinite(val):
+    def _nonify(val: _rt.RangeArg) -> SliceArg:
+        """Replace inf with None
+        """
+        if _ig.isinfnone(val):
+            return None
         return int(val)
-    return None
+    return [_nonify(x) for x in slice_args(the_range)]
 
 # -----------------------------------------------------------------------------
 # %%* Displaying
@@ -709,7 +697,7 @@ def _nonify(val: _ty.Optional[_ig.Eint]) -> SliceArg:
 
 
 def _slice_disp(func: _ty.Callable[[SliceIsh], str],
-                sliceobjs: _ty.Tuple[SliceIsh],
+                sliceobjs: _ty.Tuple[SliceIsh, ...],
                 bracket: str = '') -> str:
     """String representation of slice(s)
 

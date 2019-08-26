@@ -4,7 +4,6 @@
 from __future__ import annotations
 import typing as _ty
 import itertools as _it
-import operator as _op
 from abc import abstractmethod
 import collections.abc as _abc
 from numbers import Number
@@ -13,13 +12,11 @@ from . import integer_tricks as _ig
 from . import _iter_base as _ib
 from . import abc_tricks as _ab
 
-S = _ty.TypeVar('S')
-NumOp = _ty.Callable[[Number, Number], Number]
 RangeArg = _ty.Optional[_ig.Eint]
-RangeArgs = _ty.Tuple[RangeArg, RangeArg, RangeArg]
+RangeArgs = _ty.Tuple[RangeArg, ...]
 
 # =============================================================================
-# %%* ABCs
+# %%* ABCs & mixins
 # =============================================================================
 
 
@@ -121,9 +118,8 @@ def range_repr(the_range: RangeIsh, bracket: bool = True) -> str:
     """
     if bracket:
         return f'({range_repr(the_range, False)})'
-    return (_default_non_eval(the_range.start, lambda x: f'{x},', '')
-            + str(the_range.stop)
-            + _default_non_eval(the_range.step, lambda x: f',{x}', ''))
+    return (_default_str(the_range.start, '{},') + str(the_range.stop)
+            + _default_str(the_range.step, ',{}'))
 
 # =============================================================================
 # %%* Extended range
@@ -275,7 +271,7 @@ def range_add(left: RangeOrNum, right: RangeOrNum) -> erange:
     ValueError
      If `step`s are incompatible.
     """
-    return arg_add(erange, left, right)
+    return _ib.arg_add(range_args, erange, left, right)
 
 
 def range_sub(left: RangeOrNum, right: RangeOrNum) -> erange:
@@ -291,7 +287,7 @@ def range_sub(left: RangeOrNum, right: RangeOrNum) -> erange:
     ValueError
      If `step`s are incompatible
     """
-    return arg_sub(erange, left, right)
+    return _ib.arg_sub(range_args, erange, left, right)
 
 
 def range_mul(arg1: RangeOrNum, arg2: RangeOrNum, step: bool = True) -> erange:
@@ -309,7 +305,7 @@ def range_mul(arg1: RangeOrNum, arg2: RangeOrNum, step: bool = True) -> erange:
     TypeError
         If neither `left` nor `right is a number.`
     """
-    return arg_mul(erange, arg1, arg2, step)
+    return _ib.arg_mul(range_args, erange, arg1, arg2, step)
 
 
 def range_div(left: RangeOrNum, right: Number, step: bool = True) -> erange:
@@ -329,7 +325,7 @@ def range_div(left: RangeOrNum, right: Number, step: bool = True) -> erange:
     TypeError
         If `right` is not a number.
     """
-    return arg_div(erange, left, right, step)
+    return _ib.arg_div(range_args, erange, left, right, step)
 
 # =============================================================================
 # %%* Utilities
@@ -344,7 +340,6 @@ def _isinf(obj: RangeIsh) -> bool:
     """is obj.stop None/inf? Can iterable go to +/- infinity?"""
     return _ig.isinfnone(obj.stop)
 
-
 # -----------------------------------------------------------------------------
 # %%* Exceptions
 # -----------------------------------------------------------------------------
@@ -354,19 +349,6 @@ def _raise_if_no_stop(obj: RangeIsh):
     """raise ValueError if obj.stop is None/inf"""
     if _isinf(obj):
         raise ValueError("Need a finite value for stop")
-
-
-def _raise_if_none(obj: _ty.Any):
-    """raise TypeError if obj is None"""
-    if obj is None:
-        raise TypeError("Unsupported operation")
-
-
-def _raise_if_steps(left: RangeIsh, right: RangeIsh):
-    """raise ValueError if steps do not match"""
-    lstep, rstep = left.step, right.step
-    if not ((lstep is None) or (rstep is None) or (lstep == rstep)):
-        raise ValueError(f"Incompatible steps: {lstep} and {rstep}")
 
 # -----------------------------------------------------------------------------
 # %%* Standardising
@@ -389,153 +371,25 @@ def _rectify(the_range: RangeLike) -> erange:
                      -the_range.step)
 
 
-def _default_non_eval(optional: _ty.Optional[_ig.Eint],
-                      non_default_fn: _ty.Callable[[int], str],
-                      default_value: str) -> str:
-    """Evaluate function on optional if it is not None
+def _default_str(optional: RangeArg, template: str) -> str:
+    """Evaluate function on optional if it is not None/inf
 
     Parameters
     ----------
-    optional : A or None
-        The optional argument, where `None` indicates that the default value
-        should be used instead.
-    non_default_fn : Callable[(A)->B]
-        Evaluated on `optional`if it is not `None`.
-    default_value : B
-        Default value for the argument, used when `optional` is `None`.
+    optional : int, inf or None
+        The optional argument, where `None`/`inf` indicates that the default
+        value should be used instead.
+    non_default_fn : Callable[int->str]
+        Evaluated on `optional`if it is not `None`/`inf`.
+    default_value : str
+        Default value for the argument, used when `optional` is `None`/`inf`.
 
     Returns
     -------
-    use_value : B
+    use_value : str
         Either `non_default_fn(optional)`, if `optional` is not `None` or
         `default_value` if it is.
     """
     if _ig.isinfnone(optional):
-        return default_value
-    return non_default_fn(optional)
-
-# -----------------------------------------------------------------------------
-# %%* Arithmetic
-# -----------------------------------------------------------------------------
-
-
-def _num_only_l(op: NumOp) -> _ty.Callable[[S, Number], S]:
-    """Wrap an operator to only act on numbers
-    """
-    def wrapper(left: S, right: Number) -> S:
-        if isinstance(left, Number):
-            return op(left, right)
-        return left
-    return wrapper
-
-
-def _num_only_r(op: NumOp) -> _ty.Callable[[Number, S], S]:
-    """Wrap an operator to only act on numbers
-    """
-    def wrapper(left: Number, right: S) -> S:
-        if isinstance(right, Number):
-            return op(left, right)
-        return right
-    return wrapper
-
-
-def _num_only(op: NumOp) -> _ty.Callable[[S, S], S]:
-    """Wrap an operator to only act on numbers
-    """
-    return _num_only_l(_num_only_r(op))
-
-
-def _wrap_op(args: RangeArgs, op: NumOp, step: bool) -> RangeArgs:
-    """Perform operation on two eranges."""
-    flex_op = _num_only(op)
-    if step:
-        return erange(*[flex_op(s, t) for s, t in zip(*args)])
-    arg1, arg2 = args
-    _raise_if_steps(arg1[2], arg2[2])
-    lrng_args, rrng_args = [range_args(x)[:2] for x in args]
-    new_args = [flex_op(s, t) for s, t in zip(arg1[:2], arg2[:2])]
-    new_args.append(_ag.default(arg1[2], arg2[2]))
-    return new_args
-
-
-def _conv_range_args(arg):
-    """return range args, True or (arg,arg,aeg), False."""
-    if isinstance(arg, RangeIsh):
-        return range_args(arg), True
-    return (arg, arg, None), False
-
-
-def _range_ops(op: NumOp, case_steps: _ty.Tuple[bool, ...], out: _ty.Type[S],
-               args: _ty.Tuple[RangeOrNum]) -> S:
-    """Perform operation on eranges/numbers.
-
-    Parameters
-    ----------
-    args
-        [left, right]
-    case_steps : tuple(bool, bool, bool)
-        if (both, left, right) isinstance RangeIsh, that element passed to _ops
-    out
-        type to convert output to
-    op
-        operator to use
-    """
-    args, is_rng = zip(*[_conv_range_args(x) for x in args])
-    if not any(is_rng):
-        return op(*args)
-    is_rng = (all(is_rng),) + is_rng
-    case_steps = case_steps[is_rng.index(True)]
-    _raise_if_none(case_steps)
-    return out(*_wrap_op(*args, op, case_steps))
-
-
-def arg_mul(
-        out: _ty.Type[S], arg1: RangeOrNum, arg2: RangeOrNum, step: bool) -> S:
-    """multiply range by a number.
-
-    Parameters
-    ----------
-    arg1, arg2 : RangeIsh or Number
-        Arguments to multiply
-    step : bool
-        Also multiply step?
-    """
-    return _range_ops(_op.mul, (None, step, step), out, [arg1, arg2])
-
-
-def arg_div(out: _ty.Type[S], arg1: RangeOrNum, arg2: Number, step: bool) -> S:
-    """divide range by a number.
-
-    Parameters
-    ----------
-    arg1, arg2 : RangeIsh or Number
-        Arguments to divide
-    step : bool
-        Also divide step?
-    """
-    return _range_ops(_op.floordiv, (None, step, None), out, [arg1, arg2])
-
-
-def arg_add(out: _ty.Type[S], arg1: RangeOrNum, arg2: RangeOrNum) -> S:
-    """add ranges / numbers.
-
-    Parameters
-    ----------
-    arg1, arg2 : RangeIsh or Number
-        Arguments to add
-    """
-    return _range_ops(_op.add, (False, False, False), out, [arg1, arg2])
-
-
-def arg_sub(out: _ty.Type[S], arg1: RangeOrNum, arg2: RangeOrNum) -> S:
-    """subtract ranges / numbers.
-
-    Parameters
-    ----------
-    arg1, arg2 : RangeIsh or Number
-        Arguments to subtract
-    """
-    try:
-        return arg_add(out, arg1, arg_mul(out, arg2, -1, True))
-    except ValueError:
-        return arg_add(out, arg1, arg_mul(out, arg2, -1, False))
+        return ''
+    return template.format(optional)
