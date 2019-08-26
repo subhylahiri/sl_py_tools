@@ -210,8 +210,8 @@ def wrap_op(args: Tuple[SArgsOrNum, ...], op: NumOp, step: bool) -> SliceArgs:
         return [flex_op(s, t) for s, t in zip(*args)]
     raise_if_steps(*args)
     ops = (flex_op, flex_op, default)
-    return [_op(s, t) for _op, s, t in zip(ops, *args)]
     # new_args[2] = default(arg1[2], arg2[2])
+    return [_op(s, t) for _op, s, t in zip(ops, *args)]
 
 
 def conv_in_wrap(func: ConvIn) -> Callable[[SorNum], Tuple[SliceArgs, bool]]:

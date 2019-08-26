@@ -2,16 +2,17 @@
 """Tricks for manipulating slices and ranges
 """
 from __future__ import annotations
-import typing as _ty
 from abc import abstractmethod
 from numbers import Number
+from typing import Optional, Tuple, Union, Callable
+
 from . import _iter_base as _ib
 from . import range_tricks as _rt
 from . import arg_tricks as _ag
 from . import integer_tricks as _ig
 
-SliceArg = _ty.Optional[int]
-SliceArgs = _ty.Tuple[SliceArg, SliceArg, SliceArg]
+SliceArg = Optional[int]
+SliceArgs = Tuple[SliceArg, SliceArg, SliceArg]
 
 # =============================================================================
 # %%* ABCs & mixins
@@ -219,7 +220,7 @@ class SliceRange():
     Negative `start`, `stop` interpreted relative to `length` if it is not
     `None` and relative to `0` otherwise.
     """
-    length: _ty.Optional[int]
+    length: Optional[int]
 
     def __init__(self, length: int = None):
         """
@@ -379,7 +380,7 @@ def disjoint_slice(slc1: SliceLike, slc2: SliceLike) -> bool:
 # =============================================================================
 # %%* Slice arithmetic
 # =============================================================================
-SliceOrNum = _ty.Union[SliceIsh, Number]
+SliceOrNum = Union[SliceIsh, Number]
 
 
 def slice_add(left: SliceOrNum, right: SliceOrNum) -> slice:
@@ -696,8 +697,8 @@ def _nonify_args(the_range: _rt.RangeIsh) -> SliceArgs:
 # -----------------------------------------------------------------------------
 
 
-def _slice_disp(func: _ty.Callable[[SliceIsh], str],
-                sliceobjs: _ty.Tuple[SliceIsh, ...],
+def _slice_disp(func: Callable[[SliceIsh], str],
+                sliceobjs: Tuple[SliceIsh, ...],
                 bracket: str = '') -> str:
     """String representation of slice(s)
 

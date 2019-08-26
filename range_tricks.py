@@ -2,25 +2,28 @@
 """Tricks for manipulating ranges and slices
 """
 from __future__ import annotations
-import typing as _ty
-import itertools as _it
+
 from abc import abstractmethod
-import collections.abc as _abc
+from collections.abc import Container, Iterator
 from numbers import Number
+from typing import Optional, Tuple, Union
+
+import itertools
+
+from .abc_tricks import ABCauto
+from . import _iter_base as _ib
 from . import arg_tricks as _ag
 from . import integer_tricks as _ig
-from . import _iter_base as _ib
-from . import abc_tricks as _ab
 
-RangeArg = _ty.Optional[_ig.Eint]
-RangeArgs = _ty.Tuple[RangeArg, ...]
+RangeArg = Optional[_ig.Eint]
+RangeArgs = Tuple[RangeArg, ...]
 
 # =============================================================================
 # %%* ABCs & mixins
 # =============================================================================
 
 
-class RangeIsh(_ab.ABCauto, typecheckonly=True):
+class RangeIsh(ABCauto, typecheckonly=True):
     """ABC for range-ish objects - those with start, stop, step attributes.
 
     Intended for instance/subclass checks only.
@@ -57,7 +60,7 @@ class RangeLike(RangeIsh, typecheckonly=True):
         pass
 
 
-class ContainerMixin(_abc.Container):
+class ContainerMixin(Container):
     """Mixin class to add extra Collection methods to RangeIsh classes
 
     Should be used with `RangeCollectionMixin`
@@ -126,7 +129,7 @@ def range_repr(the_range: RangeIsh, bracket: bool = True) -> str:
 # =============================================================================
 
 
-class ExtendedRange(_abc.Iterator, RangeCollectionMixin):
+class ExtendedRange(Iterator, RangeCollectionMixin):
     """Combination of range and itertools.count
 
     Any parameter can be given as `None` and the default will be used. `stop`
@@ -136,22 +139,22 @@ class ExtendedRange(_abc.Iterator, RangeCollectionMixin):
     ----------
     start : int or None, optional, default=0
         initial counter value (inclusive).
-    stop : int or None, optional, default={inf,-1} if step {>0,<0}
-        value of counter at, or above which, the loop terminates (exclusive).
+    stop : int or None, optional, default=inf*sign(step)
+        value of counter at or above which the loop terminates (exclusive).
     step : int or None, optional, default=1
         increment of counter after each loop.
     """
     start: _ig.Integral
     stop: _ig.Eint
     step: _ig.Integral
-    _iter: _ty.Union[range, _it.count]
+    _iter: Union[range, itertools.count]
 
     def __init__(self, *args, **kwds):
         super().__init__()
         self.start, self.stop, self.step = _ib.extract_slice(args, kwds)
         self.start, self.stop, self.step = range_args_def(self)
         if _isinf(self):
-            self._iter = _it.count(self.start, self.step)
+            self._iter = itertools.count(self.start, self.step)
         else:
             self._iter = range(self.start, self.stop, self.step)
 
@@ -203,6 +206,9 @@ def range_args(the_range: RangeIsh) -> RangeArgs:
 def range_args_def(the_range: RangeIsh) -> RangeArgs:
     """Extract start, stop, step from range, using defaults where possible
 
+    Also sets `stop = start + n * step` for some non-negative integer `n`
+    (without changing last value) when possible.
+
     Parameters
     ----------
     the_range : RangeIsh
@@ -214,7 +220,7 @@ def range_args_def(the_range: RangeIsh) -> RangeArgs:
     start : int or None
         Start of range, with default 0.
     stop : int or None
-        Past end of range, with no default.
+        Past end of range, with default sign(step) * inf.
     step : int
         Increment of range, with default 1.
     """
@@ -224,6 +230,8 @@ def range_args_def(the_range: RangeIsh) -> RangeArgs:
         raise ValueError('range step cannot be zero')
     start = _ag.default(start, 0)
     stop = _ag.default(stop, _ig.inf * step)
+    if (stop - start) * step < 0:
+        stop = start
     if _ig.isfinite(stop):
         remainder = (stop - start) % step
         if remainder:
@@ -255,7 +263,7 @@ def disjoint_range(rng1: RangeLike, rng2: RangeLike) -> bool:
 # =============================================================================
 # %%* Range arithmetic
 # =============================================================================
-RangeOrNum = _ty.Union[RangeIsh, Number]
+RangeOrNum = Union[RangeIsh, Number]
 
 
 def range_add(left: RangeOrNum, right: RangeOrNum) -> erange:
