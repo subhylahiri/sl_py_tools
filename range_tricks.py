@@ -105,7 +105,7 @@ class RangeCollectionMixin(ContainerMixin):
 def range_repr(the_range: RangeIsh, bracket: bool = True) -> str:
     """Faithful string representation of range
 
-    Minimal string such that 'range(' range_repr(input) ')' evaluates to input.
+    Minimal string such that `'range' + range_repr(input)` evaluates to `input`
 
     Parameters
     ----------

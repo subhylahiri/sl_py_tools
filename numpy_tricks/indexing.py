@@ -11,6 +11,7 @@ Tools for messing with array shapes
 """
 
 import numpy as np
+from .. import _iter_base as _ib
 from ..containers import ShapeTuple, same_shape, identical_shape, broadcastable
 from ..slice_tricks import slice_str, slice_to_range, SliceRange, srange
 from ..slice_tricks import (last_value, stop_step, in_slice, is_subslice,
@@ -121,7 +122,7 @@ def slice_to_inds(the_slice: slice, size: int = 0):
                      default(the_slice.step, 1), int)
 
 
-class SliceInds():
+class SliceInds(_ib.SliceToIter):
     """Class for converting a slice to an array of indices.
 
     You can build an array of indices by calling `si_[start:stop:step]`,
@@ -141,6 +142,7 @@ class SliceInds():
         size
             Upper limit of `range`s, used if `the_slice.stop` is `None`.
         """
+        super().__init__(slice_to_inds, 0, tuple)
         self.size = size
 
     def __getitem__(self, arg):
@@ -156,7 +158,12 @@ class SliceInds():
             `np.ndarray` of indices, as produced by `np.arange` with `start`,
             `stop` and `step` taken from `the_slice`.
         """
-        return slice_to_inds(arg, self.size)
+        arg = _ib.tuplify(arg)
+        if len(arg) < 1:
+            arg += (slice(None),)
+        if len(arg) < 2:
+            arg += (self.size,)
+        return super().__getitem__(arg)
 
 
 si_ = SliceInds()

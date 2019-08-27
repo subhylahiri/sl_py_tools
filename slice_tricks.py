@@ -163,7 +163,8 @@ def range_to_slice(the_range: SliceIsh) -> slice:
     return slice(*_nonify_args(the_range))
 
 
-def slice_to_range(the_slice: SliceIsh, length: int = None) -> _rt.erange:
+def slice_to_range(the_slice: SliceIsh, length: int = None,
+                   default_slice: bool = False) -> _rt.erange:
     """Convert a slice object to an erange.
 
     Parameters
@@ -192,13 +193,14 @@ def slice_to_range(the_slice: SliceIsh, length: int = None) -> _rt.erange:
     # if length is not None and hasattr(the_slice, 'indices'):
     if length is not None and isinstance(the_slice, SliceLike):
         return _rt.erange(*the_slice.indices(length))
-    # enforce slice defaults
-    # return erange(*slice_args_def(the_slice))
+    if default_slice:
+        # enforce slice defaults
+        return _rt.erange(*slice_args_def(the_slice))
     # enforce range defaults
     return _rt.erange(*slice_args(the_slice))
 
 
-class SliceRange():
+class SliceRange(_ib.SliceToIter):
     """Class for converting a slice to a range.
 
     You can build a `range` for iteration by calling `srange[start:stop:step]`,
@@ -221,8 +223,9 @@ class SliceRange():
     `None` and relative to `0` otherwise.
     """
     length: Optional[int]
+    default_slice: bool
 
-    def __init__(self, length: int = None):
+    def __init__(self, length: int = None, default_slice: bool = False):
         """
         Parameters
         ----------
@@ -230,7 +233,9 @@ class SliceRange():
             Replaces slice upper bound if upper bound is `None` or `> length`.
             Upper bound is `stop` if `step > 0` and `start+1` otherwise.
         """
+        super().__init__(slice_to_range, 0, tuple)
         self.length = length
+        self.default_slice = default_slice
 
     def __getitem__(self, arg) -> _rt.erange:
         """
@@ -244,9 +249,14 @@ class SliceRange():
         the_range : range
             `range` object with `start`, `stop` and `step` from `the_slice`.
         """
-        if isinstance(arg, tuple):
-            return slice_to_range(*arg)
-        return slice_to_range(arg, self.length)
+        arg = _ib.tuplify(arg)
+        if len(arg) < 1:
+            arg += (slice(None),)
+        if len(arg) < 2:
+            arg += (self.length,)
+        if len(arg) < 3:
+            arg += (self.default_slice,)
+        return super().__getitem__(arg)
 
 
 srange = SliceRange()
@@ -258,7 +268,7 @@ srange = SliceRange()
 def slice_args(the_slice: SliceIsh) -> SliceArgs:
     """Extract start, stop, step from slice
     """
-    return _rt.range_args(the_slice)
+    return the_slice.start, the_slice.stop, the_slice.step
 
 
 def slice_args_def(the_slice: SliceIsh) -> SliceArgs:

@@ -18,6 +18,7 @@ from operator import add, mul, floordiv
 from .display_tricks import _DisplayState as DisplayState
 from .display_tricks import DisplayTemporary
 from .arg_tricks import default
+from .containers import tuplify
 
 NameArg = Optional[str]
 SliceArg = Optional[int]
@@ -159,11 +160,57 @@ def without_disp(it_func: Callable[..., Iterable]) -> Callable[..., Iterable]:
         wrapper for `it_func` that eats the name argument and passes the rest.
     """
     @wraps(it_func)
+    @and_reverse
     def no_disp_it_func(*args, **kwds):
         _, no_disp_args = extract_name(args, kwds)
         return it_func(*no_disp_args, **kwds)
 
     return no_disp_it_func
+
+# -----------------------------------------------------------------------------
+# %%* Slice based factories
+# -----------------------------------------------------------------------------
+
+
+def st_args(with_st: Union[slice, range]) -> SliceArgs:
+    """Extract start, stop, step from slice/range-like object
+    """
+    return with_st.start, with_st.stop, with_st.step
+
+
+class SliceToIter(object):
+    """Use slice indexing to create iterators
+
+    Parameters
+    ----------
+    argnum : int, optional
+        Which argument to `__getitem__` is the slice to convert? Default: 0
+    iterfun : Callable[SliceArgs->Iterable], optional
+        Function to convert `(start,stop,step)` to iterator. Default: `range`
+    slicefun : Callable[slice->SliceArgs], optional
+        Function to convert slice to `(start,stop,step)`. Default: `range_args`
+    """
+    argnum: int
+    iterfun: Callable[[SliceArgs], Iterable]
+    slicefun: Callable[[slice], SliceArgs]
+
+    def __init__(self,
+                 iterfun: Callable[[SliceArgs], Iterable] = range,
+                 argnum: int = 0,
+                 slicefun: Callable[[slice], SliceArgs] = st_args,
+                 ):
+        super().__init__()
+        self.iterfun = iterfun
+        self.slicefun = slicefun
+        self.argnum = argnum
+
+    def __getitem__(self, arg) -> Iterable:
+        arg = tuplify(arg)
+        argspre = arg[:self.argnum]
+        argspost = arg[self.argnum+1:]
+        argsslc = self.slicefun(arg[self.argnum])
+        return self.iterfun(*argspre, *argsslc, *argspost)
+
 
 # -----------------------------------------------------------------------------
 # %%* Arithmetic operations

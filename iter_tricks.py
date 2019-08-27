@@ -829,3 +829,21 @@ undcount = _it.without_disp(erange)
 undbatch = _it.without_disp(batch)
 undenumerate = _it.without_disp(zenumerate)
 undzip = _it.without_disp(zip)
+
+unrdcount = undcount.rev
+unrdbatch = undbatch.rev
+unrdenumerate = undenumerate.rev
+unrdzip = undzip.rev
+
+# =============================================================================
+# %%* Slice iterator factories
+# =============================================================================
+b_ = _it.SliceToIter(batch)
+dc_ = _it.SliceToIter(dcount, 1)
+db_ = _it.SliceToIter(dbatch, 1)
+rdc_ = _it.SliceToIter(rdcount, 1)
+rdb_ = _it.SliceToIter(rdbatch, 1)
+udc_ = _it.SliceToIter(undcount, 1)
+udb_ = _it.SliceToIter(undbatch, 1)
+urdc_ = _it.SliceToIter(unrdcount, 1)
+urdb_ = _it.SliceToIter(unrdbatch, 1)
