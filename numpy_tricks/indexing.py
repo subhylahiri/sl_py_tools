@@ -305,6 +305,12 @@ class BroadcastType():
     def __iter__(self):
         return iter(self.bcast)
 
+    def _kwds_like(self, kwds):
+        """Prepare kwds for ????_like method"""
+        kwds.pop('subok')
+        kwds.setdefault('shape', self.shape)
+        kwds.setdefault('dtype', self.dtype)
+
     def empty_like(self, **kwds):
         """Return emtpty array of appropriate shape and dtype
 
@@ -312,9 +318,7 @@ class BroadcastType():
         --------
         `np.empty`, `np.empty_like`
         """
-        kwds.pop('subok')
-        kwds.setdefault('shape', self.shape)
-        kwds.setdefault('dtype', self.dtype)
+        self._kwds_like(kwds)
         return np.empty(**kwds)
 
     def ones_like(self, **kwds):
@@ -324,9 +328,7 @@ class BroadcastType():
         --------
         `np.ones`, `np.ones_like`
         """
-        kwds.pop('subok')
-        kwds.setdefault('shape', self.shape)
-        kwds.setdefault('dtype', self.dtype)
+        self._kwds_like(kwds)
         return np.ones(**kwds)
 
     def zeros_like(self, **kwds):
@@ -336,9 +338,7 @@ class BroadcastType():
         --------
         `np.zeros`, `np.zeros_like`
         """
-        kwds.pop('subok')
-        kwds.setdefault('shape', self.shape)
-        kwds.setdefault('dtype', self.dtype)
+        self._kwds_like(kwds)
         return np.zeros(**kwds)
 
     def full_like(self, fill, **kwds):
@@ -348,8 +348,6 @@ class BroadcastType():
         --------
         `np.full`, `np.full_like`
         """
-        kwds.pop('subok')
-        kwds.setdefault('shape', self.shape)
+        self._kwds_like(kwds)
         kwds.setdefault('fill', fill)
-        kwds.setdefault('dtype', self.dtype)
         return np.full(**kwds)
