@@ -112,28 +112,30 @@ Examples
 # current_module = __import__(__name__)
 __all__ = [
     'DisplayCount', 'DisplayBatch', 'DisplayEnumerate', 'DisplayZip',
-    'zenumerate', 'batch', 'slice_to_range', 'SliceRange', 'srange',
+    'zenumerate', 'batch',
+    'range_to_slice', 'slice_to_range', 'SliceRange', 'srange',
     'dbatch', 'dcount', 'denumerate', 'dzip',
     'rdcount', 'rdbatch', 'rdenumerate', 'rdzip',
     'undcount', 'undbatch', 'undenumerate', 'undzip',
-    'delay_warnings',
+    'delay_warnings', 'erange', 'sr_',
     ]
 import itertools
 # All of these imports could be removed:
 from collections.abc import Iterator
-from typing import Optional
+from typing import Optional, Sequence
 import sys
 
 from . import _iter_base as _it
-from . import arg_tricks as _ag
+from .arg_tricks import Export as _Export
 from .display_tricks import delay_warnings
-from .range_tricks import erange
+from .containers import ZipSequences, tuplify
+from .range_tricks import erange, sr_
 from .slice_tricks import range_to_slice, slice_to_range, SliceRange, srange
 from .range_tricks import RangeCollectionMixin as _RangeCollectionMixin
 from .slice_tricks import ContainerMixin as _ContainerMixin
 
-_ag.Export[delay_warnings, erange]
-_ag.Export[range_to_slice, slice_to_range, SliceRange, srange]
+_Export[delay_warnings, erange, sr_]
+_Export[range_to_slice, slice_to_range, SliceRange, srange]
 assert sys.version_info[:2] >= (3, 6)
 
 # =============================================================================
@@ -196,12 +198,82 @@ def batch(*sliceargs: _it.SliceArg, **kwargs: _it.SliceArg):
     >>>     y[s] = np.linalg.eigvals(x[s])
     """
     start, stop, step = _it.extract_slice(sliceargs, kwargs)
-    if stop is None:
-        for i in itertools.count(start, step):
-            yield slice(i, i+step, 1)
-    else:
-        for i in range(start, stop, step):
-            yield slice(i, i+step, 1)
+    for i in erange(start, stop, step):
+        yield slice(i, i+step, 1)
+
+
+def batched(step: int, *sequences: Sequence, usemax=True):
+    """Iterate over chunks of sequence(s)
+
+    Similar to `zip` object, except at each iteration it yields a slice of the
+    sequences covering that step.
+
+    Parameters
+    ----------
+    step : int
+        increment of counter after each loop.
+    sequence1, sequence2, ...
+        sequences to iterate over
+    usemax : bool, keyword only, default=True
+        If True, we continue until all sequences are exhausted. If False, we
+        stop when we reach the end of the shortest sequence.
+
+    Yields
+    ------
+    sequence1[i:i+step], sequence2[i:i+step], ...
+        slice(s) of the sequence(s) that starts at current counter and stops at
+        the next value with step size 1.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.random.rand(1000, 3, 3)
+    >>> y = np.empty((1000, 3), dtype = complex)
+    >>> for xx, yy in batchenum(10, x, y):
+    >>>     yy[...] = np.linalg.eigvals(xx)
+    """
+    seqs = ZipSequences(*sequences, usemax=usemax)
+    for s in batch(0, len(seqs), step):
+        yield seqs[s]
+
+
+def batchenum(step: int, *sequences: Sequence, usemax=True):
+    """Iterate over chunks of sequence(s)
+
+    Similar to `enumerate` object, except at each iteration it yields a slice
+    of the sequences covering that step and the corresponding slice(s) of the
+    sequence(s).
+
+    Parameters
+    ----------
+    step : int
+        increment of counter after each loop.
+    sequence1, sequence2, ...
+        sequences to iterate over
+    usemax : bool, keyword only, default=True
+        If True, we continue until all sequences are exhausted. If False, we
+        stop when we reach the end of the shortest sequence.
+
+    Yields
+    ------
+    batch_slice
+        slice object that starts at current counter and stops at the next value
+        with step size 1.
+    sequence1[s], sequence2[s], ...
+        slice(s) of the sequence(s) that starts at current counter and stops at
+        the next value with step size 1correspond to `batch_slice`.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.random.rand(1000, 3, 3)
+    >>> y = np.empty((1000, 3), dtype = complex)
+    >>> for ss, xx in batchenum(10, x):
+    >>>     y[ss] = np.linalg.eigvals(xx)
+    """
+    seqs = ZipSequences(*sequences, usemax=usemax)
+    for s in batch(0, len(seqs), step):
+        yield (s,) + tuplify(seqs[s])
 
 
 def _raise_if_no_stop(obj):
@@ -812,6 +884,84 @@ def dbatch(*args: _it.DSliceArg, **kwargs) -> DisplayBatch:
     >>>     y[s] = np.linalg.eigvals(x[s])
     """
     return DisplayBatch(*args, **kwargs)
+
+
+def dbatched(name: str, step: int, *sequences: Sequence, usemax=True):
+    """Iterate over chunks of sequence(s), with counter display
+
+    Similar to `zip` object, except at each iteration it yields a slice of the
+    sequences covering that step.
+
+    Parameters
+    ----------
+    name : str
+        name of counter used for prefix.
+    step : int
+        increment of counter after each loop.
+    sequence1, sequence2, ...
+        sequences to iterate over
+    usemax : bool, keyword only, default=True
+        If True, we continue until all sequences are exhausted. If False, we
+        stop when we reach the end of the shortest sequence.
+
+    Yields
+    ------
+    sequence1[i:i+step], sequence2[i:i+step], ...
+        slice(s) of the sequence(s) that starts at current counter and stops at
+        the next value with step size 1.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.random.rand(1000, 3, 3)
+    >>> y = np.empty((1000, 3), dtype = complex)
+    >>> for xx, yy in batchenum('xy', 10, x, y):
+    >>>     yy[...] = np.linalg.eigvals(xx)
+    """
+    seqs = ZipSequences(*sequences, usemax=usemax)
+    for s in dbatch(name, 0, len(seqs), step):
+        yield seqs[s]
+
+
+def dbatchenum(name: str, step: int, *sequences: Sequence, usemax=True):
+    """Iterate over chunks of sequence(s), with counter display
+
+    Similar to `enumerate` object, except at each iteration it yields a slice
+    of the sequences covering that step and the corresponding slice(s) of the
+    sequence(s).
+
+    Parameters
+    ----------
+    step : int
+        increment of counter after each loop.
+    sequence1, sequence2, ...
+        sequences to iterate over
+    usemax : bool, keyword only, default=True
+        If True, we continue until all sequences are exhausted. If False, we
+        stop when we reach the end of the shortest sequence.
+
+    Yields
+    ------
+    name : str
+        name of counter used for prefix.
+    batch_slice
+        slice object that starts at current counter and stops at the next value
+        with step size 1.
+    sequence1[s], sequence2[s], ...
+        slice(s) of the sequence(s) that starts at current counter and stops at
+        the next value with step size 1correspond to `batch_slice`.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.random.rand(1000, 3, 3)
+    >>> y = np.empty((1000, 3), dtype = complex)
+    >>> for ss, xx in batchenum('ss', 10, x):
+    >>>     y[ss] = np.linalg.eigvals(xx)
+    """
+    seqs = ZipSequences(*sequences, usemax=usemax)
+    for s in dbatch(name, 0, len(seqs), step):
+        yield (s,) + tuplify(seqs[s])
 
 
 # =============================================================================

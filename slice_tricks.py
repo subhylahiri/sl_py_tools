@@ -63,7 +63,7 @@ class ContainerMixin(_rt.ContainerMixin):
             handled in a manner consistent with regular slices.
         """
         if length is None:
-            return tuple(_nonify_args(self))
+            return tuple(_rt.nonify_args(self))
         return range_to_slice(self).indices(length)
 
 
@@ -160,11 +160,11 @@ def range_to_slice(the_range: SliceIsh) -> slice:
     sliceobj
         `slice` object with `start`, `stop` and `step` taken from `the_range`.
     """
-    return slice(*_nonify_args(the_range))
+    return slice(*_rt.nonify_args(the_range))
 
 
 def slice_to_range(the_slice: SliceIsh, length: int = None,
-                   default_slice: bool = False) -> _rt.erange:
+                   default_slice: bool = True) -> _rt.erange:
     """Convert a slice object to an erange.
 
     Parameters
@@ -177,6 +177,8 @@ def slice_to_range(the_slice: SliceIsh, length: int = None,
     length : int or None
         Replaces upper bound if upper bound is `None` or `> length`.
         Upper bound is `stop` if `step > 0` and `start+1` otherwise.
+    default_slice : bool
+        Use slice conventions for default arguments? Default: True
 
     Returns
     -------
@@ -211,6 +213,8 @@ class SliceRange(_ib.SliceToIter):
     length : int or None
         Replaces slice upper bound if upper bound is `None` or `> length`.
         Upper bound is `stop` if `step > 0` and `start+1` otherwise.
+    default_slice : bool
+        Use slice conventions for default arguments? Default: True
 
     Returns
     -------
@@ -225,13 +229,15 @@ class SliceRange(_ib.SliceToIter):
     length: Optional[int]
     default_slice: bool
 
-    def __init__(self, length: int = None, default_slice: bool = False):
+    def __init__(self, length: int = None, default_slice: bool = True):
         """
         Parameters
         ----------
         length : int or None
             Replaces slice upper bound if upper bound is `None` or `> length`.
             Upper bound is `stop` if `step > 0` and `start+1` otherwise.
+        default_slice : bool
+            Use slice conventions for default arguments? Default: True
         """
         super().__init__(slice_to_range, 0, tuple)
         self.length = length
@@ -243,11 +249,16 @@ class SliceRange(_ib.SliceToIter):
         ----------
         the_slice
             The `slice` to convert.
+        length : int or None, Optional
+            Replaces slice upper bound if upper bound is `None` or `> length`.
+            Upper bound is `stop` if `step > 0` and `start+1` otherwise.
+        default_slice : bool, Optional
+            Use slice conventions for default arguments? Default: True
 
         Returns
         -------
-        the_range : range
-            `range` object with `start`, `stop` and `step` from `the_slice`.
+        the_range : erange
+            `erange` object with `start`, `stop` and `step` from `the_slice`.
         """
         arg = _ib.tuplify(arg)
         if len(arg) < 1:
@@ -689,18 +700,6 @@ def _rectify(the_slice: SliceLike, length: int = None) -> slice:
     _raise_non_determinable(the_slice)
     the_slice = slice_sub(the_slice, the_slice.step)
     return slice(the_slice.stop, the_slice.start, -the_slice.step)
-
-
-def _nonify_args(the_range: _rt.RangeIsh) -> SliceArgs:
-    """Replace inf with None in range args
-    """
-    def _nonify(val: _rt.RangeArg) -> SliceArg:
-        """Replace inf with None
-        """
-        if _ig.isinfnone(val):
-            return None
-        return int(val)
-    return [_nonify(x) for x in slice_args(the_range)]
 
 # -----------------------------------------------------------------------------
 # %%* Displaying

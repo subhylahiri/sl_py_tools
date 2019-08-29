@@ -192,6 +192,7 @@ class ExtendedRange(Iterator, RangeCollectionMixin):
 
 
 erange = ExtendedRange
+sr_ = _ib.SliceToIter(erange)
 # =============================================================================
 # %%* Range properties
 # =============================================================================
@@ -237,6 +238,18 @@ def range_args_def(the_range: RangeIsh) -> RangeArgs:
         if remainder:
             stop += step - remainder
     return start, stop, step
+
+
+def nonify_args(the_range: RangeIsh) -> RangeArgs:
+    """Replace inf with None in range args
+    """
+    def nonify(val: RangeArg) -> RangeArgs:
+        """Replace inf with None
+        """
+        if _ig.isinfnone(val):
+            return None
+        return int(val)
+    return [nonify(x) for x in range_args(the_range)]
 
 # =============================================================================
 # %%* Range tests

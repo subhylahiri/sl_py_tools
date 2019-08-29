@@ -10,16 +10,16 @@ import contextlib as _cx
 import typing as _ty
 import numbers as _num
 from . import arg_tricks as _ag
-from .slice_tricks import (range_to_slice, slice_to_range, SliceRange, srange,
-                           in_slice, is_subslice, disjoint_slice, erange)
-
-_ag.Export[range_to_slice, slice_to_range, SliceRange, srange,
-           in_slice, is_subslice, disjoint_slice, erange]
 
 A = _ty.TypeVar('A')
 B = _ty.TypeVar('B')
 InstanceOrIterable = _ty.Union[A, _ty.Iterable[A]]
+InstanceOrTuple = _ty.Union[A, _ty.Tuple[A, ...]]
 Dictable = _ty.Union[_ty.Mapping[A, B], _ty.Iterable[_ty.Tuple[A, B]]]
+
+# =============================================================================
+# %%* Function parameter/return helpers
+# =============================================================================
 
 
 def tuplify(arg: InstanceOrIterable[A], num: int = 1) -> _ty.Tuple[A, ...]:
@@ -41,6 +41,24 @@ def tuplify(arg: InstanceOrIterable[A], num: int = 1) -> _ty.Tuple[A, ...]:
     return (arg,) * num
 
 
+def untuplify(arg: _ty.Tuple[A]) -> InstanceOrTuple[A]:
+    """Unpack tuple before returning.
+
+    If `tuple` has a single element, return that. If empty, return nothing.
+    Otherwise return the `tuple`.
+
+    Parameters
+    ----------
+    arg
+        `tuple` to be unwrapped.
+    """
+    if len(arg) == 0:
+        return
+    if len(arg) == 1:
+        return arg[0]
+    return arg
+
+
 def listify(arg: InstanceOrIterable[A], num: int = 1) -> _ty.List[A]:
     """Make argument a list.
 
@@ -58,6 +76,33 @@ def listify(arg: InstanceOrIterable[A], num: int = 1) -> _ty.List[A]:
     if isinstance(arg, cn.abc.Iterable) and not isinstance(arg, str):
         return list(arg)
     return [arg] * num
+
+
+# =============================================================================
+# %%* Classes
+# =============================================================================
+
+
+class ZipSequences(cn.abc.Sequence):
+    """Like zip, but indexable
+    """
+    _seqs: _ty.Tuple[_ty.Sequence, ...]
+    _max: bool
+
+    def __init__(self, *sequences: _ty.Sequence, usemax=False):
+        self._seqs = sequences
+        self._max = usemax
+
+    def __len__(self) -> int:
+        if self._max:
+            return max(len(obj) for obj in self._seqs)
+        return min(len(obj) for obj in self._seqs)
+
+    def __iter__(self):
+        return iter(zip(*self._seqs))
+
+    def __getitem__(self, index):
+        return untuplify(tuple(obj[index] for obj in self._seqs))
 
 
 class Interval(cn.abc.Container):
