@@ -93,7 +93,7 @@ class RangeCollectionMixin(ContainerMixin):
         if ((arg - self.start) * self.step < 0
                 or (arg - self.start) % self.step != 0):
             return False
-        if not _isinf(self) and (self.stop - arg) * self.step >= 0:
+        if not _isinf(self) and (arg - self.stop) * self.step >= 0:
             return False
         return True
 

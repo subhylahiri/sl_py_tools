@@ -807,6 +807,7 @@ def mat_update_params(mat: np.ndarray, params: np.ndarray,
         params = _uni_params(params, num_param(nst, **kwds))
     inds = param_inds(nst, **kwds)
     mat.ravel()[inds] = params
+    stochastify_c(mat)
 
 
 def tens_to_mat(tens: np.ndarray,
