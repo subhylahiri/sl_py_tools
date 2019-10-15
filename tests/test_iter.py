@@ -5,6 +5,7 @@ Created on Thu Dec 21 20:06:44 2017
 @author: subhy
 """
 import time
+import sys
 import numpy as np
 from sl_py_tools.iter_tricks import dcount, denumerate, dzip, zenumerate
 from sl_py_tools.iter_tricks import batch, dbatch, rdenumerate, rdzip
@@ -124,8 +125,9 @@ def test_dbatch():
 
 
 if __name__ == "__main__":
-    DisplayTemporary.file = None
-    #    DisplayTemporary.file = open('test_iter.txt', 'w')
+    # DisplayTemporary.file = None
+    # DisplayTemporary.file = open('test_iter.txt', 'w')
+    DisplayTemporary.file = sys.stderr
 
     test_zip()
     with dcontext('reversed in context'):
