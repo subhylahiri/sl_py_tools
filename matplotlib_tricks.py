@@ -17,6 +17,7 @@ def rc_fonts():
     mpl.rcParams['text.usetex'] = True
 #    mpl.rcParams['text.latex.unicode'] = True
     mpl.rcParams['font.family'] = 'serif'
+    mpl.rcParams['text.latex.preamble'] = r"\usepackage{amsmath,amssymb}"
 
 
 # =============================================================================
