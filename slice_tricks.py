@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 """Tricks for manipulating slices and ranges
+
+Requires
+--------
+gmpy2
 """
 from __future__ import annotations
 from abc import abstractmethod
@@ -15,7 +19,7 @@ SliceArg = Optional[int]
 SliceArgs = Tuple[SliceArg, SliceArg, SliceArg]
 
 # =============================================================================
-# %%* ABCs & mixins
+# ABCs & mixins
 # =============================================================================
 
 
@@ -83,7 +87,7 @@ class SliceCollectionMixin(ContainerMixin):
 
 
 # =============================================================================
-# %%* Displaying slices
+# Displaying slices
 # =============================================================================
 
 
@@ -142,7 +146,7 @@ def slice_repr(*sliceobjs: SliceIsh, bracket: bool = True) -> str:
     return _slice_disp(func, sliceobjs)
 
 # =============================================================================
-# %%* Range conversion
+# Range conversion
 # =============================================================================
 
 
@@ -272,7 +276,7 @@ class SliceRange(_ib.SliceToIter):
 
 srange = SliceRange()
 # =============================================================================
-# %%* Slice properties
+# Slice properties
 # =============================================================================
 
 
@@ -367,7 +371,7 @@ def stop_step(obj: SliceLike, length: int = None) -> int:
     return obj.stop
 
 # =============================================================================
-# %%* Slice tests
+# Slice tests
 # =============================================================================
 
 
@@ -394,12 +398,12 @@ def disjoint_slice(slc1: SliceLike, slc2: SliceLike) -> bool:
     """
     from .modular_arithmetic import and_
     slc1, slc2 = _rectify(slc1), _rectify(slc2)
-    overlap, step = and_(slc1.start, slc1.step, slc2.start, slc2.step)
+    overlap, _ = and_(slc1.start, slc1.step, slc2.start, slc2.step)
     return not (in_slice(overlap, slc1) and in_slice(overlap, slc2))
 
 
 # =============================================================================
-# %%* Slice arithmetic
+# Slice arithmetic
 # =============================================================================
 SliceOrNum = Union[SliceIsh, Number]
 
@@ -474,11 +478,11 @@ def slice_div(left: SliceIsh, right: Number, step: bool = True) -> slice:
     return _ib.arg_div(slice_args, slice, left, right, step)
 
 # =============================================================================
-# %%* Utilities
+# Utilities
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# %%* Tests
+# Tests
 # -----------------------------------------------------------------------------
 
 
@@ -511,7 +515,7 @@ def _determinable(the_slice: SliceLike, length: int = None) -> bool:
     return not (_unbounded(the_slice) and _ag.default(the_slice.step, 1) < -1)
 
 # -----------------------------------------------------------------------------
-# %%* Exceptions
+# Exceptions
 # -----------------------------------------------------------------------------
 
 
@@ -538,7 +542,7 @@ def _raise_non_determinable(the_slice: SliceIsh):
         raise ValueError('Must specify length or start if step < -1')
 
 # -----------------------------------------------------------------------------
-# %%* Properties from args
+# Properties from args
 # -----------------------------------------------------------------------------
 
 
@@ -581,7 +585,7 @@ def _stop_bound(start: int, stop: int, step: int) -> int:
     return _last_val(start, stop, step) + step
 
 # -----------------------------------------------------------------------------
-# %%* Properties
+# Properties
 # -----------------------------------------------------------------------------
 
 
@@ -651,7 +655,7 @@ def _slice_inf(the_slice: SliceIsh) -> SliceArg:
     return _stop_bound(*slice_args(the_slice))
 
 # -----------------------------------------------------------------------------
-# %%* Standardising
+# Standardising
 # -----------------------------------------------------------------------------
 
 
@@ -702,7 +706,7 @@ def _rectify(the_slice: SliceLike, length: int = None) -> slice:
     return slice(the_slice.stop, the_slice.start, -the_slice.step)
 
 # -----------------------------------------------------------------------------
-# %%* Displaying
+# Displaying
 # -----------------------------------------------------------------------------
 
 

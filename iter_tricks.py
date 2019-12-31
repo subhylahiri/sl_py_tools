@@ -108,6 +108,10 @@ Examples
 >>> for s in dbatch('s', 0, len(x), 10):
 >>>     y[s] = np.linalg.eigvals(x[s])
 >>> print(x[15], y[15])
+
+Requires
+--------
+gmpy2
 """
 # current_module = __import__(__name__)
 __all__ = [
@@ -139,7 +143,7 @@ _Export[range_to_slice, slice_to_range, SliceRange, srange]
 assert sys.version_info[:2] >= (3, 6)
 
 # =============================================================================
-# %%* Convenience functions
+# Convenience functions
 # =============================================================================
 
 
@@ -283,7 +287,7 @@ def _raise_if_no_stop(obj):
 
 
 # =============================================================================
-# %%* Displaying iterator classes
+# Displaying iterator classes
 # =============================================================================
 
 
@@ -653,7 +657,7 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
             return output
 
 # =============================================================================
-# %%* Function interface
+# Function interface
 # - only saves ink
 # =============================================================================
 
@@ -965,7 +969,7 @@ def dbatchenum(name: str, step: int, *sequences: Sequence, usemax=True):
 
 
 # =============================================================================
-# %%* Reversed iterator factories
+# Reversed iterator factories
 # =============================================================================
 rdcount = dcount.rev
 rdbatch = dbatch.rev
@@ -973,7 +977,7 @@ rdenumerate = denumerate.rev
 rdzip = dzip.rev
 
 # ==============================================================================
-# %%* Non-displaying iterator functions
+# Non-displaying iterator functions
 # ==============================================================================
 undcount = _it.without_disp(erange)
 undbatch = _it.without_disp(batch)
@@ -986,7 +990,7 @@ unrdenumerate = undenumerate.rev
 unrdzip = undzip.rev
 
 # =============================================================================
-# %%* Slice iterator factories
+# Slice iterator factories
 # =============================================================================
 b_ = _it.SliceToIter(batch)
 dc_ = _it.SliceToIter(dcount, 1)

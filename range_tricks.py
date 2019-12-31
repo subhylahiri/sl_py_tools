@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 """Tricks for manipulating ranges and slices
+
+Requires
+--------
+gmpy2
 """
 from __future__ import annotations
 
@@ -19,7 +23,7 @@ RangeArg = Optional[_ig.Eint]
 RangeArgs = Tuple[RangeArg, ...]
 
 # =============================================================================
-# %%* ABCs & mixins
+# ABCs & mixins
 # =============================================================================
 
 
@@ -98,7 +102,7 @@ class RangeCollectionMixin(ContainerMixin):
         return True
 
 # =============================================================================
-# %%* Displaying ranges
+# Displaying ranges
 # =============================================================================
 
 
@@ -125,7 +129,7 @@ def range_repr(the_range: RangeIsh, bracket: bool = True) -> str:
             + _default_str(the_range.step, ',{}'))
 
 # =============================================================================
-# %%* Extended range
+# Extended range
 # =============================================================================
 
 
@@ -194,7 +198,7 @@ class ExtendedRange(Iterator, RangeCollectionMixin):
 erange = ExtendedRange
 sr_ = _ib.SliceToIter(erange)
 # =============================================================================
-# %%* Range properties
+# Range properties
 # =============================================================================
 
 
@@ -252,7 +256,7 @@ def nonify_args(the_range: RangeIsh) -> RangeArgs:
     return [nonify(x) for x in range_args(the_range)]
 
 # =============================================================================
-# %%* Range tests
+# Range tests
 # =============================================================================
 
 
@@ -269,12 +273,12 @@ def disjoint_range(rng1: RangeLike, rng2: RangeLike) -> bool:
     """
     from .modular_arithmetic import and_
     rng1, rng2 = _rectify(rng1), _rectify(rng2)
-    overlap, step = and_(rng1.start, rng1.step, rng2.start, rng2.step)
+    overlap, _ = and_(rng1.start, rng1.step, rng2.start, rng2.step)
     return not ((overlap in rng1) and (overlap in rng2))
 
 
 # =============================================================================
-# %%* Range arithmetic
+# Range arithmetic
 # =============================================================================
 RangeOrNum = Union[RangeIsh, Number]
 
@@ -349,11 +353,11 @@ def range_div(left: RangeOrNum, right: Number, step: bool = True) -> erange:
     return _ib.arg_div(range_args, erange, left, right, step)
 
 # =============================================================================
-# %%* Utilities
+# Utilities
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# %%* Tests
+# Tests
 # -----------------------------------------------------------------------------
 
 
@@ -362,7 +366,7 @@ def _isinf(obj: RangeIsh) -> bool:
     return _ig.isinfnone(obj.stop)
 
 # -----------------------------------------------------------------------------
-# %%* Exceptions
+# Exceptions
 # -----------------------------------------------------------------------------
 
 
@@ -372,7 +376,7 @@ def _raise_if_no_stop(obj: RangeIsh):
         raise ValueError("Need a finite value for stop")
 
 # -----------------------------------------------------------------------------
-# %%* Standardising
+# Standardising
 # -----------------------------------------------------------------------------
 
 

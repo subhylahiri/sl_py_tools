@@ -62,7 +62,7 @@ from functools import wraps
 from .arg_tricks import default, default_non_eval
 
 # =============================================================================
-# %%* Wrapper helpers
+# Wrapper helpers
 # =============================================================================
 
 WRAPPER_ASSIGNMENTS_N = ('__doc__', '__annotations__', '__text_signature__')
@@ -99,7 +99,7 @@ def dummy_method(name: str) -> Callable:
 
     This can be used to effectively delete an unwanted operator from a mixin.
     """
-    def dummy(*args):
+    def dummy(*args, **kwds):
         """Dummy function"""
         return NotImplemented
     dummy.__name__ = name
@@ -107,7 +107,7 @@ def dummy_method(name: str) -> Callable:
 
 
 # -----------------------------------------------------------------------------
-# %%* Method wrapper helpers
+# Method wrapper helpers
 # -----------------------------------------------------------------------------
 
 
@@ -205,7 +205,7 @@ def _magic_name(func: Callable, prefix: str = None):
 
 
 # =============================================================================
-# %%* Setting method __objclass__
+# Setting method __objclass__
 # =============================================================================
 
 
@@ -252,7 +252,7 @@ def set_objclasses(objclass: type, cache: set):
 
 
 # =============================================================================
-# %%* Method wrappers
+# Method wrappers
 # =============================================================================
 
 
@@ -438,7 +438,7 @@ def iop_method_wrapper(conv_in: Callable, cache: set, attr=None) -> Callable:
 
 
 # =============================================================================
-# %%* Function wrappers
+# Function wrappers
 # =============================================================================
 
 
@@ -494,7 +494,7 @@ def function_wrappers(conv_in: Callable, class_out: type, types=None):
 
 
 # =============================================================================
-# %%* Mixins
+# Mixins
 # =============================================================================
 
 
@@ -707,7 +707,7 @@ def bitwise_mixin(conv_in, cache: set, types=None, nmspace=None) -> type:
 
 
 # -----------------------------------------------------------------------------
-# %%* Inplace Mixins
+# Inplace Mixins
 # -----------------------------------------------------------------------------
 
 
@@ -838,7 +838,7 @@ def ibitws_mixin(conv_in, cache: set, attr=None, nmspace=None) -> type:
 
 
 # -----------------------------------------------------------------------------
-# %%* Combined Mixins
+# Combined Mixins
 # -----------------------------------------------------------------------------
 
 

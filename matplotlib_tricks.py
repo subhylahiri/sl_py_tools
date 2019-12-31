@@ -21,7 +21,7 @@ def rc_fonts():
 
 
 # =============================================================================
-# %%* Figures
+# Figures
 # =============================================================================
 
 
@@ -38,7 +38,7 @@ def fig_square(fig: mpl.figure.Figure):
 
 
 # =============================================================================
-# %%* Axes lines, etc
+# Axes lines, etc
 # =============================================================================
 
 
@@ -118,7 +118,7 @@ def set_new_axlim(ax: plt.Axes,
     yaxis : bool, optional
         are we modifying the y axis? default: True
     reset : bool, optional
-        do we ignore the existing axeis limits? default: False
+        do we ignore the existing axis limits? default: False
     log : bool, optional
         is it a log scale? default: False
     buffer : float, optional
@@ -352,7 +352,7 @@ def plot_equality(axs: mpl.axes.Axes,
 
 
 # =============================================================================
-# %%* Colour limits, etc
+# Colour limits, etc
 # =============================================================================
 
 
@@ -403,7 +403,7 @@ def centre_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
 
 
 # =============================================================================
-# %%* Helper classes
+# Helper classes
 # =============================================================================
 
 
@@ -439,7 +439,7 @@ class EndArrow(mpl.patheffects.AbstractPathEffect):
     """
 
     def __init__(self, headwidth=5, headheight=5, facecolor=(0, 0, 0), **kwds):
-        super(mpl.patheffects._Base, self).__init__()
+        super().__init__()
         self.width, self.height = headwidth, headheight
         self._gc_args = kwds
         self.facecolor = facecolor

@@ -18,7 +18,7 @@ InstanceOrTuple = _ty.Union[A, _ty.Tuple[A, ...]]
 Dictable = _ty.Union[_ty.Mapping[A, B], _ty.Iterable[_ty.Tuple[A, B]]]
 
 # =============================================================================
-# %%* Function parameter/return helpers
+# Function parameter/return helpers
 # =============================================================================
 
 
@@ -79,7 +79,7 @@ def listify(arg: InstanceOrIterable[A], num: int = 1) -> _ty.List[A]:
 
 
 # =============================================================================
-# %%* Classes
+# Classes
 # =============================================================================
 
 
@@ -140,7 +140,7 @@ class Interval(cn.abc.Container):
         return min(max(val, self.start), self.stop)
 
 # =============================================================================
-# %%* Shapes and Tuples for array broadcasting
+# Shapes and Tuples for array broadcasting
 # =============================================================================
 
 
@@ -243,7 +243,7 @@ class ShapeTuple(tuple):
 
 
 # =============================================================================
-# %%* Dictionaries
+# Dictionaries
 # =============================================================================
 
 

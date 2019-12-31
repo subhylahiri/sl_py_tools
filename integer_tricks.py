@@ -67,7 +67,7 @@ def round_divide(numerator: Number,
 
 
 # =============================================================================
-# %%* Modulo for extended integers
+# Modulo for extended integers
 # =============================================================================
 
 
@@ -119,7 +119,7 @@ def divmod_(dividend: Number, divisor: Number) -> Number:
 
 
 # =============================================================================
-# %%* ExtendedInt method wrappers
+# ExtendedInt method wrappers
 # =============================================================================
 _types = (Real, type(gmpy2.mpz(1)))
 _method_cache = set()
@@ -141,7 +141,7 @@ _eint_meth_in = _nl.in_method_wrapper(_eint_conv, _method_cache)
 _eint_opr = _nl.opr_method_wrappers(_eint_conv, _method_cache, _types)
 
 # =============================================================================
-# %%* Extended integers
+# Extended integers
 # =============================================================================
 
 
@@ -211,7 +211,7 @@ class ExtendedInt(_nl.number_mixin(_eint_conv, _method_cache, _types)):
 
 
 # =============================================================================
-# %%* ExtendedInt finalise & function wrappers
+# ExtendedInt finalise & function wrappers
 # =============================================================================
 
 _nl.set_objclasses(ExtendedInt, _method_cache)
@@ -219,7 +219,7 @@ eint_in, eint_out = _nl.function_wrappers(_eint_conv, ExtendedInt, _types)
 
 
 # =============================================================================
-# %%* Convenience
+# Convenience
 # =============================================================================
 
 eint = ExtendedInt
@@ -240,7 +240,7 @@ def isinfnone(val: Optional[Eint]) -> bool:
     return val is None or isinf(val)
 
 # =============================================================================
-# %%* More modulo for Extended Integers
+# More modulo for Extended Integers
 # =============================================================================
 
 
