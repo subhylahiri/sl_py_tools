@@ -186,7 +186,11 @@ def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
         titlefontsize = kwds.pop('titlefontsize', fontsize)
         axs.title.set_fontsize(titlefontsize)
         axs.title.set_fontfamily(fontfamily)
-    if axs.legend_ is not None:
+    if axs.legend_ is None:
+        kwds.pop('legendbox', allopts)
+        kwds.pop('legendfont', allopts)
+        kwds.pop('legendfontsize', fontsize)
+    else:
         if kwds.pop('legendbox', allopts):
             axs.legend_.set_frame_on(False)
         if kwds.pop('legendfont', allopts):
