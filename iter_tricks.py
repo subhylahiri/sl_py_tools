@@ -237,8 +237,8 @@ def batched(step: int, *sequences: Sequence, usemax=True):
     >>>     yy[...] = np.linalg.eigvals(xx)
     """
     seqs = ZipSequences(*sequences, usemax=usemax)
-    for s in batch(0, len(seqs), step):
-        yield seqs[s]
+    for slc in batch(0, len(seqs), step):
+        yield seqs[slc]
 
 
 def batchenum(step: int, *sequences: Sequence, usemax=True):
@@ -276,8 +276,8 @@ def batchenum(step: int, *sequences: Sequence, usemax=True):
     >>>     y[ss] = np.linalg.eigvals(xx)
     """
     seqs = ZipSequences(*sequences, usemax=usemax)
-    for s in batch(0, len(seqs), step):
-        yield (s,) + tuplify(seqs[s])
+    for slc in batch(0, len(seqs), step):
+        yield (slc,) + tuplify(seqs[slc])
 
 
 def _raise_if_no_stop(obj):
@@ -535,7 +535,7 @@ class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):
     """Wraps iterator to display progress.
 
     Like ``zenumerate``, but using a ``DisplayCount``.
-    Reads maximum couter value from min length of Sized ``sequences``.
+    Reads maximum counter value from min length of Sized ``sequences``.
     Prints loop counter (plus 1), updates in place, and deletes at end.
     Returns (loop counter, sequence members) in each loop iteration.
     Nested loops display on one line and update correctly if the inner
@@ -737,7 +737,7 @@ def dcount(*args: _it.DSliceArg, **kwargs) -> DisplayCount:
 def denumerate(*args: _it.DZipArg, **kwds) -> DisplayEnumerate:
     """Like `zenumerate`, but using a `DisplayCount`.
 
-    Reads maximum couter value from min length of Sized `sequences`.
+    Reads maximum counter value from min length of Sized `sequences`.
     Prints loop counter (plus 1), updates in place, and deletes at end.
     Returns (loop counter, sequence members) in each loop iteration.
     Nested loops display on one line and update correctly if the inner
@@ -791,7 +791,7 @@ def denumerate(*args: _it.DZipArg, **kwds) -> DisplayEnumerate:
 def dzip(*args: _it.DZipArg, **kwds) -> DisplayZip:
     """Like `enumerate` + `zip`, but using a `DisplayCount`.
 
-    Reads maximum couter value from min length of Sized `sequences`.
+    Reads maximum counter value from min length of Sized `sequences`.
     Prints loop counter (plus 1), updates in place, and deletes at end.
     Returns (loop counter, sequence members) in each loop iteration.
     Nested loops display on one line and update correctly if the inner
@@ -923,8 +923,8 @@ def dbatched(name: str, step: int, *sequences: Sequence, usemax=True):
     >>>     yy[...] = np.linalg.eigvals(xx)
     """
     seqs = ZipSequences(*sequences, usemax=usemax)
-    for s in dbatch(name, 0, len(seqs), step):
-        yield seqs[s]
+    for slc in dbatch(name, 0, len(seqs), step):
+        yield seqs[slc]
 
 
 def dbatchenum(name: str, step: int, *sequences: Sequence, usemax=True):
@@ -964,8 +964,8 @@ def dbatchenum(name: str, step: int, *sequences: Sequence, usemax=True):
     >>>     y[ss] = np.linalg.eigvals(xx)
     """
     seqs = ZipSequences(*sequences, usemax=usemax)
-    for s in dbatch(name, 0, len(seqs), step):
-        yield (s,) + tuplify(seqs[s])
+    for slc in dbatch(name, 0, len(seqs), step):
+        yield (slc,) + tuplify(seqs[slc])
 
 
 # =============================================================================
