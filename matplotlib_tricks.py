@@ -4,20 +4,30 @@
 import typing as _ty
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.patheffects
+import matplotlib.patheffects as mpf
 import numpy as np
+import cycler
 from . import arg_tricks as _ag
 from . import containers as _cn
 
 
-def rc_fonts():
-    """Global font options
+def rc_fonts(family: str = 'serif'):
+    """Global font options, use LaTeX.
     """
     mpl.rcParams['pdf.fonttype'] = 42
     mpl.rcParams['text.usetex'] = True
 #    mpl.rcParams['text.latex.unicode'] = True
-    mpl.rcParams['font.family'] = 'serif'
+    mpl.rcParams['font.family'] = family
     mpl.rcParams['text.latex.preamble'] = r"\usepackage{amsmath,amssymb}"
+
+
+def rc_colours(order: _ty.Tuple[int, ...] = (0, 1, 2, 3, 4, 9, 6, 7, 5, 8)):
+    """Global line colour options.
+    """
+    prop_cycle = mpl.rcParams['axes.prop_cycle']
+    colors = prop_cycle.by_key()['color']
+    colours = [colors[i] for i in order]
+    mpl.rcParams['axes.prop_cycle'] = cycler.cycler(color=colours)
 
 
 # =============================================================================
@@ -42,12 +52,12 @@ def fig_square(fig: mpl.figure.Figure):
 # =============================================================================
 
 
-def equal_axlim(ax: mpl.axes.Axes, mode: str = 'union'):
+def equal_axlim(axs: mpl.axes.Axes, mode: str = 'union'):
     """Make x/y axes limits the same
 
     Parameters
     ----------
-    ax : mpl.axes.Axes
+    axs : mpl.axes.Axes
         axes instance whose limits are to be adjusted
     mode : str
         How do we adjust the limits? Options:
@@ -64,8 +74,8 @@ def equal_axlim(ax: mpl.axes.Axes, mode: str = 'union'):
     ValueError
         If `mode` is not one of the options above.
     """
-    xlim = ax.get_xlim()
-    ylim = ax.get_ylim()
+    xlim = axs.get_xlim()
+    ylim = axs.get_ylim()
     modes = {'union': (min(xlim[0], ylim[0]), max(xlim[1], ylim[1])),
              'intersect': (max(xlim[0], ylim[0]), min(xlim[1], ylim[1])),
              'x': xlim, 'y': ylim}
@@ -73,8 +83,8 @@ def equal_axlim(ax: mpl.axes.Axes, mode: str = 'union'):
         raise ValueError(f"Unknown mode '{mode}'. Shoulde be one of: "
                          "'union', 'intersect', 'x', 'y'.")
     new_lim = modes[mode]
-    ax.set_xlim(new_lim)
-    ax.set_ylim(new_lim)
+    axs.set_xlim(new_lim)
+    axs.set_ylim(new_lim)
 
 
 def calc_axlim(data, err=None, log=False, buffer=0.05):
@@ -101,7 +111,7 @@ def calc_axlim(data, err=None, log=False, buffer=0.05):
     return tuple(lim)
 
 
-def set_new_axlim(ax: plt.Axes,
+def set_new_axlim(axs: plt.Axes,
                   data: np.ndarray, err: _ty.Optional[np.ndarray] = None,
                   yaxis: bool = True, reset: bool = False, log: bool = False,
                   buffer: float = 0.05):
@@ -109,7 +119,7 @@ def set_new_axlim(ax: plt.Axes,
 
     Parameters
     ----------
-    ax : mpl.axes.Axes
+    axs : mpl.axes.Axes
         axes instance whose limits are to be adjusted
     data : np.ndarray (n)
         array of numbers plotted along the axis
@@ -127,14 +137,14 @@ def set_new_axlim(ax: plt.Axes,
     lim = calc_axlim(data, err, log, buffer)
     if not reset:
         if yaxis:
-            axlim = ax.get_ylim()
+            axlim = axs.get_ylim()
         else:
-            axlim = ax.get_xlim()
+            axlim = axs.get_xlim()
         lim = min(lim[0], axlim[0]), max(lim[1], axlim[1])
     if yaxis:
-        ax.set_ylim(lim)
+        axs.set_ylim(lim)
     else:
-        ax.set_xlim(lim)
+        axs.set_xlim(lim)
 
 
 def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
@@ -211,8 +221,8 @@ def adjust_legend_font(leg: mpl.legend.Legend, **kwds):
         keyword arguments passed to font properties manager.
     see `mpl.font_manager.FontProperties` for a list of keywords.
     """
-    for x in leg.get_texts():
-        x.set_fontproperties(mpl.font_manager.FontProperties(**kwds))
+    for txt in leg.get_texts():
+        txt.set_fontproperties(mpl.font_manager.FontProperties(**kwds))
 
 
 def centre_spines(axs: _ty.Optional[plt.Axes] = None,
@@ -376,13 +386,13 @@ def common_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
         fixed upper end of clim. If `None`, use max of `imh.clim[1]`.
     """
     imh = _cn.listify(imh)
-    old_clim = np.array([im.get_clim() for im in imh])
+    old_clim = np.array([img.get_clim() for img in imh])
 
     cmin = _ag.default(cmin, np.amin(old_clim[:, 0]))
     cmax = _ag.default(cmax, np.amax(old_clim[:, 1]))
 
-    for im in imh:
-        im.set_clim((cmin, cmax))
+    for img in imh:
+        img.set_clim((cmin, cmax))
 
 
 def centre_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
@@ -426,8 +436,7 @@ class CentredFormatter(mpl.ticker.ScalarFormatter):
     def __call__(self, value, pos=None):
         if value == self.centre:
             return ''
-        else:
-            return super().__call__(value, pos)
+        return super().__call__(value, pos)
 
 
 # Note: I'm implementing the arrows as a path effect rather than a custom
@@ -436,7 +445,7 @@ class CentredFormatter(mpl.ticker.ScalarFormatter):
 #       reversed when the axes are reversed! (Joe Kington)
 
 
-class EndArrow(mpl.patheffects.AbstractPathEffect):
+class EndArrow(mpf.AbstractPathEffect):
     """A matplotlib patheffect to add arrows at the end of a path.
 
     From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
@@ -451,19 +460,19 @@ class EndArrow(mpl.patheffects.AbstractPathEffect):
         self.trans = mpl.transforms.Affine2D()
 
         self.arrowpath = mpl.path.Path(
-                np.array([[-0.5, -0.2], [0.0, 0.0], [0.5, -0.2],
-                          [0.0, 1.0], [-0.5, -0.2]]),
-                np.array([1, 2, 2, 2, 79]))
+            np.array([[-0.5, -0.2], [0.0, 0.0], [0.5, -0.2],
+                      [0.0, 1.0], [-0.5, -0.2]]),
+            np.array([1, 2, 2, 2, 79]))
 
     def draw_path(self, renderer, gc, tpath, affine, rgbFace=None):
         scalex = renderer.points_to_pixels(self.width)
         scaley = renderer.points_to_pixels(self.height)
 
-        x0, y0 = tpath.vertices[-1]
-        dx, dy = tpath.vertices[-1] - tpath.vertices[-2]
-        azi = np.arctan2(dy, dx) - np.pi / 2.0
+        x_0, y_0 = tpath.vertices[-1]
+        d_x, d_y = tpath.vertices[-1] - tpath.vertices[-2]
+        azi = np.arctan2(d_y, d_x) - np.pi / 2.0
         trans = affine + self.trans.clear(
-                        ).scale(scalex, scaley).rotate(azi).translate(x0, y0)
+                        ).scale(scalex, scaley).rotate(azi).translate(x_0, y_0)
 
         gc0 = renderer.new_gc()
         gc0.copy_properties(gc)
