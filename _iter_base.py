@@ -178,7 +178,7 @@ def st_args(with_st: Union[slice, range]) -> SliceArgs:
     return with_st.start, with_st.stop, with_st.step
 
 
-class SliceToIter(object):
+class SliceToIter:
     """Use slice indexing to create iterators
 
     Parameters
@@ -217,30 +217,30 @@ class SliceToIter(object):
 # -----------------------------------------------------------------------------
 
 
-def _num_only_l(op: NumOp) -> Callable[[N, Number], N]:
+def _num_only_l(opr: NumOp) -> Callable[[N, Number], N]:
     """Wrap an operator to only act on numbers
     """
     def wrapper(left: S, right: Number) -> S:
         if isinstance(left, Number):
-            return op(left, right)
+            return opr(left, right)
         return left
     return wrapper
 
 
-def _num_only_r(op: NumOp) -> Callable[[Number, N], N]:
+def _num_only_r(opr: NumOp) -> Callable[[Number, N], N]:
     """Wrap an operator to only act on numbers
     """
     def wrapper(left: Number, right: S) -> S:
         if isinstance(right, Number):
-            return op(left, right)
+            return opr(left, right)
         return right
     return wrapper
 
 
-def num_only(op: NumOp) -> Callable[[N, N], N]:
+def num_only(opr: NumOp) -> Callable[[N, N], N]:
     """Wrap an operator to only act on numbers
     """
-    return _num_only_l(_num_only_r(op))
+    return _num_only_l(_num_only_r(opr))
 
 
 def raise_if_steps(left: SliceArgs, right: SliceArgs):
@@ -250,9 +250,9 @@ def raise_if_steps(left: SliceArgs, right: SliceArgs):
         raise ValueError(f"Incompatible steps: {lstep} and {rstep}")
 
 
-def wrap_op(args: Tuple[SArgsOrNum, ...], op: NumOp, step: bool) -> SliceArgs:
+def wrap_op(args: Tuple[SArgsOrNum, ...], opr: NumOp, step: bool) -> SliceArgs:
     """Perform operation on range arguments."""
-    flex_op = num_only(op)
+    flex_op = num_only(opr)
     if step:
         return [flex_op(s, t) for s, t in zip(*args)]
     raise_if_steps(*args)
@@ -271,7 +271,7 @@ def conv_in_wrap(func: ConvIn) -> Callable[[SorNum], Tuple[SliceArgs, bool]]:
     return conv_range_args
 
 
-def _range_ops(op: NumOp, case_steps: Tuple[bool, ...],
+def _range_ops(opr: NumOp, case_steps: Tuple[bool, ...],
                conv_in: ConvIn, conv_out: ConvOut, *args: SorNum) -> S:
     """Perform operation on ranges/numbers.
 
@@ -285,18 +285,18 @@ def _range_ops(op: NumOp, case_steps: Tuple[bool, ...],
         function to convert inputs to input argument
     conv_out
         function to convert output arguments to output
-    op
+    opr
         operator to use
     """
     conv_in = conv_in_wrap(conv_in)
     args, is_rng = zip(*[conv_in(x) for x in args])
     if not any(is_rng):
-        return op(*args)
+        return opr(*args)
     is_rng = (all(is_rng),) + is_rng
     case_steps = case_steps[is_rng.index(True)]
     if case_steps is None:
         raise TypeError("Unsupported operation")
-    return conv_out(*wrap_op(*args, op, case_steps))
+    return conv_out(*wrap_op(*args, opr, case_steps))
 
 
 def arg_mul(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum,
@@ -366,11 +366,11 @@ class DisplayCntState(DisplayState):
         super().__init__(prev_state)
         self.prefix = ''
 
-    def show(self, *args, **kwds):
+    def show(self):
         """Display prefix"""
         self.prefix = DisplayTemporary.show(self.prefix)
 
-    def hide(self, *args, **kwds):
+    def hide(self):
         """Delete prefix"""
         self.prefix.end()
 
@@ -461,7 +461,8 @@ class AddDisplayToIterables(Iterator):
     def __init__(self, *args: DZipArg, **kwds):
         """Construct the displayer"""
         name, self._iterables = extract_name(args, kwds)
-        self.display = self.displayer(name, len(self), **kwds)
+        addto = kwds.pop('addto', 0)
+        self.display = self.displayer(name, addto, addto + len(self), **kwds)
 
     def __reversed__(self):
         """Prepare to display final counter with prefix.

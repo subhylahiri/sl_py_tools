@@ -134,11 +134,13 @@ def defaults(optionals: _ty.Iterable[_ty.Optional[A]],
 # =============================================================================
 
 
-class Export(object):
+class Export:
     """Dummy module/package level type hint to fool pyflakes.
 
     Should behave like a type hint that 'these were imported to make them
     available to the users of this module rather than for use in the module'.
+
+    Doesn't fool pylint.
 
     Does not actually do anything. It is really only intended for files like
     `__init__.py`, where you might import things from private modules to make

@@ -306,21 +306,9 @@ class DisplayCount(_it.DisplayMixin, _RangeCollectionMixin, _ContainerMixin):
 
     Construction
     ------------
-    iterator(name: str, low: int=0, high: int, step: int=1)
+    iterator([name: str,] [start: int=0, stop: int[, step: int=1]])
 
-    DisplayCount(name: str, low: int=0, high: int)
-
-    DisplayCount(name: str, high: int)
-
-    DisplayCount(low: int=0, high: int, step: int=1)
-
-    DisplayCount(low: int=0, high: int)
-
-    DisplayCount(high: int)
-
-    DisplayCount(name: str)
-
-    DisplayCount()
+    DisplayCount([name: str,] [stop: int])
 
     Parameters
     ----------
@@ -370,7 +358,7 @@ class DisplayCount(_it.DisplayMixin, _RangeCollectionMixin, _ContainerMixin):
     >>>             time.sleep(0.1)
     >>> print('done')
 
-    Using `zip` and omitting `high`::
+    Using `zip` and omitting `stop`::
 
     >>> for i in DisplayCount('i', 5):
     >>>     for j, k in zip(DisplayCount('j'), [1, 7, 13]):
@@ -708,7 +696,7 @@ def dcount(*args: _it.DSliceArg, **kwargs) -> DisplayCount:
     >>>             time.sleep(0.1)
     >>> print('done')
 
-    Using `zip` and omitting `high`::
+    Using `zip` and omitting `stop`::
 
     >>> for i in dcount('i', 5):
     >>>     for j, k in zip(dcount('j'), [1, 7, 13]):
