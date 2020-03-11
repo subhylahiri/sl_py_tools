@@ -173,19 +173,19 @@ def _flatten_inputs(args):
     return list(chain.from_iterable(_get_data(x) for x in args))
 
 
-_method_cache = set()
-_mth = nl.one_method_wrapper(_flatten_inputs, _method_cache, tuple)
-_opf = nl.opr_method_wrappers(_flatten_inputs, _method_cache, tuple)
-_opr = nl.opr_method_wrappers(_convert_inputs, _method_cache, tuple)
-_Cnv = nl.convert_mixin(_convert_inputs, _method_cache, Operators)
-_Ops = nl.mathops_mixin(_convert_inputs, _method_cache, tuple, Operators)
+_METHOD_CACHE = set()
+_mth = nl.one_method_wrapper(_flatten_inputs, _METHOD_CACHE, tuple)
+_opf = nl.opr_method_wrappers(_flatten_inputs, _METHOD_CACHE, tuple)
+_opr = nl.opr_method_wrappers(_convert_inputs, _METHOD_CACHE, tuple)
+_Cnv = nl.convert_mixin(_convert_inputs, _METHOD_CACHE, Operators)
+_Ops = nl.mathops_mixin(_convert_inputs, _METHOD_CACHE, tuple, Operators)
 
 
 # =============================================================================
 # Mod class
 # =============================================================================
 
-
+# pylint: disable=abstract-method
 class Mod(_Cnv, _Ops):
     """Class representing a congruence class in modular arithmetic.
 
@@ -281,7 +281,7 @@ class Mod(_Cnv, _Ops):
         return (other % self.modulus) == self.remainder
 
     def __ne__(self, other) -> bool:
-        return not (self == other)
+        return not self == other
 
     def __contains__(self, other) -> bool:
         if isinstance(other, Mod):
@@ -337,7 +337,7 @@ class Mod(_Cnv, _Ops):
         return +self
 
 
-nl.set_objclasses(Mod, _method_cache)
+nl.set_objclasses(Mod, _METHOD_CACHE)
 # =============================================================================
 # Helpers
 # =============================================================================

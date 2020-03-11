@@ -257,9 +257,9 @@ def update_new(to_update: dict, update_from: Dictable):
         for k in update_from.keys():
             to_update.setdefault(k, update_from[k])
     else:
-        for k, v in update_from:
+        for k, val in update_from:
             if k not in to_update.keys():
-                to_update[k] = v
+                to_update[k] = val
 
 
 def update_existing(to_update: dict, update_from: Dictable):
@@ -272,9 +272,9 @@ def update_existing(to_update: dict, update_from: Dictable):
         for k in to_update.keys():
             to_update[k] = update_from.get(k, to_update[k])
     else:
-        for k, v in update_from:
+        for k, val in update_from:
             if k in to_update.keys():
-                to_update[k] = v
+                to_update[k] = val
 
 
 def pop_existing(to_update: dict, pop_from: dict):
@@ -552,8 +552,10 @@ class BijectiveMap(cn.ChainMap):
 
     @property
     def fwd(self) -> PairedDict:
+        """The forward mapping"""
         return self.maps[0]
 
     @property
     def bwd(self) -> PairedDict:
+        """The reverse mapping"""
         return self.maps[1]

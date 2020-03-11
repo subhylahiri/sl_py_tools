@@ -376,6 +376,7 @@ def uni_gen_params_to_mat(params: np.ndarray, num_st: int,
     gen_params = _uni_params(params, num_st)
     if drn:
         return gen_params_to_mat(gen_params, drn)
+    # pylint: disable=unbalanced-tuple-unpacking
     pos, neg = np.split(gen_params, 2)
     return gen_params_to_mat(pos, 1) + gen_params_to_mat(neg, -1)
 

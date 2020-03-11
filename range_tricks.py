@@ -36,17 +36,17 @@ class RangeIsh(ABCauto, typecheckonly=True):
     @property
     @abstractmethod
     def start(self) -> RangeArg:
-        pass
+        """Start of range"""
 
     @property
     @abstractmethod
     def stop(self) -> RangeArg:
-        pass
+        """End of range"""
 
     @property
     @abstractmethod
     def step(self) -> RangeArg:
-        pass
+        """Step between members of range"""
 
 
 class RangeLike(RangeIsh, typecheckonly=True):
@@ -57,11 +57,13 @@ class RangeLike(RangeIsh, typecheckonly=True):
 
     @abstractmethod
     def count(self, value: _ig.Eint) -> int:
-        pass
+        """return number of occurences of value"""
 
     @abstractmethod
     def index(self, value: _ig.Eint) -> _ig.Eint:
-        pass
+        """return index of value.
+        Raise ValueError if the value is not present.
+        """
 
 
 class ContainerMixin(Container):
@@ -81,6 +83,10 @@ class ContainerMixin(Container):
         if value not in self:
             raise ValueError(f"{value} is not in range")
         return (value - self.start) // self.step
+
+    @abstractmethod
+    def __contains__(self, arg: _ig.Eint) -> bool:
+        pass
 
 
 class RangeCollectionMixin(ContainerMixin):
@@ -183,7 +189,7 @@ class ExtendedRange(Iterator, RangeCollectionMixin):
 
     def __contains__(self, arg: _ig.Eint) -> bool:
         if not _isinf(self):
-            return (arg in self._iter)
+            return arg in self._iter
         return super().__contains__(arg)
 
     def __reversed__(self) -> ExtendedRange:
@@ -397,23 +403,21 @@ def _rectify(the_range: RangeLike) -> erange:
 
 
 def _default_str(optional: RangeArg, template: str) -> str:
-    """Evaluate function on optional if it is not None/inf
+    """Evaluate format on optional if it is not None/inf
 
     Parameters
     ----------
     optional : int, inf or None
         The optional argument, where `None`/`inf` indicates that the default
         value should be used instead.
-    non_default_fn : Callable[int->str]
-        Evaluated on `optional`if it is not `None`/`inf`.
-    default_value : str
-        Default value for the argument, used when `optional` is `None`/`inf`.
+    template : str
+        Evaluate `template.format` on `optional`if it is not `None`/`inf`.
 
     Returns
     -------
     use_value : str
-        Either `non_default_fn(optional)`, if `optional` is not `None` or
-        `default_value` if it is.
+        Either `template.format(optional)`, if `optional` is not `None` or inf,
+        or `''` if it is.
     """
     if _ig.isinfnone(optional):
         return ''

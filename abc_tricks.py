@@ -18,7 +18,7 @@ from typing import Union, List, Tuple, Callable, Any
 
 CheckResult = Union[bool, type(NotImplemented)]
 Checker = Callable[[type, str], CheckResult]
-PropTypes = (property, types.MemberDescriptorType)
+PROP_TYPES = (property, types.MemberDescriptorType)
 
 
 def typename(inst: Any) -> str:
@@ -33,74 +33,81 @@ def supername(cls: type, base: type = object) -> str:
     """
     for scls in cls.__mro__:
         if scls is not cls and issubclass(scls, base):
-            break
-    return scls.__name__
+            return scls.__name__
 
 # =============================================================================
 # Type check utilities
 # =============================================================================
 
 
-def _check_dict(B: type, method: str) -> CheckResult:
+def _check_dict(the_class: type, method: str) -> CheckResult:
     """Check if method is in class dictionary.
     """
-    if method in B.__dict__:
-        if B.__dict__[method] is None:
+    if method in the_class.__dict__:
+        if the_class.__dict__[method] is None:
             return NotImplemented
         return True
     return False
 
 
-def _check_annotations(B: type, prop: str) -> CheckResult:
+def _check_annotations(the_class: type, prop: str) -> CheckResult:
     """Check if attribute is in class annotations.
     """
-    return prop in getattr(B, '__annotations__', {})
+    return prop in getattr(the_class, '__annotations__', {})
 
 
-def _check_property(B: type, prop: str) -> CheckResult:
+def _check_property(the_class: type, prop: str) -> CheckResult:
     """Check if prop is in class dictionary (as a property) or annotations.
     """
-    ok = _check_dict(B, prop)
-    if ok is NotImplemented:
+    is_ok = _check_dict(the_class, prop)
+    if is_ok is NotImplemented:
         return NotImplemented
-    if ok:
-        return isinstance(B.__dict__[prop], PropTypes)
-    return _check_annotations(B, prop)
+    if is_ok:
+        return isinstance(the_class.__dict__[prop], PROP_TYPES)
+    return _check_annotations(the_class, prop)
 
 
-def _check_generic(C: type, check: Checker, *methods: str) -> CheckResult:
+def _check_generic(the_class: type, check: Checker, *methods: str) -> CheckResult:
     """Check class for methods
     """
-    mro = C.__mro__
+    mro = the_class.__mro__
     for method in methods:
-        for B in mro:
-            ok = check(B, method)
-            if ok is NotImplemented:
+        for super_class in mro:
+            is_ok = check(super_class, method)
+            if is_ok is NotImplemented:
                 return NotImplemented
-            if ok:
+            if is_ok:
                 break
         else:
             return NotImplemented
     return True
 
 
-def check_methods(C: type, *methods: str) -> CheckResult:
-    return _check_generic(C, _check_dict, *methods)
+def check_methods(the_class: type, *methods: str) -> CheckResult:
+    """Check if methods are in class dictionary.
+    """
+    return _check_generic(the_class, _check_dict, *methods)
 
 
-def check_attributes(C: type, *properties: str) -> CheckResult:
-    return _check_generic(C, _check_annotations, *properties)
+def check_attributes(the_class: type, *properties: str) -> CheckResult:
+    """Check if attributes are in class annotations.
+    """
+    return _check_generic(the_class, _check_annotations, *properties)
 
 
-def check_properties(C: type, *properties: str) -> CheckResult:
-    return _check_generic(C, _check_property, *properties)
+def check_properties(the_class: type, *properties: str) -> CheckResult:
+    """Check if properties are in class dictionary (as property) or annotations.
+    """
+    return _check_generic(the_class, _check_property, *properties)
 
 
-def get_abstracts(C: type) -> Tuple[List[str], ...]:
-    abstracts = getattr(C, '__abstractmethods__', set())
+def get_abstracts(the_class: type) -> Tuple[List[str], ...]:
+    """Get names of abstract methods and properties
+    """
+    abstracts = getattr(the_class, '__abstractmethods__', set())
     methods, properties = [], []
     for abt in abstracts:
-        if isinstance(getattr(C, abt, None), property):
+        if isinstance(getattr(the_class, abt, None), property):
             properties.append(abt)
         else:
             methods.append(abt)
@@ -114,9 +121,9 @@ def subclass_hook(cls: type, subcls: type) -> CheckResult:
     `return subclass_hook(cls, subcls)`
     """
     methods, properties = get_abstracts(cls)
-    ok = check_methods(subcls, *methods)
-    if ok is not True:
-        return ok
+    is_ok = check_methods(subcls, *methods)
+    if is_ok is not True:
+        return is_ok
     return check_properties(subcls, *properties)
 
 
@@ -131,7 +138,7 @@ def subclass_hook_nosub(mycls: type, cls: type, subcls: type) -> CheckResult:
     return NotImplemented
 
 # =============================================================================
-# %%* ABC mixin with __subclasshook__
+# ABC mixin with __subclasshook__
 # =============================================================================
 
 

@@ -13,12 +13,12 @@ def allfinite(*arrays) -> bool:
     return all(np.isfinite(arr).all() for arr in arrays)
 
 
-def anyclose(x, y, *args, **kwds) -> bool:
+def anyclose(first, second, *args, **kwds) -> bool:
     """Are any elements close?
 
     Like numpy.allclose but with any instead of all.
     """
-    return np.isclose(x, y, *args, **kwds).any()
+    return np.isclose(first, second, *args, **kwds).any()
 
 
 def tri_low_rank(array, *args, **kwds):

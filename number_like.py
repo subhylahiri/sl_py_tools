@@ -220,8 +220,8 @@ def _add_set_objclass(meth, cache: set):
         Set storing methods that will need to have __objclass__ set later.
     """
     if isinstance(meth, tuple):
-        for m in meth:
-            _add_set_objclass(m, cache)
+        for mth in meth:
+            _add_set_objclass(mth, cache)
     else:
         cache.add(meth)
 
@@ -521,6 +521,7 @@ def convert_mixin(conv_in: Callable, cache: set, nmspace=None) -> type:
     defspace = default(nmspace, builtins)
     method_input = in_method_wrapper(conv_in, cache)
 
+    # pylint: disable=abstract-method
     class ConvertibleMixin(Complex):
         """Mixin class for conversion to number types.
         """
@@ -556,6 +557,7 @@ def ordered_mixin(conv_in: Callable, cache: set, nmspace=None) -> type:
     method_in = in_method_wrapper(conv_in, cache)
 
     # @total_ordering  # not nan friendly
+    # pylint: disable=abstract-method
     class OrderedMixin(Real):
         """Mixin class to mimic real arithmetic number types.
         """
@@ -601,6 +603,7 @@ def mathops_mixin(conv_in, cache: set, types=None, nmspace=None) -> type:
     ops = opr_method_wrappers(conv_in, cache, types)
 
     # @total_ordering  # not nan friendly
+    # pylint: disable=abstract-method
     class ArithmeticMixin(Complex):
         """Mixin class to mimic arithmetic number types.
         """
@@ -652,6 +655,7 @@ def rounder_mixin(conv_in, cache: set, types=None, nmspace=None) -> type:
     method = one_method_wrapper(conv_in, cache, types)
     ops = opr_method_wrappers(conv_in, cache, types)
 
+    # pylint: disable=abstract-method
     class RoundableMixin(Real):
         """Mixin class for rounding/modular routines.
         """
@@ -693,6 +697,7 @@ def bitwise_mixin(conv_in, cache: set, types=None, nmspace=None) -> type:
     method = one_method_wrapper(conv_in, cache, types)
     ops = opr_method_wrappers(conv_in, cache, types)
 
+    # pylint: disable=abstract-method
     class BitTwiddleMixin(Integral):
         """Mixin class to mimic bit-string types.
         """
@@ -744,6 +749,7 @@ def imaths_mixin(conv_in, cache: set, attr=None, nmspace=None) -> type:
     prefix = default_non_eval(attr, lambda x: 'i', '')
 
     # @total_ordering  # not nan friendly
+    # pylint: disable=abstract-method
     class IArithmeticMixin(Complex):
         """Mixin class to mimic arithmetic number types.
         """
@@ -786,6 +792,7 @@ def iround_mixin(conv_in, cache: set, attr=None, nmspace=None) -> type:
     iop = iop_method_wrapper(conv_in, cache, attr)
     prefix = default_non_eval(attr, lambda x: 'i', '')
 
+    # pylint: disable=abstract-method
     class IRoundableMixin(Real):
         """Mixin class for rounding/modular routines.
         """
@@ -825,6 +832,7 @@ def ibitws_mixin(conv_in, cache: set, attr=None, nmspace=None) -> type:
     prefix = default_non_eval(attr, lambda x: '', 'i')
     suffix = default_non_eval(attr, lambda x: '_', '')
 
+    # pylint: disable=abstract-method
     class IBitTwiddleMixin(Integral):
         """Mixin class to mimic bit-string types.
         """

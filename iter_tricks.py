@@ -956,6 +956,7 @@ def dbatchenum(name: str, step: int, *sequences: Sequence, usemax=True):
         yield (slc,) + tuplify(seqs[slc])
 
 
+# pylint: disable=invalid-name
 # =============================================================================
 # Reversed iterator factories
 # =============================================================================

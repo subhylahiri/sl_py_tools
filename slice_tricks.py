@@ -12,6 +12,7 @@ from typing import Optional, Tuple, Union, Callable
 
 from . import _iter_base as _ib
 from . import range_tricks as _rt
+from .range_tricks import RangeIsh as SliceIsh
 from . import arg_tricks as _ag
 from . import integer_tricks as _ig
 
@@ -23,13 +24,6 @@ SliceArgs = Tuple[SliceArg, SliceArg, SliceArg]
 # =============================================================================
 
 
-class SliceIsh(_rt.RangeIsh, typecheckonly=True):
-    """ABC for slice-ish objects - those with start, stop, step attributes.
-
-    Intended for instance/subclass checks only.
-    """
-
-
 class SliceLike(SliceIsh, typecheckonly=True):
     """ABC fror slice-like objects: slice-ish objects with an indices method.
 
@@ -38,7 +32,9 @@ class SliceLike(SliceIsh, typecheckonly=True):
 
     @abstractmethod
     def indices(self, length: int) -> SliceArgs:
-        pass
+        """return index of value.
+        Raise ValueError if the value is not present.
+        """
 
 
 class ContainerMixin(_rt.ContainerMixin):
@@ -46,6 +42,10 @@ class ContainerMixin(_rt.ContainerMixin):
 
     Should be used with `SliceCollectionMixin` or `RangeCollectionMixin`
     """
+
+    @abstractmethod
+    def __contains__(self, arg: _ig.Eint) -> bool:
+        pass
 
     def indices(self, length: int = None) -> SliceArgs:
         """Start, stop, step of equivalent slice
@@ -486,8 +486,10 @@ def slice_div(left: SliceIsh, right: Number, step: bool = True) -> slice:
 # -----------------------------------------------------------------------------
 
 
-def _unbounded(the_slice: SliceIsh) -> bool:
+def _unbounded(the_slice: SliceIsh, length: int = None) -> bool:
     """Could slice include +infinity?"""
+    if not _ig.isinfnone(length):
+        return False
     if the_slice.step is None or the_slice.step > 0:
         return _ig.isinfnone(the_slice.stop)
     if the_slice.step == 0:
@@ -495,8 +497,8 @@ def _unbounded(the_slice: SliceIsh) -> bool:
     return _ig.isinfnone(the_slice.start)
 
 
-def _determinable(the_slice: SliceLike, length: int = None) -> bool:
-    """Is lowest value in slice determinable?
+def _indeterminable(the_slice: SliceLike, length: int = None) -> bool:
+    """Is lowest value in slice indeterminable?
 
     Parameters
     ----------
@@ -510,9 +512,9 @@ def _determinable(the_slice: SliceLike, length: int = None) -> bool:
     Returns
     -------
     determinable : bool
-        True if lowest value in slice is determined.
+        False if lowest value in slice is determined.
     """
-    return not (_unbounded(the_slice) and _ag.default(the_slice.step, 1) < -1)
+    return _unbounded(the_slice, length) and _ag.default(the_slice.step, 1) < -1
 
 # -----------------------------------------------------------------------------
 # Exceptions
@@ -538,7 +540,7 @@ def _raise_non_determinable(the_slice: SliceIsh):
     ValueError
         If lowest value in slice is not determined.
     """
-    if not _determinable(the_slice):
+    if _indeterminable(the_slice):
         raise ValueError('Must specify length or start if step < -1')
 
 # -----------------------------------------------------------------------------
@@ -626,7 +628,7 @@ def _slice_min(the_slice: SliceIsh) -> SliceArg:
         `start,stop` can only be `None` if _unbounded.
         `step` is not `None`.
         `stop = start + integer * step` unless _unbounded.
-    Exact if _determinable.
+    Exact unless _indeterminable.
     """
     if the_slice.step > 0:
         return the_slice.start
@@ -644,7 +646,7 @@ def _slice_inf(the_slice: SliceIsh) -> SliceArg:
         `start,stop` can only be `None` if _unbounded.
         `step` is not `None`.
         `stop = start + integer * step` unless _unbounded.
-    Exact if _determinable.
+    Exact unless _indeterminable.
     """
     if the_slice.step > 0:
         return the_slice.start - the_slice.step
@@ -702,8 +704,8 @@ def _rectify(the_slice: SliceLike, length: int = None) -> slice:
     if the_slice.step > 0:
         return the_slice
     _raise_non_determinable(the_slice)
-    the_slice = slice_sub(the_slice, the_slice.step)
-    return slice(the_slice.stop, the_slice.start, -the_slice.step)
+    start, stop, step = slice_args(the_slice)
+    return slice(stop - step, start - step, -step)
 
 # -----------------------------------------------------------------------------
 # Displaying
@@ -732,9 +734,7 @@ def _slice_disp(func: Callable[[SliceIsh], str],
     """
     if bracket:
         return bracket.format(_slice_disp(func, sliceobjs))
-    if len(sliceobjs) == 0:
-        return ''
-    if len(sliceobjs) > 1:
+    if len(sliceobjs) != 1:
         return ','.join(_slice_disp(func, s) for s in sliceobjs)
     sliceobj = sliceobjs[0]
     if isinstance(sliceobj, tuple):

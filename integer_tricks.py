@@ -121,8 +121,8 @@ def divmod_(dividend: Number, divisor: Number) -> Number:
 # =============================================================================
 # ExtendedInt method wrappers
 # =============================================================================
-_types = (Real, type(gmpy2.mpz(1)))
-_method_cache = set()
+_TYPES = (Real, type(gmpy2.mpz(1)))
+_METHOD_CACHE = set()
 
 
 def _eint_conv(args):
@@ -131,14 +131,14 @@ def _eint_conv(args):
     def _conv(arg):
         if isinstance(arg, ExtendedInt):
             return arg.value
-        if isinstance(arg, _types):
+        if isinstance(arg, _TYPES):
             return arg
         raise TypeError("Other argument must be a number or eint")
     return [_conv(x) for x in args]
 
 
-_eint_meth_in = _nl.in_method_wrapper(_eint_conv, _method_cache)
-_eint_opr = _nl.opr_method_wrappers(_eint_conv, _method_cache, _types)
+_eint_meth_in = _nl.in_method_wrapper(_eint_conv, _METHOD_CACHE)
+_eint_opr = _nl.opr_method_wrappers(_eint_conv, _METHOD_CACHE, _TYPES)
 
 # =============================================================================
 # Extended integers
@@ -160,7 +160,7 @@ class ExtendedIntegralMeta(abc.ABCMeta):
                 return True
         return super().__instancecheck__(instance)
 
-
+# pylint: disable=abstract-method
 class ExtendedIntegral(Real, metaclass=ExtendedIntegralMeta):
     """ABC for extended Integral, including +/-inf and nan.
 
@@ -173,7 +173,7 @@ ExtendedIntegral.register(Integral)
 
 
 @ExtendedIntegral.register
-class ExtendedInt(_nl.number_mixin(_eint_conv, _method_cache, _types)):
+class ExtendedInt(_nl.number_mixin(_eint_conv, _METHOD_CACHE, _TYPES)):
     """Extended integers to include +/-inf and nan.
 
     All of the usual operations and built in functions for numeric types are
@@ -214,8 +214,8 @@ class ExtendedInt(_nl.number_mixin(_eint_conv, _method_cache, _types)):
 # ExtendedInt finalise & function wrappers
 # =============================================================================
 
-_nl.set_objclasses(ExtendedInt, _method_cache)
-eint_in, eint_out = _nl.function_wrappers(_eint_conv, ExtendedInt, _types)
+_nl.set_objclasses(ExtendedInt, _METHOD_CACHE)
+eint_in, eint_out = _nl.function_wrappers(_eint_conv, ExtendedInt, _TYPES)
 
 
 # =============================================================================

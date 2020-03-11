@@ -223,7 +223,7 @@ class Timer(object):
         if self.absolute:
             print(dt_format(self.begin), file=self.file, flush=True)
 
-    def time(self, subsec: bool = False, *args, **kwargs):
+    def time(self, *args, subsec: bool = False, **kwargs):
         """Call this after thing you are timing.
 
         Prints and stores current time.
@@ -269,7 +269,7 @@ class Timer(object):
 
 
 @contextmanager
-def time_with(subsec: bool = False, *args, **kwargs):
+def time_with(*args, subsec: bool = False, **kwargs):
     """Time a context, or decorate a function with a timer
 
     Prints date & time before & after context, and elapsed time.
@@ -299,7 +299,7 @@ def time_with(subsec: bool = False, *args, **kwargs):
         dtmp.time(subsec=subsec)
 
 
-def time_expr(lambda_expr: Expression, subsec: bool = False, *args, **kwargs):
+def time_expr(lambda_expr: Expression, *args, subsec: bool = False, **kwargs):
     """Time a lambda expression.
 
     Prints date & time before & after running `lambda_expr` and elapsed time.

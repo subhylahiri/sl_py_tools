@@ -42,7 +42,7 @@ from IPython.lib import deepreload
 ORIGINAL_IMPORT_SUBMODULE = deepreload.import_submodule
 
 # =============================================================================
-# %%* Dummy function
+# Dummy function
 # =============================================================================
 
 
@@ -57,7 +57,7 @@ def used(*args):
     """
 
 # =============================================================================
-# %%* Reloader class
+# Reloader class
 # =============================================================================
 
 
@@ -183,7 +183,7 @@ def import_submodule_wrap(excluded_pkgs: AbstractSet[str]):
 
 
 # =============================================================================
-# %%* ALso excluding stdlib packages
+# ALso excluding stdlib packages
 # =============================================================================
 
 # from https://stackoverflow.com/questions/22195382/how-to-check-if-a-module-
@@ -191,8 +191,8 @@ def import_submodule_wrap(excluded_pkgs: AbstractSet[str]):
 # by: https://stackoverflow.com/users/100297/martijn-pieters
 
 # paths for stdlib
-_paths = (os.path.abspath(p) for p in sys.path)
-stdlib = tuple(p for p in _paths
+_PATHS = (os.path.abspath(p) for p in sys.path)
+STDLIB = tuple(p for p in _PATHS
                if p.startswith((sys.prefix, sys.exec_prefix,
                                 sys.base_exec_prefix, sys.base_prefix))
                and 'site-packages' not in p)
@@ -218,7 +218,7 @@ def stdlib_check(module):
     if fname.endswith(('__init__.py', '__init__.pyc', '__init__.pyo')):
         fname = os.path.dirname(fname)
 
-    if os.path.dirname(fname).startswith(stdlib):
+    if os.path.dirname(fname).startswith(STDLIB):
         # stdlib path, skip
         return True
     return False

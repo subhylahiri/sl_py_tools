@@ -130,7 +130,7 @@ def defaults(optionals: _ty.Iterable[_ty.Optional[A]],
 
 
 # =============================================================================
-# %%* Dummy type hint
+# * Dummy type hint
 # =============================================================================
 
 
@@ -140,7 +140,7 @@ class Export:
     Should behave like a type hint that 'these were imported to make them
     available to the users of this module rather than for use in the module'.
 
-    Doesn't fool pylint.
+    Doesn't fool pylint. Issues a `pointless-statement` warning.
 
     Does not actually do anything. It is really only intended for files like
     `__init__.py`, where you might import things from private modules to make
@@ -150,4 +150,4 @@ class Export:
     """
 
     def __class_getitem__(cls, *args):
-        pass
+        assert any((True,) + args)

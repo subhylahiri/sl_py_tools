@@ -379,7 +379,7 @@ def set_display_options(**new_options):
         Do we check that they are used in the correct order? default: False
     """
     old_options = get_display_options()
-    for opt in (old_options.keys() & new_options.keys()):
+    for opt in old_options.keys() & new_options.keys():
         setattr(DisplayTemporary, opt, new_options[opt])
     return old_options
 
