@@ -11,7 +11,6 @@ Tools for messing with array shapes
 """
 
 import numpy as np
-from .. import _iter_base as _ib
 from ..containers import ShapeTuple, same_shape, identical_shape, broadcastable
 from ..slice_tricks import slice_str, slice_to_range, SliceRange, srange
 from ..slice_tricks import (last_value, stop_step, in_slice, is_subslice,
@@ -245,7 +244,7 @@ class BroadcastType():
     def __init__(self, *arrays, shape=None, dtype=None):
         min_dtype = default_non_eval(dtype, lambda x: (x,), ())
         min_shape = default_non_eval(
-                            shape, lambda x: (np.empty(x, *min_dtype),), ())
+            shape, lambda x: (np.empty(x, *min_dtype),), ())
         self.bcast = np.broadcast(*arrays, *min_shape)
         self.dtype = np.result_type(*arrays, *min_dtype)
 
@@ -257,6 +256,13 @@ class BroadcastType():
 
     def __iter__(self):
         return iter(self.bcast)
+
+    def __array_function__(self, func, types, args, kwargs):
+        if types:
+            return NotImplemented
+        if func.__name__.endswith('_like') and hasattr(self, func.__name__):
+            return getattr(self, func.__name__)(*args[1:], **kwargs)
+        return NotImplemented
 
     def _kwds_like(self, kwds):
         """Prepare kwds for ????_like method"""
