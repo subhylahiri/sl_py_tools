@@ -122,53 +122,6 @@ def slice_to_inds(the_slice: slice, size: int = 0):
                      default(the_slice.step, 1), int)
 
 
-class SliceInds(_ib.SliceToIter):
-    """Class for converting a slice to an array of indices.
-
-    You can build an array of indices by calling `si_[start:stop:step]`,
-    where `si_` is an instance of `SliceInds`.
-
-    Parameters
-    ----------
-    size
-        Upper limit of `range`s, used if `the_slice.stop` is `None`.
-    """
-    size: int
-
-    def __init__(self, size: int = 0):
-        """
-        Parameters
-        ----------
-        size
-            Upper limit of `range`s, used if `the_slice.stop` is `None`.
-        """
-        super().__init__(slice_to_inds, 0, tuple)
-        self.size = size
-
-    def __getitem__(self, arg):
-        """
-        Parameters
-        ----------
-        the_slice
-            The `slice` to convert.
-
-        Returns
-        -------
-        inds
-            `np.ndarray` of indices, as produced by `np.arange` with `start`,
-            `stop` and `step` taken from `the_slice`.
-        """
-        arg = _ib.tuplify(arg)
-        if len(arg) < 1:
-            arg += (slice(None),)
-        if len(arg) < 2:
-            arg += (self.size,)
-        return super().__getitem__(arg)
-
-
-si_ = SliceInds()
-
-
 def take_slice(array: np.ndarray, the_slice: slice, axis: int = None, **kwds):
     """Take a slice along a given axis.
 
