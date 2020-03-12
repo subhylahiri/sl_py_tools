@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patheffects as mpf
 import numpy as np
 import cycler
+from . import tol_colors as tol
 from . import arg_tricks as _ag
 from . import containers as _cn
 
@@ -21,13 +22,12 @@ def rc_fonts(family: str = 'serif'):
     mpl.rcParams['text.latex.preamble'] = r"\usepackage{amsmath,amssymb}"
 
 
-def rc_colours(order: _ty.Tuple[int, ...] = (0, 1, 2, 3, 4, 9, 6, 7, 5, 8)):
+def rc_colours(cset: str = 'bright', cmap: str = 'rainbow_PuRd'):
     """Global line colour options.
     """
-    prop_cycle = mpl.rcParams['axes.prop_cycle']
-    colors = prop_cycle.by_key()['color']
-    colours = [colors[i] for i in order]
-    mpl.rcParams['axes.prop_cycle'] = cycler.cycler(color=colours)
+    mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=list(tol.tol_cset(cset)))
+    mpl.cm.register_cmap(cmap, tol.tol_cmap(cmap))
+    mpl.rcParams['image.cmap'] = cmap
 
 
 # =============================================================================
