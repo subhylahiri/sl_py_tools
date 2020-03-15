@@ -55,6 +55,7 @@ def used(*args):
     `Export[import1, import2, ...]` wil stop pyflakes from complaining that
     `'import1' imported but unused`, etc.
     """
+    assert any((True,) + args)
 
 # =============================================================================
 # Reloader class

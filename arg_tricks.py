@@ -129,6 +129,37 @@ def defaults(optionals: _ty.Iterable[_ty.Optional[A]],
     return tuple(default(opt, df) for opt, df in zip(optionals, default_vals))
 
 
+def args_to_kwargs(args: _ty.Tuple[A],
+                   kwargs: _ty.Dict[str, A],
+                   names: _ty.Collection[str],
+                   kw_rank: bool = False) -> _ty.Tuple[A]:
+    """Convert positional arguments to keyword arguments
+
+    Parameters
+    ----------
+    args : Tuple[A, ...]
+        Tuple of positional arguments.
+    kwargs : Dict[str, B]
+        Dict of keyword arguments.
+    names : List[str]
+        Names of the positional arguments.
+    kw_rank : bool, optional
+        If positional and keyword versions of an argument both exist, does the
+        keyword version have priority? By default, False.
+
+    Returns
+    -------
+    extra : Tuple[A,...]
+        positional arguments with no names
+    """
+    if kw_rank:
+        for key, val in zip(names, args):
+            kwargs.setdefault(key, val)
+    else:
+        for key, val in zip(names, args):
+            kwargs[key] = val
+    return args[len(names):]
+
 # =============================================================================
 # * Dummy type hint
 # =============================================================================
@@ -150,4 +181,4 @@ class Export:
     """
 
     def __class_getitem__(cls, *args):
-        assert any((True,) + args)
+        assert any((True, cls) + args)

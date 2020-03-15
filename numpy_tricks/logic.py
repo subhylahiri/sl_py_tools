@@ -65,10 +65,8 @@ def indmax(array, ignore_nan=True):
         tuple of ints indexing the max
     """
     if ignore_nan:
-        argmax = np.nanargmax
-    else:
-        argmax = np.argmax
-    return indarg(array, argmax)
+        return indarg(array, np.nanargmax)
+    return indarg(array, np.argmax)
 
 
 def indmin(array, ignore_nan=True):
@@ -87,10 +85,8 @@ def indmin(array, ignore_nan=True):
         tuple of ints indexing the min
     """
     if ignore_nan:
-        argmin = np.nanargmin
-    else:
-        argmin = np.argmin
-    return indarg(array, argmin)
+        return indarg(array, np.nanargmin)
+    return indarg(array, np.argmin)
 
 
 def unique_unsorted(sequence):

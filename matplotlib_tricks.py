@@ -6,7 +6,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as mpf
 import numpy as np
-import cycler
 from . import tol_colors as tol
 from . import arg_tricks as _ag
 from . import containers as _cn

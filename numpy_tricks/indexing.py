@@ -15,7 +15,7 @@ from ..containers import ShapeTuple, same_shape, identical_shape, broadcastable
 from ..slice_tricks import slice_str, slice_to_range, SliceRange, srange
 from ..slice_tricks import (last_value, stop_step, in_slice, is_subslice,
                             disjoint_slice)
-from ..arg_tricks import default, default_non_eval, Export
+from ..arg_tricks import default, default_non_eval, Export, args_to_kwargs
 
 Export[slice_to_range, SliceRange, srange, slice_str]
 Export[last_value, stop_step, in_slice, is_subslice, disjoint_slice]
@@ -106,7 +106,7 @@ def slice_to_inds(the_slice: slice, size: int = 0):
     the_slice
         The `slice` to convert.
     size
-        Upper limit of `range`s, used if `the_slice.stop` is `None`.
+        Upper limit of `range`s, used if `the_slice.stop` is `None` or negative.
 
     Returns
     -------
@@ -264,49 +264,53 @@ class BroadcastType():
             return getattr(self, func.__name__)(*args[1:], **kwargs)
         return NotImplemented
 
-    def _kwds_like(self, kwds):
+    def _like_kwds(self, kwds):
         """Prepare kwds for ????_like method"""
         kwds.pop('subok')
         kwds.setdefault('shape', self.shape)
         kwds.setdefault('dtype', self.dtype)
 
-    def empty_like(self, **kwds):
-        """Return emtpty array of appropriate shape and dtype
+    def empty_like(self, *args, **kwds):
+        """Return emtpty array of appropriate `shape` and `dtype`
 
         See Also
         --------
         `np.empty`, `np.empty_like`
         """
-        self._kwds_like(kwds)
+        args_to_kwargs(args, kwds, ['dtype', 'order', 'subok', 'shape'])
+        self._like_kwds(kwds)
         return np.empty(**kwds)
 
-    def ones_like(self, **kwds):
-        """Return array of ones of appropriate shape and dtype
+    def ones_like(self, *args, **kwds):
+        """Return array of ones of appropriate `shape` and `dtype`
 
         See Also
         --------
         `np.ones`, `np.ones_like`
         """
-        self._kwds_like(kwds)
+        args_to_kwargs(args, kwds, ['dtype', 'order', 'subok', 'shape'])
+        self._like_kwds(kwds)
         return np.ones(**kwds)
 
-    def zeros_like(self, **kwds):
-        """Return array of zeros of appropriate shape and dtype
+    def zeros_like(self, *args, **kwds):
+        """Return array of zeros of appropriate `shape` and `dtype`
 
         See Also
         --------
         `np.zeros`, `np.zeros_like`
         """
-        self._kwds_like(kwds)
+        args_to_kwargs(args, kwds, ['dtype', 'order', 'subok', 'shape'])
+        self._like_kwds(kwds)
         return np.zeros(**kwds)
 
-    def full_like(self, fill, **kwds):
-        """Return array with constant value of appropriate shape and dtype
+    def full_like(self, fill_value, *args, **kwds):
+        """Return array with constant value of appropriate `shape` and `dtype`
 
         See Also
         --------
         `np.full`, `np.full_like`
         """
-        self._kwds_like(kwds)
-        kwds.setdefault('fill', fill)
+        kwds['fill_value'] = fill_value
+        args_to_kwargs(args, kwds, ['dtype', 'order', 'subok', 'shape'])
+        self._like_kwds(kwds)
         return np.full(**kwds)
