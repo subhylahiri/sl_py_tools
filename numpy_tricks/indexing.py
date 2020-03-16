@@ -16,7 +16,7 @@ from ..slice_tricks import slice_str, slice_to_range, SliceRange, srange
 from ..slice_tricks import (last_value, stop_step, in_slice, is_subslice,
                             disjoint_slice)
 from ..arg_tricks import default, default_non_eval, Export, args_to_kwargs
-from . import subclass as sub
+from . import subclass as sc
 
 # pylint: disable=pointless-statement
 Export[slice_to_range, SliceRange, srange, slice_str]
@@ -88,13 +88,13 @@ def estack(arrays, axis=-1):
     return np.stack(arrays, axis=axis)
 
 
-def _posify(ind, size):
+def _posify(ind: int, size: int):
     if ind < 0:
         return ind + size
     return ind
 
 
-def _negify(ind, size):
+def _negify(ind: int, size: int):
     if ind >= 0:
         return ind - size
     return ind
@@ -108,7 +108,8 @@ def slice_to_inds(the_slice: slice, size: int = 0):
     the_slice
         The `slice` to convert.
     size
-        Upper limit of `range`s, used if `the_slice.stop` is `None` or negative.
+        Upper limit of `range`s, used if `the_slice.stop` is `None` or negative,
+        or if `the_slice.start` is negative.
 
     Returns
     -------
@@ -212,12 +213,18 @@ def expand_dims(arr: np.ndarray, *axis) -> np.ndarray:
     return expand_dims(expand_dims(arr, axes_sort[0]), *axes_sort[1:].tolist())
 
 
-HANDLED_FUNCTIONS = {}
+HANDLED_FUNCS = {}
 # pylint: disable=invalid-name
-implements = sub.make_implements_decorator(HANDLED_FUNCTIONS)
+implements = sc.make_implements_decorator(HANDLED_FUNCS)
 
 
-class BroadcastType():
+def _minimal(shape, *args, **kwargs) -> np.ndarray:
+    """Make a minimal array of the desired shape
+    """
+    return np.broadcast_to(np.empty((), *args, **kwargs), shape)
+
+
+class BroadcastType:
     """numpy.broadcast with dtype info.
 
     Parameters
@@ -249,11 +256,10 @@ class BroadcastType():
     dtype: np.dtype
 
     def __init__(self, *arrays, shape=None, dtype=None):
-        min_dtype = default_non_eval(dtype, lambda x: (x,), ())
-        min_shape = default_non_eval(
-            shape, lambda x: (np.empty(x, *min_dtype),), ())
-        self.bcast = np.broadcast(*arrays, *min_shape)
-        self.dtype = np.result_type(*arrays, *min_dtype)
+        _dtype = default_non_eval(dtype, lambda x: (x,), ())
+        _shape = default_non_eval(shape, lambda x: (_minimal(x, *_dtype),), ())
+        self.bcast = np.broadcast(*arrays, *_shape)
+        self.dtype = np.result_type(*arrays, *_dtype)
 
     def __getattr__(self, name):
         return getattr(self.bcast, name)
@@ -265,12 +271,11 @@ class BroadcastType():
         return iter(self.bcast)
 
     def __array_function__(self, func, types, args, kwargs):
-        sub.array_function_helper(self, HANDLED_FUNCTIONS, func, types, args,
-                                  kwargs)
+        return sc.array_function_help(self, HANDLED_FUNCS, func, types, args, kwargs)
 
 
 def _like_kwds(obj, kwds):
-    """Prepare kwds for ????_like method"""
+    """Prepare kwds for ????_like function"""
     kwds.pop('subok')
     kwds.setdefault('shape', obj.shape)
     kwds.setdefault('dtype', obj.dtype)

@@ -6,60 +6,71 @@ Routine Listings
 conv_loop_in_attr
     Process inputs in an __array_ufunc__ method using an attribute.
 conv_loop_in_view
-    Process inputs in an __array_ufunc__ method using view method.
+    Process inputs in an __array_ufunc__ method using a view method.
 conv_loop_out_attr
     Process outputs in an __array_ufunc__ method using an attribute.
 conv_loop_out_init
     Process outputs in an __array_ufunc__ method using a constructor.
 conv_loop_out_view
     Process outputs in an __array_ufunc__ method using a view method.
+array_ufunc_help_attr
+    Implement an __array_ufunc__ method using an attribute.
+array_ufunc_help_view
+    Implement an __array_ufunc__ method using a view method.
+array_function_help
+    Implement an __array_function__ method using decorated functions.
+make_implements_decorator
+    Create a decorator for implementations of array functions.
 
 Example
 -------
 ```
 import sl_py_tools.numpy_tricks.subclass as sc
 
-HANDLED_FUNCTIONS = {}
-implements = make_implements_decorator(HANDLED_FUNCTIONS)
+HANDLED_FUNCS = {}
+implements = make_implements_decorator(HANDLED_FUNCS)
 
 class MyClass(numpy.lib.mixins.NDArrayOperatorsMixin):
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        args, _ = sc.conv_loop_in_attr('attr', MyClass, inputs)
-        outputs, conv = sc.conv_loop_in_attr('arr', MyClass, kwargs, ufunc.nout)
-        results = self.attr.__array_ufunc__(ufunc, method, *args, **kwargs)
-        return sc.conv_loop_out_attr(self, 'arr', results, outputs, conv)
+        return sc.array_ufunc_help_attr('arr', MyClass, self,
+                                        ufunc, method, *inputs, **kwargs)
 
     def __array_function__(self, func, types, args, kwargs):
-        sc.array_function_helper(self, HANDLED_FUNCTIONS, func, types, args, kwargs)
+        return sc.array_function_helper(self, HANDLED_FUNCS, func, types, args, kwargs)
 ```
 """
 import itertools as _itertools
 import typing as _ty
+from typing import Tuple, Dict, Callable, Type, TypeVar, Any
 import numpy as _np
-Param = _ty.TypeVar('Param')
-Result = _ty.TypeVar('Result')
+
+Param = TypeVar('Param')
+Result = TypeVar('Result')
 ArrayOr = _ty.Union[_np.ndarray, Param]
-Converter = _ty.Callable[[ArrayOr[Param]], _np.ndarray]
-UnConverter = _ty.Callable[[_np.ndarray], ArrayOr[Param]]
-ArgTuple = _ty.Tuple[Param, ...]
-OutTuple = _ty.Tuple[_ty.Optional[_np.ndarray], ...]
-ArgDict = _ty.Dict[str, _ty.Any]
+ArraysOr = Tuple[ArrayOr[Param], ...]
+Converter = Callable[[Param], _np.ndarray]
+UnConverter = Callable[[_np.ndarray], ArrayOr[Param]]
+ArgTuple = Tuple[Param, ...]
+OutTuple = Tuple[_ty.Optional[_np.ndarray], ...]
+ArgDict = Dict[str, Any]
 BoolList = _ty.List[bool]
 BoolSequence = _ty.Sequence[bool]
-NumpyFun = _ty.Callable[[_np.ndarray], _np.ndarray]
-MyFun = _ty.Callable[[Param], Result]
-HandleMap = _ty.Dict[NumpyFun, MyFun]
-Decorator = _ty.Callable[[MyFun], MyFun]
-DecoratorParamd = _ty.Callable[[Param], Decorator]
+NumpyFun = Callable[[_np.ndarray], _np.ndarray]
+MyFun = Callable[[Param], Result]
+HandleMap = Dict[NumpyFun, MyFun]
+Decorator = Callable[[MyFun], MyFun]
+DecoratorParamd = Callable[[Param], Decorator]
+ArrayUfunc = Callable[[_np.ufunc, str, ArgTuple[_np.ndarray], ArgDict],
+                      ArgTuple[_np.ndarray]]
 # ======================================================================
 # Ufunc Inputs
 # ======================================================================
 
 
 def conv_loop_input(converter: Converter[Param],
-                    obj_typ: _ty.Type[Param],
-                    args: ArgTuple[ArrayOr[Param]]) -> (OutTuple, BoolList):
+                    obj_typ: Type[Param],
+                    args: ArraysOr[Param]) -> (OutTuple, BoolList):
     """Process inputs in an __array_ufunc__ method of a custom class.
 
     Parameters
@@ -91,7 +102,7 @@ def conv_loop_input(converter: Converter[Param],
 
 
 def conv_loop_in_out(converter: Converter[Param],
-                     obj_typ: _ty.Type[Param],
+                     obj_typ: Type[Param],
                      kwargs: ArgDict,
                      num_out: int) -> (OutTuple, BoolList):
     """Process the out keyword in an __array_ufunc__ method.
@@ -123,7 +134,7 @@ def conv_loop_in_out(converter: Converter[Param],
     return outputs, conv_out
 
 
-def _conv_loop_in(converter: Converter[Param], obj_typ: _ty.Type[Param],
+def _conv_loop_in(converter: Converter[Param], obj_typ: Type[Param],
                   *args) -> (OutTuple, BoolList):
     """Call one of conv_loop_input or conv_loop_in_out"""
     if len(args) == 1:
@@ -131,17 +142,17 @@ def _conv_loop_in(converter: Converter[Param], obj_typ: _ty.Type[Param],
     return conv_loop_in_out(converter, obj_typ, *args)
 
 
-def prepare_via_view() -> Converter:
+def prepare_via_view() -> Converter[Param]:
     """Create function to convert object to an array using view method.
     """
-    def converter(thing):
+    def converter(thing: Param) -> _np.ndarray:
         """convert to array using view method
         """
         return thing.view(_np.ndarray)
     return converter
 
 
-def prepare_via_attr(attr: str) -> Converter:
+def prepare_via_attr(attr: str) -> Converter[Param]:
     """Create function to convert object to an array using an attribute.
 
     Parameters
@@ -149,14 +160,14 @@ def prepare_via_attr(attr: str) -> Converter:
     attr: str, None
         The name of the ``obj_typ`` attribute to use in place of class.
     """
-    def converter(thing):
+    def converter(thing: Param) -> _np.ndarray:
         """convert to array using an attribute
         """
         return getattr(thing, attr)
     return converter
 
 
-def conv_loop_in_view(obj_typ: _ty.Type, *args) -> (OutTuple, BoolList):
+def conv_loop_in_view(obj_typ: Type, *args) -> (OutTuple, BoolList):
     """Process inputs in an __array_ufunc__ method using view method.
 
     Parameters
@@ -180,7 +191,8 @@ def conv_loop_in_view(obj_typ: _ty.Type, *args) -> (OutTuple, BoolList):
     return _conv_loop_in(prepare_via_view(), obj_typ, *args)
 
 
-def conv_loop_in_attr(attr: str, obj_typ: _ty.Type, *args) -> (OutTuple, BoolList):
+def conv_loop_in_attr(attr: str, obj_typ: Type, *args) -> (OutTuple,
+                                                               BoolList):
     """Process inputs in an __array_ufunc__ method using an attribute.
 
     Parameters
@@ -214,7 +226,7 @@ def conv_loop_in_attr(attr: str, obj_typ: _ty.Type, *args) -> (OutTuple, BoolLis
 def conv_loop_out(converter: UnConverter[Param],
                   results: ArgTuple[_np.ndarray],
                   outputs: OutTuple,
-                  conv: BoolSequence = ()) -> ArgTuple[ArrayOr[Param]]:
+                  conv: BoolSequence = ()) -> ArraysOr[Param]:
     """Process outputs in an __array_ufunc__ method.
 
     Parameters
@@ -290,7 +302,7 @@ def restore_via_init(obj: Param) -> UnConverter[Param]:
     def converter(thing: _np.ndarray) -> Param:
         """convert arrays using obj.__init__
         """
-        return type(obj)(thing)
+        return obj.__class__(thing)
     return converter
 
 
@@ -313,7 +325,7 @@ def conv_loop_out_attr(obj: Param,
                        attr: str,
                        results: ArgTuple[_np.ndarray],
                        outputs: OutTuple,
-                       conv: BoolSequence = ()) -> ArgTuple[ArrayOr[Param]]:
+                       conv: BoolSequence = ()) -> ArraysOr[Param]:
     """Process outputs in an __array_ufunc__ method using an attribute.
 
     Makes a copy of ``obj`` with ``obj.attr = result``.
@@ -323,7 +335,7 @@ def conv_loop_out_attr(obj: Param,
     obj : Param
         The template object for conversions.
     attr: str, None
-        The name of the ``type(obj)`` attribute returned in place of class.
+        The name of the ``type(obj)`` attribute used in place of class.
     results: Tuple[ndarray]
         Tuple of outputs from ufunc
     outputs: Tuple[ndarray or None]
@@ -348,7 +360,7 @@ def conv_loop_out_attr(obj: Param,
 def conv_loop_out_init(obj: Param,
                        results: ArgTuple[_np.ndarray],
                        outputs: OutTuple,
-                       conv: BoolSequence = ()) -> ArgTuple[ArrayOr[Param]]:
+                       conv: BoolSequence = ()) -> ArraysOr[Param]:
     """Process outputs in an __array_ufunc__ method using a constructor.
 
     Creates an instance of ``type(obj)`` with ``result`` as its argument.
@@ -376,7 +388,7 @@ def conv_loop_out_init(obj: Param,
 def conv_loop_out_view(obj: Param,
                        results: ArgTuple[_np.ndarray],
                        outputs: OutTuple,
-                       conv: BoolSequence = ()) -> ArgTuple[ArrayOr[Param]]:
+                       conv: BoolSequence = ()) -> ArraysOr[Param]:
     """Process outputs in an __array_ufunc__ method using a view method.
 
     Calls ``result.view`` with ``type(obj)`` with as its argument.
@@ -386,9 +398,9 @@ def conv_loop_out_view(obj: Param,
     obj : Param
         The template object for conversions.
     results: Tuple[ndarray]
-        Tuple of outputs from ufunc
+        Tuple of outputs from ``ufunc``
     outputs: Tuple[ndarray or None]
-        ``out`` argument of ufunc, or tuple of ``None``.
+        ``out`` argument of ``ufunc``, or tuple of ``None``.
     conv: Sequence[bool], default: ()
         Sequence of bools telling us if each output should be converted.
         Converted to itertools.repeat(True) if bool(conv) == False (default)
@@ -399,6 +411,114 @@ def conv_loop_out_view(obj: Param,
         New tuple of results from ufunc with conversions.
     """
     return conv_loop_out(restore_via_view(obj), results, outputs, conv)
+
+
+# =============================================================================
+# Complete array ufunc helpers
+# =============================================================================
+
+
+def array_ufunc_help(converters: Tuple[Converter[Param], UnConverter[Param]],
+                     delegate: ArrayUfunc, obj_type: Type[Param],
+                     ufunc: _np.ufunc, method: str,
+                     *inputs, **kwargs) -> ArraysOr[Param]:
+    """Helper for __array_ufunc__ using an ndarray attribute of the class
+
+    Parameters
+    ----------
+    converters : Tuple[conv_in, conv_out]
+        conv_in : Callable[Param -> ndarray]
+            Function that converts custom class to `numpy.ndarray`.
+        conv_out : Callable[ndarray -> Param]
+            Function to perform reverse conversions.
+    delegate : numpy.ndarray
+        The implementation of `__array_function__` we will delegate to.
+    obj_typ : Type[Param]
+        The type of object that needs converting via ``view`` method.
+    ufunc : numpy.ufunc
+        The `ufunc` that was oroginally called
+    method : str
+        The name of the ufunc method that was called
+    inputs : Tuple[Any, ...]
+        Positional arguments from the original function call.
+    kwargs : _Dict[str, Any]
+        Keyword arguments from the original function call.
+
+    Returns
+    -------
+    results : Any
+        The output of the custom implementation of `ufunc`.
+    """
+    conv_in, conv_out = converters
+    args, _ = conv_loop_input(conv_in, obj_type, inputs)
+    outputs, conv = conv_loop_in_out(conv_in, obj_type, kwargs, ufunc.nout)
+    results = delegate(ufunc, method, *args, **kwargs)
+    return conv_loop_out(conv_out, results, outputs, conv)
+
+
+def array_ufunc_help_attr(attr: str, obj_type: Type[Param],
+                          obj: Param, ufunc: _np.ufunc, method: str,
+                          *inputs, **kwargs) -> ArrayOr[Param]:
+    """Helper for __array_ufunc__ using an ndarray attribute of the class
+
+    Parameters
+    ----------
+    attr : str
+        The name of the ``type(obj)`` attribute used in place of class.
+    obj_type : Type[Param]
+        The type of object that needs converting via ``view`` method.
+    obj : Param
+        The object whose `__array_function__` method was called.
+    ufunc : numpy.ufunc
+        The `ufunc` that was oroginally called
+    method : str
+        The name of the ufunc method that was called
+    inputs : Tuple[Any, ...]
+        Positional arguments from the original function call.
+    kwargs : _Dict[str, Any]
+        Keyword arguments from the original function call.
+
+    Returns
+    -------
+    results : Any
+        The output of the custom implementation of `ufunc`.
+    """
+    converters = prepare_via_attr(attr), restore_via_attr(obj, attr)
+    delegate = getattr(obj, attr).__array_ufunc__
+    return array_ufunc_help(converters, delegate, obj_type,
+                            ufunc, method, *inputs, **kwargs)
+
+
+def array_ufunc_help_view(obj_type: Type[Param],
+                          obj: Param, ufunc: _np.ufunc, method: str,
+                          *inputs, **kwargs) -> ArrayOr[Param]:
+    """Helper for __array_ufunc__ using the view method of the class
+
+    Parameters
+    ----------
+    obj_type : Type[Param]
+        The type of object that needs converting via ``view`` method.
+    obj : Param
+        The object whose `__array_function__` method was called.
+    ufunc : numpy.ufunc
+        The `ufunc` that was oroginally called
+    method : str
+        The name of the ufunc method that was called
+    inputs : Tuple[Any, ...]
+        Positional arguments from the original function call.
+    kwargs : _Dict[str, Any]
+        Keyword arguments from the original function call.
+
+    Returns
+    -------
+    results : Any
+        The output of the custom implementation of `ufunc`.
+    """
+    converters = prepare_via_view(), restore_via_view(obj)
+    delegate = super(obj_type, obj).__array_ufunc__
+    return array_ufunc_help(converters, delegate, obj_type,
+                            ufunc, method, *inputs, **kwargs)
+
 
 
 # =============================================================================
@@ -434,12 +554,12 @@ def make_implements_decorator(handled: HandleMap) -> DecoratorParamd[NumpyFun]:
     return implements
 
 
-def array_function_helper(obj: _ty.Any,
-                          handled: HandleMap,
-                          func: NumpyFun,
-                          types: _ty.Collection[_ty.Type],
-                          args: ArgTuple,
-                          kwargs: ArgDict) -> _ty.Any:
+def array_function_help(obj: Any,
+                        handled: HandleMap,
+                        func: NumpyFun,
+                        types: _ty.Collection[Type],
+                        args: ArgTuple,
+                        kwargs: ArgDict) -> Any:
     """Helper function for writing __array_function__ methods
 
     Parameters
