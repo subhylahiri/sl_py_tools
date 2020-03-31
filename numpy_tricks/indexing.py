@@ -13,15 +13,14 @@ Tools for messing with array shapes
 import numpy as np
 from ..containers import ShapeTuple, same_shape, identical_shape, broadcastable
 from ..slice_tricks import slice_str, slice_to_range, SliceRange, srange
-from ..slice_tricks import (last_value, stop_step, in_slice, is_subslice,
-                            disjoint_slice)
+from ..slice_tricks import in_slice, is_subslice, disjoint_slice
 from ..arg_tricks import default, default_non_eval, Export, args_to_kwargs
 from . import subclass as sc
 
 # pylint: disable=pointless-statement
-Export[slice_to_range, SliceRange, srange, slice_str]
-Export[last_value, stop_step, in_slice, is_subslice, disjoint_slice]
 Export[same_shape, identical_shape, broadcastable, ShapeTuple]
+Export[slice_to_range, SliceRange, srange, slice_str]
+Export[in_slice, is_subslice, disjoint_slice]
 
 
 def mesh_stack(*arrays):
@@ -213,15 +212,15 @@ def expand_dims(arr: np.ndarray, *axis) -> np.ndarray:
     return expand_dims(expand_dims(arr, axes_sort[0]), *axes_sort[1:].tolist())
 
 
-HANDLED_FUNCS = {}
+HANDLED_FNS = {}
 # pylint: disable=invalid-name
-implements = sc.make_implements_decorator(HANDLED_FUNCS)
+implements = sc.make_implements_decorator(HANDLED_FNS)
 
 
-def _minimal(shape, *args, **kwargs) -> np.ndarray:
+def _minimal(shape, *args, **kwds) -> np.ndarray:
     """Make a minimal array of the desired shape
     """
-    return np.broadcast_to(np.empty((), *args, **kwargs), shape)
+    return np.broadcast_to(np.empty((), *args, **kwds), shape)
 
 
 class BroadcastType:
@@ -270,11 +269,11 @@ class BroadcastType:
     def __iter__(self):
         return iter(self.bcast)
 
-    def __array_function__(self, func, types, args, kwargs):
-        return sc.array_function_help(self, HANDLED_FUNCS, func, types, args, kwargs)
+    def __array_function__(self, func, types, args, kwds):
+        return sc.array_function_help(self, HANDLED_FNS, func, types, args, kwds)
 
 
-def _like_kwds(obj, kwds):
+def _like_kwds(obj: BroadcastType, kwds):
     """Prepare kwds for ????_like function"""
     kwds.pop('subok')
     kwds.setdefault('shape', obj.shape)
@@ -282,7 +281,7 @@ def _like_kwds(obj, kwds):
 
 
 @implements(np.empty_like)
-def empty_like(obj, *args, **kwds):
+def empty_like(obj: BroadcastType, *args, **kwds) -> np.ndarray:
     """Return emtpty array of appropriate `shape` and `dtype`
 
     See Also
@@ -295,7 +294,7 @@ def empty_like(obj, *args, **kwds):
 
 
 @implements(np.empty_like)
-def ones_like(obj, *args, **kwds):
+def ones_like(obj: BroadcastType, *args, **kwds) -> np.ndarray:
     """Return array of ones of appropriate `shape` and `dtype`
 
     See Also
@@ -308,7 +307,7 @@ def ones_like(obj, *args, **kwds):
 
 
 @implements(np.empty_like)
-def zeros_like(obj, *args, **kwds):
+def zeros_like(obj: BroadcastType, *args, **kwds) -> np.ndarray:
     """Return array of zeros of appropriate `shape` and `dtype`
 
     See Also
@@ -320,7 +319,7 @@ def zeros_like(obj, *args, **kwds):
     return np.zeros(**kwds)
 
 @implements(np.empty_like)
-def full_like(obj, fill_value, *args, **kwds):
+def full_like(obj: BroadcastType, fill_value, *args, **kwds) -> np.ndarray:
     """Return array with constant value of appropriate `shape` and `dtype`
 
     See Also

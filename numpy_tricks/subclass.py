@@ -27,8 +27,8 @@ Example
 ```
 import sl_py_tools.numpy_tricks.subclass as sc
 
-HANDLED_FUNCS = {}
-implements = make_implements_decorator(HANDLED_FUNCS)
+HANDLED_FNS = {}
+implements = make_implements_decorator(HANDLED_FNS)
 
 class MyClass(numpy.lib.mixins.NDArrayOperatorsMixin):
 
@@ -36,8 +36,8 @@ class MyClass(numpy.lib.mixins.NDArrayOperatorsMixin):
         return sc.array_ufunc_help_attr('arr', MyClass, self,
                                         ufunc, method, *inputs, **kwargs)
 
-    def __array_function__(self, func, types, args, kwargs):
-        return sc.array_function_helper(self, HANDLED_FUNCS, func, types, args, kwargs)
+    def __array_function__(self, func, types, args, kwds):
+        return sc.array_function_help(self, HANDLED_FNS, func, types, args, kwds)
 ```
 """
 __all__ = [
@@ -278,13 +278,13 @@ def conv_loop_out(converter: UnConverter[Custom],
     return tuple(results_out)
 
 
-def restore_via_attr(obj: Custom, attr: str) -> UnConverter[Custom]:
-    """Create function to convert arrays by setting obj.attr.
+def restore_via_copy_attr(obj: Custom, attr: str) -> UnConverter[Custom]:
+    """Create function to convert arrays by setting obj.attr in obj.copy.
 
     Parameters
     ----------
     obj : Custom
-        The template object for conversions.
+        The template object for conversions. Must have a `copy` method.
     attr: str
         The name of the ``type(obj)`` attribute returned in place of class.
         It will try to use ``obj.copy(attr=result)``. If that fails, it will
@@ -300,6 +300,54 @@ def restore_via_attr(obj: Custom, attr: str) -> UnConverter[Custom]:
         thing_out = obj.copy()
         setattr(thing_out, attr, thing)
         return thing_out
+    return converter
+
+
+def restore_via_init_attr(obj: Custom, attr: str) -> UnConverter[Custom]:
+    """Create function to convert arrays by setting obj.attr in obj.__init__.
+
+    Parameters
+    ----------
+    obj : Custom
+        The template object for conversions.
+    attr: str
+        The name of the ``type(obj)`` attribute returned in place of class.
+        It will try to use ``obj.__class__(attr=result)``. If that fails,
+        it will use ``obj.__class__(result)``.
+    """
+    def converter(thing: np.ndarray) -> Custom:
+        """convert arrays by setting obj.attr
+        """
+        try:
+            return obj.__class__(**{attr: thing})
+        except TypeError:
+            return obj.__class__(thing)
+    return converter
+
+
+def restore_via_attr(obj: Custom, attr: str) -> UnConverter[Custom]:
+    """Create function to convert arrays by setting obj.attr.
+
+    Parameters
+    ----------
+    obj : Custom
+        The template object for conversions.
+    attr: str
+        The name of the ``type(obj)`` attribute returned in place of class.
+        It will try to use ``obj.copy(attr=result)``. If that fails, it will
+        try to use ``obj.copy()`` followed by ``setattr(newobj, attr, result)``.
+        If that fails, it will try to use ``obj.__class__(attr=result)``.
+        If that fails, it will use ``obj.__class__(result)``.
+    """
+    conv_copy = restore_via_copy_attr(obj, attr)
+    conv_init = restore_via_init_attr(obj, attr)
+    def converter(thing: np.ndarray) -> Custom:
+        """convert arrays by setting obj.attr
+        """
+        try:
+            return conv_copy(thing)
+        except AttributeError:
+            return conv_init(thing)
     return converter
 
 
@@ -444,7 +492,7 @@ def array_ufunc_help(converters: Tuple[Converter[Custom], UnConverter[Custom]],
         conv_out : Callable[ndarray -> Custom]
             Function to perform reverse conversions.
     delegate : numpy.ndarray
-        The implementation of `__array_function__` we will delegate to.
+        The implementation of `__array_ufunc__` we will delegate to.
     obj_typ : Type[Custom]
         The type of object that needs converting via ``view`` method.
     ufunc : numpy.ufunc
