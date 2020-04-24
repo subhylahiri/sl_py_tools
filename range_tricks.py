@@ -8,7 +8,7 @@ gmpy2
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Container, Iterator
+from collections.abc import Iterator
 from numbers import Number
 from typing import Optional, Tuple, Union
 
@@ -66,7 +66,7 @@ class RangeLike(RangeIsh, typecheckonly=True):
         """
 
 
-class ContainerMixin(Container):
+class ContainerMixin:
     """Mixin class to add extra Collection methods to RangeIsh classes
 
     Should be used with `RangeCollectionMixin`
@@ -139,7 +139,7 @@ def range_repr(the_range: RangeIsh, bracket: bool = True) -> str:
 # =============================================================================
 
 
-class ExtendedRange(Iterator, RangeCollectionMixin):
+class ExtendedRange(RangeCollectionMixin):
     """Combination of range and itertools.count
 
     Any parameter can be given as `None` and the default will be used. `stop`

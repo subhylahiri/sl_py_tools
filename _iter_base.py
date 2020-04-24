@@ -9,7 +9,7 @@ Base classes and behind the scenes work for `iter_tricks`, `range_tricks`
 and `slice_tricks` modules.
 """
 from abc import abstractmethod
-from collections.abc import Sized, Iterator
+from collections.abc import Sized
 from typing import Optional, Union, Tuple, Iterable, Dict, Callable, TypeVar
 from functools import wraps
 from numbers import Number
@@ -43,7 +43,7 @@ SArgsOrNum = Union[SliceArgs, Number]
 ConvIn = Callable[[S], SliceArgs]
 ConvOut = Callable[[SliceArg, SliceArg, SliceArg], S]
 # =============================================================================
-# %%* Utility functions
+# %* Utility functions
 # =============================================================================
 
 
@@ -127,7 +127,7 @@ def counter_format(num: int) -> str:
 
 
 # -----------------------------------------------------------------------------
-# %%* Decorators/wrappers
+# %* Decorators/wrappers
 # -----------------------------------------------------------------------------
 
 
@@ -168,7 +168,7 @@ def without_disp(it_func: Callable[..., Iterable]) -> Callable[..., Iterable]:
     return no_disp_it_func
 
 # -----------------------------------------------------------------------------
-# %%* Slice based factories
+# %* Slice based factories
 # -----------------------------------------------------------------------------
 
 
@@ -213,7 +213,7 @@ class SliceToIter:
 
 
 # -----------------------------------------------------------------------------
-# %%* Arithmetic operations
+# %* Arithmetic operations
 # -----------------------------------------------------------------------------
 
 
@@ -353,7 +353,7 @@ def arg_sub(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum) -> S:
 
 
 # =============================================================================
-# %%* Client class for DisplayCount
+# %* Client class for DisplayCount
 # =============================================================================
 
 
@@ -376,11 +376,11 @@ class DisplayCntState(DisplayState):
 
 
 # =============================================================================
-# %%* Mixins for defining displaying iterators
+# %* Mixins for defining displaying iterators
 # =============================================================================
 
 
-class DisplayMixin(DisplayTemporary, Iterator):
+class DisplayMixin(DisplayTemporary):
     """Mixin providing non-iterator machinery for DisplayCount etc.
 
     This is an ABC. Only implements `begin`, `disp`, `end` and private stuff.
@@ -426,7 +426,7 @@ class DisplayMixin(DisplayTemporary, Iterator):
         return self.formatter.format(*(n + self.offset for n in ctrs))
 
 
-class AddDisplayToIterables(Iterator):
+class AddDisplayToIterables:
     """Wraps iterator to display progress.
 
     This is an ABC. Only implements `begin`, `update` and `end` methods, as
