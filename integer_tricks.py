@@ -134,9 +134,10 @@ def _eint_conv(args):
         if isinstance(arg, _TYPES):
             return arg
         raise TypeError("Other argument must be a number or eint")
-    return [_conv(x) for x in args]
+    return [_conv(arg) for arg in args]
 
 
+# pylint: disable=invalid-name
 _eint_meth_in = _nl.in_method_wrapper(_eint_conv, _METHOD_CACHE)
 _eint_opr = _nl.opr_method_wrappers(_eint_conv, _METHOD_CACHE, _TYPES)
 
@@ -245,10 +246,10 @@ def isinfnone(val: Optional[Eint]) -> bool:
 
 
 @eint_out
-def nan_gcd(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
+def nan_gcd(left: ExtendedIntegral, right: ExtendedIntegral) -> ExtendedIntegral:
     """Greatest common divisor for extended integers.
 
-    Largest `d` such that `a % d == 0 and b % d == 0`.
+    Largest `d` such that `left % d == 0 and right % d == 0`.
 
     NaN safe version: ignores `nan` if the other argument is not `nan`.
 
@@ -263,18 +264,18 @@ def nan_gcd(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
     gmpy2.gcd
     gcd
     """
-    if math.isfinite(a) and math.isfinite(b):
-        return math.gcd(a, b)
-    if math.isfinite(b):
-        return abs(b)
-    return abs(a)
+    if math.isfinite(left) and math.isfinite(right):
+        return math.gcd(left, right)
+    if math.isfinite(right):
+        return abs(right)
+    return abs(left)
 
 
 @eint_out
-def gcd(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
+def gcd(left: ExtendedIntegral, right: ExtendedIntegral) -> ExtendedIntegral:
     """Greatest common divisor for extended integers.
 
-    Largest `d` such that `a % d == 0 and b % d == 0`.
+    Largest `d` such that `left % d == 0 and right % d == 0`.
 
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
@@ -287,16 +288,16 @@ def gcd(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
     gmpy2.gcd
     nan_gcd
     """
-    if math.isnan(a) or math.isnan(b):
+    if math.isnan(left) or math.isnan(right):
         return math.nan
-    return nan_gcd(a, b)
+    return nan_gcd(left, right)
 
 
 @eint_out
-def nan_lcm(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
+def nan_lcm(left: ExtendedIntegral, right: ExtendedIntegral) -> ExtendedIntegral:
     """Least common multiple for extended integers.
 
-    Smallest `m` such that `m % a == 0 and m % b == 0`.
+    Smallest `val` such that `val % left == 0 and val % right == 0`.
 
     NaN safe version: ignores `nan` if the other argument is not `nan`.
 
@@ -311,20 +312,20 @@ def nan_lcm(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
     gmpy2.lcm
     lcm
     """
-    if math.isfinite(a) and math.isfinite(b):
-        return int(gmpy2.lcm(a, b))
-    if math.isnan(a):
-        return b
-    if math.isnan(b):
-        return a
+    if math.isfinite(left) and math.isfinite(right):
+        return int(gmpy2.lcm(left, right))
+    if math.isnan(left):
+        return right
+    if math.isnan(right):
+        return left
     return inf
 
 
 @eint_out
-def lcm(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
+def lcm(left: ExtendedIntegral, right: ExtendedIntegral) -> ExtendedIntegral:
     """Least common multiple for extended integers.
 
-    Smallest `m` such that `m % a == 0 and m % b == 0`.
+    Smallest `val` such that `val % left == 0 and val % right == 0`.
 
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
@@ -337,16 +338,16 @@ def lcm(a: ExtendedIntegral, b: ExtendedIntegral) -> ExtendedIntegral:
     gmpy2.lcm
     nan_lcm
     """
-    if math.isnan(a) or math.isnan(b):
+    if math.isnan(left) or math.isnan(right):
         return math.nan
-    return nan_lcm(a, b)
+    return nan_lcm(left, right)
 
 
 @eint_out
-def invert(x: ExtendedIntegral, m: ExtendedIntegral) -> ExtendedIntegral:
-    """Multiplicative inverse (modulo m) for extended integers.
+def invert(val: ExtendedIntegral, period: ExtendedIntegral) -> ExtendedIntegral:
+    """Multiplicative inverse (modulo period) for extended integers.
 
-    Return `y` such that `x * y == 1 (mod m)`.
+    Return `inv_val` such that `val * inv_val == 1 (mod period)`.
 
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
@@ -358,26 +359,26 @@ def invert(x: ExtendedIntegral, m: ExtendedIntegral) -> ExtendedIntegral:
     --------
     gmpy2.invert
     """
-    if math.isnan(x) or math.isnan(m):
+    if math.isnan(val) or math.isnan(period):
         return math.nan
-    if m in {1, -1}:
+    if period in {1, -1}:
         # everything is an inverse
         return 0
-    if math.isfinite(x) and math.isfinite(m):
-        return int(gmpy2.invert(x, m))
-    if x in {1, -1}:
-        return x
-    # if m == inf: inv(x) = 1/x,  - not invertible unless in {1, -1}
-    # if x == inf: inf = 0 (mod m) - not invertible
+    if math.isfinite(val) and math.isfinite(period):
+        return int(gmpy2.invert(val, period))
+    if val in {1, -1}:
+        return val
+    # if period == inf: inv(val) = 1/val,  - not invertible unless in {1, -1}
+    # if val == inf: inf = 0 (mod period) - not invertible
     raise ZeroDivisionError('not invertible')
 
 
 @eint_out
-def divm(a: ExtendedIntegral, b: ExtendedIntegral,
-         m: ExtendedIntegral) -> ExtendedIntegral:
-    """Division (modulo m) for extended integers.
+def divm(left: ExtendedIntegral, right: ExtendedIntegral,
+         period: ExtendedIntegral) -> ExtendedIntegral:
+    """Division (modulo period) for extended integers.
 
-    Return `x` such that `x * b == a (mod m)`.
+    Return `val` such that `val * right == left (mod period)`.
 
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
@@ -389,14 +390,14 @@ def divm(a: ExtendedIntegral, b: ExtendedIntegral,
     --------
     gmpy2.divm
     """
-    if math.isnan(a) or math.isnan(b) or math.isnan(m):
+    if math.isnan(left) or math.isnan(right) or math.isnan(period):
         return math.nan
-    if math.isfinite(a) and math.isfinite(b) and math.isfinite(m):
-        if m in {1, -1}:
-            # everything == 0 (mod m)
+    if math.isfinite(left) and math.isfinite(right) and math.isfinite(period):
+        if period in {1, -1}:
+            # everything == 0 (mod period)
             return 0
-        return int(gmpy2.divm(a, b, m))
-    return mod(a * invert(b, m), m)
+        return int(gmpy2.divm(left, right, period))
+    return mod(left * invert(right, period), period)
 
 
 @eint_out
@@ -413,7 +414,7 @@ def gcdn(*args: ExtendedIntegral, nan_safe: bool = False) -> ExtendedIntegral:
     Returns
     -------
     the_gcd: ExtendedIntegral
-        Largest `d` such that `a % d == 0 for all a in args`.
+        Largest `d` such that `left % d == 0 for all left in args`.
 
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.
@@ -446,7 +447,7 @@ def lcmn(*args: ExtendedIntegral, nan_safe: bool = False) -> ExtendedIntegral:
     Returns
     -------
     the_lcm: ExtendedIntegral
-        Smallest `m` such that `m % a == 0 for all a in args`.
+        Smallest `val` such that `val % left == 0 for all left in args`.
 
     Extended integers include `nan` and `+/-inf`. We act as if:
     - `inf` is the product of all positive numbers, so `inf % anything == 0`.

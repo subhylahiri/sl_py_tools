@@ -35,13 +35,13 @@ DSliceKeys = Dict[str, DSliceArg]
 Keys = Dict[str, Arg]
 DKeys = Dict[str, DArg]
 
-N = TypeVar('N', Number, None)
+NumOrNone = TypeVar('NumOrNone', Number, None)
 NumOp = Callable[[Number, Number], Number]
-S = TypeVar('S')
-SorNum = Union[S, Number]
+SomeType = TypeVar('SomeType')
+SorNum = Union[SomeType, Number]
 SArgsOrNum = Union[SliceArgs, Number]
-ConvIn = Callable[[S], SliceArgs]
-ConvOut = Callable[[SliceArg, SliceArg, SliceArg], S]
+ConvIn = Callable[[SomeType], SliceArgs]
+ConvOut = Callable[[SliceArg, SliceArg, SliceArg], SomeType]
 # =============================================================================
 # %* Utility functions
 # =============================================================================
@@ -183,12 +183,12 @@ class SliceToIter:
 
     Parameters
     ----------
-    argnum : int, optional
-        Which argument to `__getitem__` is the slice to convert? Default: 0
     iterfun : Callable[SliceArgs->Iterable], optional
         Function to convert `(start,stop,step)` to iterator. Default: `range`
+    argnum : int, optional
+        Which argument to `__getitem__` is the slice to convert? Default: 0
     slicefun : Callable[slice->SliceArgs], optional
-        Function to convert slice to `(start,stop,step)`. Default: `range_args`
+        Function to convert slice to `(start,stop,step)`. Default: `st_args`
     """
     argnum: int
     iterfun: Callable[[SliceArgs], Iterable]
@@ -206,38 +206,49 @@ class SliceToIter:
 
     def __getitem__(self, arg) -> Iterable:
         arg = tuplify(arg)
-        argspre = arg[:self.argnum]
-        argspost = arg[self.argnum+1:]
-        argsslc = self.slicefun(arg[self.argnum])
+        return self.convert(*arg)
+
+    def convert(self, *args) -> Iterable:
+        """Convert slice arguments to an iterator
+
+        Returns
+        -------
+        the_iter : Iterable
+            Resulting iterator
+        """
+        argspre = args[:self.argnum]
+        argspost = args[self.argnum+1:]
+        argsslc = self.slicefun(args[self.argnum])
         return self.iterfun(*argspre, *argsslc, *argspost)
 
 
+
 # -----------------------------------------------------------------------------
-# %* Arithmetic operations
+# Arithmetic operations
 # -----------------------------------------------------------------------------
 
 
-def _num_only_l(opr: NumOp) -> Callable[[N, Number], N]:
+def _num_only_l(opr: NumOp) -> Callable[[NumOrNone, Number], NumOrNone]:
     """Wrap an operator to only act on numbers
     """
-    def wrapper(left: S, right: Number) -> S:
+    def wrapper(left: SomeType, right: Number) -> SomeType:
         if isinstance(left, Number):
             return opr(left, right)
         return left
     return wrapper
 
 
-def _num_only_r(opr: NumOp) -> Callable[[Number, N], N]:
+def _num_only_r(opr: NumOp) -> Callable[[Number, NumOrNone], NumOrNone]:
     """Wrap an operator to only act on numbers
     """
-    def wrapper(left: Number, right: S) -> S:
+    def wrapper(left: Number, right: SomeType) -> SomeType:
         if isinstance(right, Number):
             return opr(left, right)
         return right
     return wrapper
 
 
-def num_only(opr: NumOp) -> Callable[[N, N], N]:
+def num_only(opr: NumOp) -> Callable[[NumOrNone, NumOrNone], NumOrNone]:
     """Wrap an operator to only act on numbers
     """
     return _num_only_l(_num_only_r(opr))
@@ -272,21 +283,22 @@ def conv_in_wrap(func: ConvIn) -> Callable[[SorNum], Tuple[SliceArgs, bool]]:
 
 
 def _range_ops(opr: NumOp, case_steps: Tuple[bool, ...],
-               conv_in: ConvIn, conv_out: ConvOut, *args: SorNum) -> S:
+               conv_in: ConvIn, conv_out: ConvOut, *args: SorNum) -> SomeType:
     """Perform operation on ranges/numbers.
 
     Parameters
     ----------
-    args
-        [left, right]
+    opr
+        operator to use
     case_steps : tuple(bool, bool, bool)
-        if (both, left, right) isinstance(S), that element passed to wrap_op.
+        if (both, left, right) argument(s) isinstance(SomeType), that element of
+        `case_steps` will be passed to `wrap_op`.
     conv_in
         function to convert inputs to input argument
     conv_out
         function to convert output arguments to output
-    opr
-        operator to use
+    args
+        [left, right] argument to operator
     """
     conv_in = conv_in_wrap(conv_in)
     args, is_rng = zip(*[conv_in(x) for x in args])
@@ -300,7 +312,7 @@ def _range_ops(opr: NumOp, case_steps: Tuple[bool, ...],
 
 
 def arg_mul(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum,
-            step: bool = True) -> S:
+            step: bool = True) -> SomeType:
     """multiply range by a number.
 
     Parameters
@@ -314,7 +326,7 @@ def arg_mul(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum,
 
 
 def arg_div(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: Number,
-            step: bool = True) -> S:
+            step: bool = True) -> SomeType:
     """divide range by a number.
 
     Parameters
@@ -327,7 +339,7 @@ def arg_div(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: Number,
     return _range_ops(floordiv, (None, step, None), cin, cout, arg1, arg2)
 
 
-def arg_add(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum) -> S:
+def arg_add(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum) -> SomeType:
     """add ranges / numbers.
 
     Parameters
@@ -338,7 +350,7 @@ def arg_add(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum) -> S:
     return _range_ops(add, (False, False, False), cin, cout, arg1, arg2)
 
 
-def arg_sub(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum) -> S:
+def arg_sub(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum) -> SomeType:
     """subtract ranges / numbers.
 
     Parameters
@@ -353,7 +365,7 @@ def arg_sub(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum) -> S:
 
 
 # =============================================================================
-# %* Client class for DisplayCount
+# Client class for DisplayCount
 # =============================================================================
 
 
@@ -376,7 +388,7 @@ class DisplayCntState(DisplayState):
 
 
 # =============================================================================
-# %* Mixins for defining displaying iterators
+# Mixins for defining displaying iterators
 # =============================================================================
 
 

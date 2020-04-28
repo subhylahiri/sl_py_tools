@@ -11,18 +11,18 @@ import typing as _ty
 import numbers as _num
 from . import arg_tricks as _ag
 
-A = _ty.TypeVar('A')
-B = _ty.TypeVar('B')
-InstanceOrIterable = _ty.Union[A, _ty.Iterable[A]]
-InstanceOrTuple = _ty.Union[A, _ty.Tuple[A, ...]]
-Dictable = _ty.Union[_ty.Mapping[A, B], _ty.Iterable[_ty.Tuple[A, B]]]
+Var = _ty.TypeVar('Var')
+Val = _ty.TypeVar('Val')
+InstanceOrIterable = _ty.Union[Var, _ty.Iterable[Var]]
+InstanceOrTuple = _ty.Union[Var, _ty.Tuple[Var, ...]]
+Dictable = _ty.Union[_ty.Mapping[Var, Val], _ty.Iterable[_ty.Tuple[Var, Val]]]
 
 # =============================================================================
 # Function parameter/return helpers
 # =============================================================================
 
 
-def tuplify(arg: InstanceOrIterable[A], num: int = 1) -> _ty.Tuple[A, ...]:
+def tuplify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.Tuple[Var, ...]:
     """Make argument a tuple.
 
     If it is an iterable (except for `str`), it is converted to a `tuple`.
@@ -41,10 +41,10 @@ def tuplify(arg: InstanceOrIterable[A], num: int = 1) -> _ty.Tuple[A, ...]:
     return (arg,) * num
 
 
-def untuplify(arg: _ty.Tuple[A]) -> InstanceOrTuple[A]:
+def untuplify(arg: _ty.Tuple[Var]) -> InstanceOrTuple[Var]:
     """Unpack tuple before returning.
 
-    If `tuple` has a single element, return that. If empty, return nothing.
+    If `tuple` has a single element, return that. If empty, return `None`.
     Otherwise return the `tuple`.
 
     Parameters
@@ -53,13 +53,13 @@ def untuplify(arg: _ty.Tuple[A]) -> InstanceOrTuple[A]:
         `tuple` to be unwrapped.
     """
     if len(arg) == 0:
-        return
+        return None
     if len(arg) == 1:
         return arg[0]
     return arg
 
 
-def listify(arg: InstanceOrIterable[A], num: int = 1) -> _ty.List[A]:
+def listify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.List[Var]:
     """Make argument a list.
 
     If it is an iterable (except for `str`), it is converted to a `list`.
@@ -130,7 +130,7 @@ class Interval(cn.abc.Container):
         self.inclusive = listify(inclusive, 2)
 
     def __contains__(self, x: _num.Real) -> bool:
-        return ((self.start < x and x < self)
+        return ((self.start < x < self.stop)
                 or (self.inclusive[0] and x == self.start)
                 or (self.inclusive[1] and x == self.stop))
 

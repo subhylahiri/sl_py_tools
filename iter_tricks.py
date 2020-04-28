@@ -129,15 +129,15 @@ from typing import Sequence
 import sys
 
 from . import _iter_base as _it
-from .arg_tricks import Export as _Export
 from .display_tricks import delay_warnings
 from .containers import ZipSequences, tuplify
 from .range_tricks import erange, sr_
 from .slice_tricks import range_to_slice, slice_to_range, SliceRange, srange
 from .iter_class import DisplayCount, DisplayBatch, DisplayEnumerate, DisplayZip
+# from .arg_tricks import Export as _Export
 
-_Export[delay_warnings, erange, sr_]
-_Export[range_to_slice, slice_to_range, SliceRange, srange]
+# _Export[delay_warnings, erange, sr_]
+# _Export[range_to_slice, slice_to_range, SliceRange, srange]
 assert sys.version_info[:2] >= (3, 6)
 
 # =============================================================================

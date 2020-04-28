@@ -2,45 +2,45 @@
 """Tools for processing function arguments.
 """
 import typing as _ty
-A = _ty.TypeVar('A')
-B = _ty.TypeVar('B')
+Some = _ty.TypeVar('Some')
+Other = _ty.TypeVar('Other')
 
 
-def default(optional: _ty.Optional[A], default_value: A) -> A:
+def default(optional: _ty.Optional[Some], default_value: Some) -> Some:
     """Replace optional with default value if it is None
 
     Parameters
     ----------
-    optional : A or None
+    optional : Some or None
         The optional argument, where `None` indicates that the default value
         should be used instead.
-    default_value : A
+    default_value : Some
         Default value for the argument, used when `optional` is `None`.
 
     Returns
     -------
-    use_value : A
+    use_value : Some
         Either `optional`, if it is not `None` or `default_value` if it is.
     """
     return default_value if (optional is None) else optional
 
 
-def default_eval(optional: _ty.Optional[A],
-                 default_fn: _ty.Callable[[], A]) -> A:
+def default_eval(optional: _ty.Optional[Some],
+                 default_fn: _ty.Callable[[], Some]) -> Some:
     """Replace optional with evaluation of default function if it is None
 
     Parameters
     ----------
-    optional : A or None
+    optional : Some or None
         The optional argument, where `None` indicates that the default value
         should be used instead.
-    default_fn : Callable[()->A]
+    default_fn : Callable[()->Some]
         Evaluates to default value for the argument, only evaluated and used
         when `optional` is `None`. Does not take any arguments.
 
     Returns
     -------
-    use_value : A
+    use_value : Some
         Either `optional`, if it is not `None` or `default_fn()` if it is.
     """
     if optional is None:
@@ -48,24 +48,24 @@ def default_eval(optional: _ty.Optional[A],
     return optional
 
 
-def default_non_eval(optional: _ty.Optional[A],
-                     non_default_fn: _ty.Callable[[A], B],
-                     default_value: B) -> B:
+def default_non_eval(optional: _ty.Optional[Some],
+                     non_default_fn: _ty.Callable[[Some], Other],
+                     default_value: Other) -> Other:
     """Evaluate function on optional if it is not None
 
     Parameters
     ----------
-    optional : A or None
+    optional : Some or None
         The optional argument, where `None` indicates that the default value
         should be used instead.
-    non_default_fn : Callable[(A)->B]
+    non_default_fn : Callable[(Some)->Other]
         Evaluated on `optional`if it is not `None`.
-    default_value : B
+    default_value : Other
         Default value for the argument, used when `optional` is `None`.
 
     Returns
     -------
-    use_value : B
+    use_value : Other
         Either `non_default_fn(optional)`, if `optional` is not `None` or
         `default_value` if it is.
     """
@@ -74,25 +74,25 @@ def default_non_eval(optional: _ty.Optional[A],
     return non_default_fn(optional)
 
 
-def non_default_eval(optional: _ty.Optional[A],
-                     non_default_fn: _ty.Callable[[A], B],
-                     default_fn: _ty.Callable[[], B]) -> B:
+def non_default_eval(optional: _ty.Optional[Some],
+                     non_default_fn: _ty.Callable[[Some], Other],
+                     default_fn: _ty.Callable[[], Other]) -> Other:
     """Evaluate function on optional if it is not None, else evaluate default.
 
     Parameters
     ----------
-    optional : A or None
+    optional : Some or None
         The optional argument, where `None` indicates that the default value
         should be used instead.
-    non_default_fn : Callable[(A)->B]
+    non_default_fn : Callable[(Some)->Other]
         Evaluated on `optional`if it is not `None`.
-    default_fn : Callable[()->B]
+    default_fn : Callable[()->Other]
         Evaluates to default value for the argument, only evaluated and used
         when `optional` is not `None`.
 
     Returns
     -------
-    use_value : B
+    use_value : Other
         Either `non_default_fn(optional)`, if `optional` is not `None` or
         `default_fn()` if it is.
     """
@@ -101,8 +101,8 @@ def non_default_eval(optional: _ty.Optional[A],
     return non_default_fn(optional)
 
 
-def defaults(optionals: _ty.Iterable[_ty.Optional[A]],
-             default_vals: _ty.Iterable[A]) -> _ty.Tuple[A, ...]:
+def defaults(optionals: _ty.Iterable[_ty.Optional[Some]],
+             default_vals: _ty.Iterable[Some]) -> _ty.Tuple[Some, ...]:
     """Replace arguments with defaults if they are None
 
     If the `optionals` and `default_vals` have different lengths, the shorter
@@ -110,16 +110,16 @@ def defaults(optionals: _ty.Iterable[_ty.Optional[A]],
 
     Parameters
     ----------
-    optionals : Iterable[A or None]
+    optionals : Iterable[Some or None]
         Tuple of arguments, where entries of `None` indicate that the default
         value should be used instead.
-    default_vals : Iterable[A]
+    default_vals : Iterable[Some]
         Tuple of default values for arguments, they are used when the
         corresponding element of `optionals` is `None`.
 
     Returns
     -------
-    use_vals : Tuple[A]
+    use_vals : Tuple[Some]
         The corresponding elements of `optionals` or `default_vals`, using
         the latter only when the former is `None`.
     """
@@ -129,17 +129,17 @@ def defaults(optionals: _ty.Iterable[_ty.Optional[A]],
     return tuple(default(opt, df) for opt, df in zip(optionals, default_vals))
 
 
-def args_to_kwargs(args: _ty.Tuple[A],
-                   kwargs: _ty.Dict[str, A],
+def args_to_kwargs(args: _ty.Tuple[Some],
+                   kwargs: _ty.Dict[str, Some],
                    names: _ty.Collection[str],
-                   kw_rank: bool = False) -> _ty.Tuple[A]:
+                   kw_rank: bool = False) -> _ty.Tuple[Some]:
     """Convert positional arguments to keyword arguments
 
     Parameters
     ----------
-    args : Tuple[A, ...]
+    args : Tuple[Some, ...]
         Tuple of positional arguments.
-    kwargs : Dict[str, B]
+    kwargs : Dict[str, Other]
         Dict of keyword arguments.
     names : List[str]
         Names of the positional arguments.
@@ -149,7 +149,7 @@ def args_to_kwargs(args: _ty.Tuple[A],
 
     Returns
     -------
-    extra : Tuple[A,...]
+    extra : Tuple[Some,...]
         positional arguments with no names
     """
     if kw_rank:

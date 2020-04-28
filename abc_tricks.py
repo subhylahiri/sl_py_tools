@@ -30,10 +30,12 @@ def supername(cls: type, base: type = object) -> str:
     """String of name of superclass
 
     Searches for first subclass of `base` in `cls.__mro__` other than `cls`.
+    raises `ValueError` if not found.
     """
     for scls in cls.__mro__:
         if scls is not cls and issubclass(scls, base):
             return scls.__name__
+    raise ValueError(f"{base.__name__} is not a superclass of {cls.__name__}")
 
 # =============================================================================
 # Type check utilities
@@ -57,7 +59,7 @@ def _check_annotations(the_class: type, prop: str) -> CheckResult:
 
 
 def _check_property(the_class: type, prop: str) -> CheckResult:
-    """Check if prop is in class dictionary (as a property) or annotations.
+    """Check if prop is in class dictionary (as a property) or annotation.
     """
     is_ok = _check_dict(the_class, prop)
     if is_ok is NotImplemented:
@@ -67,10 +69,10 @@ def _check_property(the_class: type, prop: str) -> CheckResult:
     return _check_annotations(the_class, prop)
 
 
-def _check_generic(the_class: type, check: Checker, *methods: str) -> CheckResult:
+def _check_generic(the_cls: type, check: Checker, *methods: str) -> CheckResult:
     """Check class for methods
     """
-    mro = the_class.__mro__
+    mro = the_cls.__mro__
     for method in methods:
         for super_class in mro:
             is_ok = check(super_class, method)

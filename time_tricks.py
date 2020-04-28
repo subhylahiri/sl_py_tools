@@ -174,7 +174,7 @@ def ampm_hr(dtm: datetime.time) -> (int, str):
 # =============================================================================
 
 
-class Timer(object):
+class Timer:
     """Class for displaying before/after time.
 
     Parameters

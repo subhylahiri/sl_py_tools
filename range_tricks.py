@@ -8,7 +8,6 @@ gmpy2
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Iterator
 from numbers import Number
 from typing import Optional, Tuple, Union
 
