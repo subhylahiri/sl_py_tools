@@ -1,20 +1,19 @@
 # -*- coding: utf-8 -*-
 """Tricks for manipulating slices and ranges
-
-Requires
---------
-gmpy2
 """
 from __future__ import annotations
+
 from abc import abstractmethod
 from numbers import Number
-from typing import Optional, Tuple, Union, Callable
+from typing import Callable, Optional, Tuple, Union
 
 from . import _iter_base as _ib
-from . import range_tricks as _rt
-from .range_tricks import RangeIsh as SliceIsh
-from . import arg_tricks as _ag
 from . import integer_tricks as _ig
+from . import range_tricks as _rt
+from .arg_tricks import default as _default
+from .arg_tricks import default_non_eval as _default_neval
+from .modular_arithmetic import and_
+from .range_tricks import RangeIsh as SliceIsh
 
 SliceArg = Optional[int]
 SliceArgs = Tuple[SliceArg, SliceArg, SliceArg]
@@ -112,9 +111,9 @@ def slice_str(*sliceobjs: SliceIsh, bracket: bool = True) -> str:
     def func(sliceobj):
         """Format a single slice
         """
-        return (_ag.default_non_eval(sliceobj.start, str, '') + ':'
-                + _ag.default_non_eval(sliceobj.stop, str, '')
-                + _ag.default_non_eval(sliceobj.step, lambda x: f':{x}', ''))
+        return (_default_neval(sliceobj.start, str, '') + ':'
+                + _default_neval(sliceobj.stop, str, '')
+                + _default_neval(sliceobj.step, lambda x: f':{x}', ''))
     if bracket:
         return _slice_disp(func, sliceobjs, '[{}]')
     return _slice_disp(func, sliceobjs)
@@ -305,11 +304,11 @@ def slice_args_def(the_slice: SliceIsh) -> SliceArgs:
         Increment of slice, with default 1.
     """
     start, stop, step = slice_args(the_slice)
-    step = _ag.default(step, 1)
+    step = _default(step, 1)
     if step > 0:
-        start = _ag.default(start, 0)
+        start = _default(start, 0)
     elif step < 0:
-        stop = _ag.default(stop, -1)
+        stop = _default(stop, -1)
     else:
         raise ValueError('slice step cannot be zero')
     return start, stop, step
@@ -396,7 +395,6 @@ def is_subslice(subslice: SliceLike, the_slice: SliceLike) -> bool:
 def disjoint_slice(slc1: SliceLike, slc2: SliceLike) -> bool:
     """Do slices fail to overlap?
     """
-    from .modular_arithmetic import and_
     slc1, slc2 = _rectify(slc1), _rectify(slc2)
     overlap, _ = and_(slc1.start, slc1.step, slc2.start, slc2.step)
     return not (in_slice(overlap, slc1) and in_slice(overlap, slc2))
@@ -514,7 +512,7 @@ def _indeterminable(the_slice: SliceLike, length: int = None) -> bool:
     determinable : bool
         False if lowest value in slice is determined.
     """
-    return _unbounded(the_slice, length) and _ag.default(the_slice.step, 1) < -1
+    return _unbounded(the_slice, length) and _default(the_slice.step, 1) < -1
 
 # -----------------------------------------------------------------------------
 # Exceptions

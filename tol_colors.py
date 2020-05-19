@@ -275,8 +275,8 @@ def tol_cmap(colormap=None, lut=None):
     if colormap not in obj.namelist:
         colormap = 'rainbow_PuRd'
         print('*** Warning: requested colormap not defined,',
-              'known colormaps are {}.'.format(obj.namelist),
-              'Using {}.'.format(colormap))
+              f'known colormaps are {obj.namelist}.',
+              f'Using {colormap}.')
     return obj.get(colormap, lut)
 
 
@@ -298,8 +298,8 @@ def tol_cset(colorset=None):
     if colorset not in namelist:
         colorset = 'bright'
         print('*** Warning: requested colorset not defined,',
-              'known colorsets are {}.'.format(namelist),
-              'Using {}.'.format(colorset))
+              f'known colorsets are {namelist}.',
+              f'Using {colorset}.')
 
     if colorset == 'bright':
         cset = namedtuple('Bcset',
@@ -368,7 +368,8 @@ def main():
         pos = list(axs.get_position().bounds)
         axs.set_axis_off()
         axs.imshow(gradient, aspect=4, cmap=tol_cmap(scheme))
-        fig.text(pos[0] - 0.01, pos[1] + pos[3]/2., scheme, va='center', ha='right', fontsize=10)
+        fig.text(pos[0] - 0.01, pos[1] + pos[3]/2., scheme,
+                 va='center', ha='right', fontsize=10)
     plt.show()
 
     # Show colormaps tol_cmap('rainbow_discrete', <lut>).
@@ -380,8 +381,8 @@ def main():
         pos = list(axs.get_position().bounds)
         axs.set_axis_off()
         axs.imshow(gradient, aspect=4, cmap=tol_cmap('rainbow_discrete', lut))
-        fig.text(pos[0] - 0.01, pos[1] + pos[3]/2., 'rainbow_discrete, ' +
-                 str(lut), va='center', ha='right', fontsize=10)
+        fig.text(pos[0] - 0.01, pos[1] + pos[3]/2., f'rainbow_discrete, {lut}',
+                 va='center', ha='right', fontsize=10)
     plt.show()
 
 

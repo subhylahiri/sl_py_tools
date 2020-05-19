@@ -9,7 +9,7 @@
 """
 Iterators for convenience and displaying progress.
 
-iterator : class
+DisplayCount : class
     Iterator for displaying loop counters.
 DisplayBatch : class
     Iterator for displaying loop counters, returning slices.
@@ -30,7 +30,7 @@ See warning in `display_tricks` module.
 For convenience:
 
 dcount : function
-    Creates a `iterator`.
+    Creates a `DisplayCount`.
 denumerate : function
     Creates a `DisplayEnumerate`.
 dzip: function
@@ -108,10 +108,6 @@ Examples
 >>> for s in dbatch('s', 0, len(x), 10):
 >>>     y[s] = np.linalg.eigvals(x[s])
 >>> print(x[15], y[15])
-
-Requires
---------
-gmpy2
 """
 # current_module = __import__(__name__)
 __all__ = [
@@ -124,16 +120,16 @@ __all__ = [
     'delay_warnings', 'erange', 'sr_',
     ]
 import itertools
-# All of these imports could be removed:
-from typing import Sequence
 import sys
+from typing import Sequence
 
 from . import _iter_base as _it
-from .display_tricks import delay_warnings
 from .containers import ZipSequences, tuplify
+from .display_tricks import delay_warnings
+from .iter_disp import DisplayBatch, DisplayCount, DisplayEnumerate, DisplayZip
 from .range_tricks import erange, sr_
-from .slice_tricks import range_to_slice, slice_to_range, SliceRange, srange
-from .iter_class import DisplayCount, DisplayBatch, DisplayEnumerate, DisplayZip
+from .slice_tricks import SliceRange, range_to_slice, slice_to_range, srange
+
 # from .arg_tricks import Export as _Export
 
 # _Export[delay_warnings, erange, sr_]
@@ -315,7 +311,7 @@ def dcount(*args: _it.DSliceArg, **kwargs) -> DisplayCount:
 
     Returns
     -------
-    disp_counter : iterator
+    disp_counter : DisplayCount
         An iterator that displays & returns counter value.
 
     Examples
@@ -380,7 +376,7 @@ def denumerate(*args: _it.DZipArg, **kwds) -> DisplayEnumerate:
         i.e. ``len(sequence)`` works, e.g. tuple, list, np.ndarray.
         Note: argument is unpacked.
     **kwds
-        Passed to `iterator`
+        Passed to `DisplayCount`
 
     Returns
     -------
@@ -433,7 +429,7 @@ def dzip(*args: _it.DZipArg, **kwds) -> DisplayZip:
         i.e. ``len(sequence)`` works, e.g. tuple, list, np.ndarray.
         Note: argument is unpacked.
     **kwds
-        Passed to `iterator`
+        Passed to `DisplayCount`
 
     Returns
     -------
@@ -599,9 +595,9 @@ rdbatch = dbatch.rev
 rdenumerate = denumerate.rev
 rdzip = dzip.rev
 
-# ==============================================================================
+# ============================================================================
 # Non-displaying iterator functions
-# ==============================================================================
+# ============================================================================
 undcount = _it.without_disp(erange)
 undbatch = _it.without_disp(batch)
 undenumerate = _it.without_disp(zenumerate)

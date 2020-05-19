@@ -14,7 +14,7 @@ __all__ = [
 
 import abc
 import types
-from typing import Union, List, Tuple, Callable, Any
+from typing import Any, Callable, List, Tuple, Union
 
 CheckResult = Union[bool, type(NotImplemented)]
 Checker = Callable[[type, str], CheckResult]

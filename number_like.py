@@ -55,10 +55,11 @@ The `__objclass__` attribute is needed to convert the outputs back.
 import builtins
 import math
 import operator
-from numbers import Complex, Real, Integral, Number
 from collections.abc import Iterable
-from typing import Callable, Tuple
 from functools import wraps
+from numbers import Complex, Integral, Number, Real
+from typing import Callable, Tuple
+
 from .arg_tricks import default, default_non_eval
 
 # =============================================================================
@@ -219,7 +220,7 @@ def _add_set_objclass(meth, cache: set):
     cache : set
         Set storing methods that will need to have __objclass__ set later.
     """
-    if isinstance(meth, tuple):
+    if isinstance(meth, Iterable):
         for mth in meth:
             _add_set_objclass(mth, cache)
     else:

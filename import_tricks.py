@@ -28,14 +28,12 @@ Example
 """
 __all__ = ['Reloader', 'reload']
 
-# frippery
-from collections.abc import Callable
-from typing import Tuple, Set, AbstractSet
-# essential
-import sys
 import os
-from functools import wraps
+import sys
+from collections.abc import Callable
 from contextlib import contextmanager
+from functools import wraps
+from typing import AbstractSet, Set, Tuple
 
 from IPython.lib import deepreload
 

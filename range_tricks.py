@@ -1,22 +1,18 @@
 # -*- coding: utf-8 -*-
 """Tricks for manipulating ranges and slices
-
-Requires
---------
-gmpy2
 """
 from __future__ import annotations
 
+import itertools
 from abc import abstractmethod
 from numbers import Number
 from typing import Optional, Tuple, Union
 
-import itertools
-
-from .abc_tricks import ABCauto
 from . import _iter_base as _ib
 from . import arg_tricks as _ag
 from . import integer_tricks as _ig
+from .abc_tricks import ABCauto
+from .modular_arithmetic import and_
 
 RangeArg = Optional[_ig.Eint]
 RangeArgs = Tuple[RangeArg, ...]
@@ -276,7 +272,6 @@ def is_subrange(subrange: RangeLike, the_range: RangeLike) -> bool:
 def disjoint_range(rng1: RangeLike, rng2: RangeLike) -> bool:
     """Do ranges fail to overlap?
     """
-    from .modular_arithmetic import and_
     rng1, rng2 = _rectify(rng1), _rectify(rng2)
     overlap, _ = and_(rng1.start, rng1.step, rng2.start, rng2.step)
     return not ((overlap in rng1) and (overlap in rng2))

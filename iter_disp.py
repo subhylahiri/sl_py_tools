@@ -2,9 +2,7 @@
 """
 import itertools
 import sys
-# All of these imports could be removed:
-from collections.abc import Iterator
-from typing import Optional, Iterable, ContextManager
+from typing import ContextManager, Iterable, Iterator, Optional
 
 from . import _iter_base as _it
 from .range_tricks import RangeCollectionMixin as _RangeCollectionMixin
@@ -394,6 +392,7 @@ class ContextualIterator:
     """
     manager: ContextManager
     iterator: Iterable
+
     def __init__(self, manager: ContextManager, iterable: Iterable):
         self.manager = manager
         self.iterator = iterable

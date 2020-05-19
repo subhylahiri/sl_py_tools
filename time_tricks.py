@@ -61,10 +61,10 @@ Examples
 """
 
 import datetime
-from contextlib import contextmanager
-from typing import Union, Optional, Callable, ClassVar, Any
 import io
 import sys
+from contextlib import contextmanager
+from typing import Any, Callable, ClassVar, Optional, Union
 
 assert sys.version_info[:2] >= (3, 6)
 

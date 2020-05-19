@@ -2,6 +2,7 @@
 """Tools for processing function arguments.
 """
 import typing as _ty
+
 Some = _ty.TypeVar('Some')
 Other = _ty.TypeVar('Other')
 

@@ -2,13 +2,15 @@
 """Custom containers & container routines
 """
 from __future__ import annotations
+
 import collections as cn
-import itertools as _it
-import functools as _ft
-import operator as _op
 import contextlib as _cx
-import typing as _ty
+import functools as _ft
+import itertools as _it
 import numbers as _num
+import operator as _op
+import typing as _ty
+
 from . import arg_tricks as _ag
 
 Var = _ty.TypeVar('Var')
@@ -307,7 +309,8 @@ def _inv_dict_iter(to_invert: dict) -> _ty.Iterator:
     return ((v, k) for k, v in to_invert.items())
 
 
-def invert_dict(to_invert: dict, check=True) -> dict:
+def invert_dict(to_invert: _ty.Mapping[Var, Val],
+                check: bool = True) -> _ty.Mapping[Val, Var]:
     """Swap keys and values.
 
     Assumes values are distinct and hashable.

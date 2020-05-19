@@ -2,13 +2,15 @@
 """Tools for making matplotlib nicer
 """
 import typing as _ty
+
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 import matplotlib.patheffects as mpf
+import matplotlib.pyplot as plt
 import numpy as np
-from . import tol_colors as tol
+
 from . import arg_tricks as _ag
 from . import containers as _cn
+from . import tol_colors as tol
 
 
 def rc_fonts(family: str = 'serif'):
@@ -18,13 +20,14 @@ def rc_fonts(family: str = 'serif'):
     mpl.rcParams['text.usetex'] = True
 #    mpl.rcParams['text.latex.unicode'] = True
     mpl.rcParams['font.family'] = family
-    mpl.rcParams['text.latex.preamble'] = r"\usepackage{amsmath,amssymb}"
+    mpl.rcParams['text.latex.preamble'] = "\\usepackage{amsmath,amssymb}"
 
 
 def rc_colours(cset: str = 'bright', cmap: str = 'rainbow_PuRd'):
     """Global line colour options.
     """
-    mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=list(tol.tol_cset(cset)))
+    prop_cycle = mpl.cycler(color=list(tol.tol_cset(cset)))
+    mpl.rcParams['axes.prop_cycle'] = prop_cycle
     mpl.cm.register_cmap(cmap, tol.tol_cmap(cmap))
     mpl.rcParams['image.cmap'] = cmap
 

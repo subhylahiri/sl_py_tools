@@ -1,19 +1,17 @@
 # -*- coding: utf-8 -*-
 """Modular arithmetic
-
-Requires
---------
-gmpy2
 """
 from __future__ import annotations
+
 import operator
 from functools import wraps
 from itertools import chain
-from typing import Callable, Tuple, List, ClassVar
-from sl_py_tools.containers import tuplify
-from sl_py_tools import number_like as nl
-from sl_py_tools import integer_tricks as ig
-from sl_py_tools.integer_tricks import eint, inf, nan, Eint
+from typing import Callable, ClassVar, List, Tuple
+
+from . import integer_tricks as ig
+from . import number_like as nl
+from .containers import tuplify
+from .integer_tricks import Eint, eint, inf, nan
 
 # =============================================================================
 # Operator helpers
@@ -358,7 +356,7 @@ def _get_mod(arg) -> eint:
 
 
 def _get_data(arg) -> eint:
-    """Convert an input from Mod.modulus to eint"""
+    """Convert an input from Mod to (eint, eint)"""
     if isinstance(arg, Mod):
         return arg.data
     return arg, inf

@@ -55,11 +55,11 @@ Examples
 >>>     smthng = do_something(param1, param2)
 >>>     return smthng
 """
-from typing import ClassVar, Callable, Optional, Dict, Union, Any
 import io
 import logging
-from contextlib import contextmanager
 import sys
+from contextlib import contextmanager
+from typing import Any, Callable, ClassVar, Dict, Optional, Union
 
 assert sys.version_info[:2] >= (3, 6)
 
