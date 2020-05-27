@@ -95,6 +95,8 @@ def slice_str(*sliceobjs: SliceIsh, bracket: bool = True) -> str:
 
     Converts `slice(a, b, c)` to `'[a:b:c]'`, `np.s_[a:b, c:]` to `'[a:b,c:]'`,
     `*np.s_[::c, :4]` to `'[::c,:4]'`, `np.s_[:]` to `'[:]'`, etc.
+    Also accepts `int`s and `Ellipses` as parameters. Slice arguments can be
+    `int`s, `None`, or anything that can be converted to `str`.
 
     Parameters
     ----------
@@ -108,7 +110,7 @@ def slice_str(*sliceobjs: SliceIsh, bracket: bool = True) -> str:
     slc_str : str
         String representing slice.
     """
-    def func(sliceobj):
+    def func(sliceobj: SliceIsh) -> str:
         """Format a single slice
         """
         return (_default_neval(sliceobj.start, str, '') + ':'
@@ -136,7 +138,7 @@ def slice_repr(*sliceobjs: SliceIsh, bracket: bool = True) -> str:
     slc_str : str
         String representing slice.
     """
-    def func(sliceobj):
+    def func(sliceobj: SliceIsh) -> str:
         """Format a single slice
         """
         return _rt.range_repr(sliceobj, False)
@@ -406,6 +408,14 @@ def disjoint_slice(slc1: SliceLike, slc2: SliceLike) -> bool:
 SliceOrNum = Union[SliceIsh, Number]
 
 
+def intersect(slc1: SliceLike, slc2: SliceLike) -> slice:
+    """Do slices fail to overlap?
+    """
+    slc1, slc2 = _rectify(slc1), _rectify(slc2)
+    overlap, step = and_(slc1.start, slc1.step, slc2.start, slc2.step)
+    return _rectify(slice(overlap, _min(slc1.stop, slc2.stop), step))
+
+
 def slice_add(left: SliceOrNum, right: SliceOrNum) -> slice:
     """Add slices / numbers.
 
@@ -478,6 +488,22 @@ def slice_div(left: SliceIsh, right: Number, step: bool = True) -> slice:
 # =============================================================================
 # Utilities
 # =============================================================================
+
+
+def _max(left: SliceArg, right: SliceArg) -> SliceArg:
+    """Max of two slice args"""
+    if left is None or right is None:
+        return None
+    return max(left, right)
+
+
+def _min(left: SliceArg, right: SliceArg) -> SliceArg:
+    """Min of two slice args"""
+    if left is None:
+        return right
+    if right is None:
+        return left
+    return min(left, right)
 
 # -----------------------------------------------------------------------------
 # Tests
