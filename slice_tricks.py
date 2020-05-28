@@ -102,7 +102,7 @@ def slice_str(*sliceobjs: SliceIsh, bracket: bool = True) -> str:
     ----------
     sliceobj : SliceIsh
         Instance(s) to represent (or int, Ellipsis).
-    bracket : bool, optional
+    bracket : bool, optional, keyword only
         Do we enclose result in []? default: True
 
     Returns
@@ -130,7 +130,7 @@ def slice_repr(*sliceobjs: SliceIsh, bracket: bool = True) -> str:
     ----------
     sliceobj : slice or range
         Instance(s) to represent (or int, Ellipsis, hasattr{start,stop,step}).
-    bracket : bool, optional
+    bracket : bool, optional, keyword only
         Do we enclose result in ()? default: True
 
     Returns
@@ -413,6 +413,8 @@ def intersect(slc1: SliceLike, slc2: SliceLike) -> slice:
     """
     slc1, slc2 = _rectify(slc1), _rectify(slc2)
     overlap, step = and_(slc1.start, slc1.step, slc2.start, slc2.step)
+    if _ig.isnan(overlap):
+        return None
     return _rectify(slice(overlap, _min(slc1.stop, slc2.stop), step))
 
 
@@ -768,4 +770,6 @@ def _slice_disp(func: Callable[[SliceIsh], str],
         return str(sliceobj)
     if sliceobj is Ellipsis:
         return '...'
-    return func(sliceobj)
+    if isinstance(sliceobj, SliceIsh):
+        return func(sliceobj)
+    return str(sliceobj)

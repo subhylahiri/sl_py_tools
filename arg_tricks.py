@@ -122,7 +122,7 @@ def defaults(optionals: _ty.Iterable[_ty.Optional[Some]],
     -------
     use_vals : Tuple[Some]
         The corresponding elements of `optionals` or `default_vals`, using
-        the latter only when the former is `None`.
+        the latter only when the former is `None` or absent.
     """
     extra = len(default_vals) - len(optionals)
     optionals = tuple(optionals) + (None,) * extra

@@ -43,7 +43,7 @@ def tuplify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.Tuple[Var, ...]:
     return (arg,) * num
 
 
-def untuplify(arg: _ty.Tuple[Var]) -> InstanceOrTuple[Var]:
+def untuplify(arg: _ty.Tuple[Var, ...]) -> InstanceOrTuple[Var]:
     """Unpack tuple before returning.
 
     If `tuple` has a single element, return that. If empty, return `None`.
