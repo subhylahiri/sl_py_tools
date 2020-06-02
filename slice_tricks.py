@@ -288,7 +288,7 @@ def slice_args(the_slice: SliceIsh) -> SliceArgs:
 
 
 def slice_args_def(the_slice: SliceIsh) -> SliceArgs:
-    """Extract start, stop, step from slice, using defaults where possible
+    """Extract start, stop, step from slice, using defaults for None
 
     Parameters
     ----------
@@ -313,6 +313,33 @@ def slice_args_def(the_slice: SliceIsh) -> SliceArgs:
         stop = _default(stop, -1)
     else:
         raise ValueError('slice step cannot be zero')
+    return start, stop, step
+
+
+def slice_args_undef(the_slice: SliceIsh) -> SliceArgs:
+    """Extract start, stop, step from slice, using None for defaults
+
+    Parameters
+    ----------
+    the_slice : slice
+        An object that has integer attributes named `start`, `stop`, `step`,
+        e.g. `slice`, `range`, `DisplayCount`
+
+    Returns
+    -------
+    start : int or None
+        Start of slice, with 0 -> None if `step` > 0.
+    stop : int or None
+        Past end of slice, with -1 -> None if `step` < 0.
+    step : int
+        Increment of slice, with 1 -> None.
+    """
+    start, stop, step = slice_args(the_slice)
+    if step is None or step > 0:
+        start = None if start in {None, 0} else start
+    elif step is not None and step < 0:
+        stop = None if stop in {None, -1} else stop
+    step = None if step in {None, 1} else step
     return start, stop, step
 
 
@@ -763,7 +790,7 @@ def _slice_disp(func: Callable[[SliceIsh], str],
     if len(sliceobjs) != 1:
         return ','.join(_slice_disp(func, s) for s in sliceobjs)
     sliceobj = sliceobjs[0]
-    if isinstance(sliceobj, tuple):
+    if isinstance(sliceobj, (tuple, list)):
         # in case we forgot to unpack a tuple originally
         return _slice_disp(func, sliceobj)
     if isinstance(sliceobj, int):
