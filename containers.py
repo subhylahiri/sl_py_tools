@@ -17,6 +17,7 @@ Var = _ty.TypeVar('Var')
 Val = _ty.TypeVar('Val')
 InstanceOrIterable = _ty.Union[Var, _ty.Iterable[Var]]
 InstanceOrTuple = _ty.Union[Var, _ty.Tuple[Var, ...]]
+InstanceOrSet = _ty.Union[Var, _ty.Set[Var, ...]]
 Dictable = _ty.Union[_ty.Mapping[Var, Val], _ty.Iterable[_ty.Tuple[Var, Val]]]
 
 # =============================================================================
@@ -52,7 +53,7 @@ def untuplify(arg: _ty.Tuple[Var, ...]) -> InstanceOrTuple[Var]:
     Parameters
     ----------
     arg
-        `tuple` to be unwrapped.
+        `tuple` to be unpacked.
     """
     if len(arg) == 0:
         return None
@@ -80,6 +81,43 @@ def listify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.List[Var]:
     return [arg] * num
 
 
+def setify(arg: InstanceOrIterable[Var]) -> _ty.Set[Var]:
+    """Make argument a set.
+
+    If it is an iterable (except for `str`), it is converted to a `set`.
+    Otherwise, it is placed in a `set`.
+
+    Parameters
+    ----------
+    arg
+        Thing to be turned / put into a `set`.
+    """
+    if isinstance(arg, cn.abc.Iterable) and not isinstance(arg, str):
+        return set(arg)
+    return {arg}
+
+
+def unsetify(arg: _ty.Set[Var, ...]) -> InstanceOrSet[Var]:
+    """Unpack set before returning.
+
+    If `set` has a single element, return that. If empty, return `None`.
+    Otherwise return the `set`.
+
+    Parameters
+    ----------
+    arg
+        `set` to be unpacked.
+    """
+    if len(arg) == 0:
+        return None
+    if len(arg) == 1:
+        return arg.pop()
+    return arg
+
+
+unlistify = untuplify
+unlistify.__name__ = 'unlistify'
+unlistify.__doc__ = untuplify.__doc__.replace('tuple', 'list')
 # =============================================================================
 # Classes
 # =============================================================================
@@ -105,6 +143,10 @@ class ZipSequences(cn.abc.Sequence):
 
     def __getitem__(self, index):
         return untuplify(tuple(obj[index] for obj in self._seqs))
+
+    def __reversed__(self):
+        return ZipSequences(*(reversed(obj) for obj in self._seqs),
+                            usemax=self._max)
 
 
 class Interval(cn.abc.Container):
@@ -462,6 +504,18 @@ class PairedDict(cn.UserDict):
         finally:
             self._formed = True
 
+    def fix_me(self):
+        """Set self using inverse
+
+        Updates `self` with inverse of `self.inverse`, if needed.
+        If `self.inverse` has not been set, it does nothing.
+        It does not modify `self.inverse`.
+        """
+        if self.inverse is not None:
+            if not self.check_inverse():
+                with self._unformed():
+                    self.update(_inv_dict_iter(self.inverse))
+
     def fix_inverse(self):
         """Set inverse using self
 
@@ -475,11 +529,9 @@ class PairedDict(cn.UserDict):
             self.inverse = type(self)(inverse=self)
         self.inverse.inverse = self
         if not self.check_inverse():
-            with self.inverse._unformed():
-                self.inverse.update(_inv_dict_iter(self))
+            self.inverse.fix_me()
         if not self.check_inverse():
-            with self._unformed():
-                self.update(_inv_dict_iter(self.inverse))
+            self.fix_me()
         if not self.check_inverse():
             raise ValueError("Unable to fix inverse. Repeated keys/values?")
 
@@ -501,12 +553,12 @@ class PairedDict(cn.UserDict):
         Raises
         ------
         ValueError
-            If values are not unique or if 'inverse' is used as a keyword.
+            If values are not unique or if 'inverse' is used as a key.
         TypeError
             If any values are not hashable.
         """
         if 'inverse' in kwds.keys():
-            raise ValueError("Cannot use 'inverse' as a keyword here")
+            raise ValueError("Cannot use 'inverse' as a key here")
         fwd = cls(*args, **kwds)
         fwd.fix_inverse()
         bwd = fwd.inverse
