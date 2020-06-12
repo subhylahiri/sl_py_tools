@@ -85,6 +85,7 @@ class SliceCollectionMixin(ContainerMixin):
         return in_slice(arg, self)
 
 
+SliceAble = Union[SliceIsh, SliceArgs]
 # =============================================================================
 # Displaying slices
 # =============================================================================
@@ -279,6 +280,26 @@ srange = SliceRange()
 # =============================================================================
 # Slice properties
 # =============================================================================
+
+
+def slicify(*args: SliceAble) -> SliceIsh:
+    """Convert start, stop, step to slice, if necessary
+    """
+    if len(args) == 1 and isinstance(args[0], SliceIsh):
+        return args[0]
+    if len(args) > 3:
+        raise TypeError(f"slices only take 3 arguments. Got {len(args)}.")
+    return slice(*args)
+
+
+def unslicify(*args: SliceAble, nones: bool = False) -> SliceArgs:
+    """Convert slice to start, stop, step, if necessary
+    """
+    if len(args) == 1 and isinstance(args[0], SliceIsh):
+        return slice_args_undef(args[0]) if nones else slice_args_def(args[0])
+    if len(args) > 3:
+        raise TypeError(f"slices only take 3 arguments. Got {len(args)}.")
+    return args
 
 
 def slice_args(the_slice: SliceIsh) -> SliceArgs:

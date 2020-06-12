@@ -17,7 +17,7 @@ Var = _ty.TypeVar('Var')
 Val = _ty.TypeVar('Val')
 InstanceOrIterable = _ty.Union[Var, _ty.Iterable[Var]]
 InstanceOrTuple = _ty.Union[Var, _ty.Tuple[Var, ...]]
-InstanceOrSet = _ty.Union[Var, _ty.Set[Var, ...]]
+InstanceOrSet = _ty.Union[Var, _ty.Set[Var]]
 Dictable = _ty.Union[_ty.Mapping[Var, Val], _ty.Iterable[_ty.Tuple[Var, Val]]]
 
 # =============================================================================
