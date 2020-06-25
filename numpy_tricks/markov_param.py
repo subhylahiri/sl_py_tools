@@ -21,6 +21,7 @@ import numpy as np
 import numpy_linalg as la
 from .markov import stochastify_c
 Sized = _ty.Union[int, np.ndarray]
+Axes = _ty.Optional[_ty.Tuple[int, int]]
 
 
 def offdiag_inds(nst: int, drn: int = 0) -> la.lnarray:
@@ -299,7 +300,7 @@ def _params_to_mat(fun, params, nst, drn):
     mat : la.lnarray (n,n)
         Continuous time stochastic matrix.
     """
-    mat = la.empty(nst**2)
+    mat = la.zeros(nst**2)
     mat[fun(nst, drn)] = params
     mat.resize((nst, nst))
     stochastify_c(mat)
@@ -542,6 +543,28 @@ def _mat_to_params(fun, mat, drn):
     return param[fun(nst, drn)]
 
 
+def _mat_ax_to_params(fun: _ty.Callable[[int, int], np.ndarray],
+                      mat: np.ndarray, drn: int,
+                      axes: _ty.Tuple[int, int] = (-2, -1)) -> np.ndarray:
+    """Helper function for *_mat_to_params
+
+    Parameters
+    ----------
+    fun : callable
+        Function that takes `(nst,drn)->inds`.
+    mat : np.ndarray (...,n,n)
+        Continuous time stochastic matrix.
+    drn : int
+        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
+    axes : Tuple[int, int]
+        Axes to treat as (from, to) axes, by default: None
+    """
+    nst = mat.shape[axes[0]]
+    param = np.moveaxis(mat, axes, [-2, -1])
+    param = param.reshape(param.shape[:-2] + (-1,))
+    return np.moveaxis(param[..., fun(nst, drn)], -1, axes[1])
+
+
 def _uni_mat(params, drn, grad):
     """Helper for uni_*_params_to_mat
 
@@ -564,27 +587,33 @@ def _uni_mat(params, drn, grad):
     return params
 
 
-def gen_mat_to_params(mat: np.ndarray, drn: int = 0) -> la.lnarray:
+def gen_mat_to_params(mat: np.ndarray, drn: int = 0,
+                      axes: Axes = None) -> la.lnarray:
     """Independent parameters of transition matrix.
 
     Parameters
     ----------
-    mat : np.ndarray (n,n)
+    mat : np.ndarray (...,n,n)
         Continuous time stochastic matrix.
     drn: int, optional, default: 0
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
+    axes : Tuple[int, int] or None
+        Axes to treat as (from, to) axes, by default: None - all axes.
 
     Returns
     -------
-    params : la.lnarray (n(n-1),)
+    params : la.lnarray (...,n(n-1),)
         Vector of off-diagonal elements, in order:
         mat_01, mat_02, ..., mat_0n-1, mat10, mat_12, ..., mat_n-2,n-1.
+        Second element of `axes` used for the result, if given.
     """
-    return _mat_to_params(offdiag_inds, mat, drn)
+    if axes is None:
+        return _mat_to_params(offdiag_inds, mat, drn)
+    return _mat_ax_to_params(offdiag_inds, mat, drn, axes)
 
 
 def uni_gen_mat_to_params(mat: np.ndarray, grad: bool = True,
-                          drn: int = 0) -> la.lnarray:
+                          drn: int = 0, axes: Axes = None) -> la.lnarray:
     """Independent parameters of uniform transition matrix.
 
     Parameters
@@ -609,13 +638,14 @@ def uni_gen_mat_to_params(mat: np.ndarray, grad: bool = True,
         mat_10 + mat_20 + mat_21 + mat_30 + ... + mat_n-10 + ... + mat_n-1,n-2.
     """
     if drn:
-        return _uni_mat(gen_mat_to_params(mat, drn), drn, grad)
-    params_pos = gen_mat_to_params(mat, 1)
-    params_neg = gen_mat_to_params(mat, -1)
+        return _uni_mat(gen_mat_to_params(mat, drn, axes), drn, grad)
+    params_pos = gen_mat_to_params(mat, 1, axes)
+    params_neg = gen_mat_to_params(mat, -1, axes)
     return _uni_mat(np.hstack((params_pos, params_neg)), drn, grad)
 
 
-def serial_mat_to_params(mat: np.ndarray, drn: int = 0) -> la.lnarray:
+def serial_mat_to_params(mat: np.ndarray, drn: int = 0,
+                         axes: Axes = None) -> la.lnarray:
     """Independent parameters of serial transition matrix.
 
     Parameters
@@ -632,11 +662,13 @@ def serial_mat_to_params(mat: np.ndarray, drn: int = 0) -> la.lnarray:
         mat_01, mat_12, ..., mat_n-2,n-1,
         mat_10, mat_21, ..., mat_n-2,n-1.
     """
-    return _mat_to_params(serial_inds, mat, drn)
+    if axes is None:
+        return _mat_to_params(serial_inds, mat, drn)
+    return _mat_ax_to_params(serial_inds, mat, drn, axes)
 
 
 def uni_serial_mat_to_params(mat: np.ndarray, grad: bool = True,
-                             drn: int = 0) -> la.lnarray:
+                             drn: int = 0, axes: Axes = None) -> la.lnarray:
     """Independent parameters of uniform serial transition matrix.
 
     Parameters
@@ -660,10 +692,11 @@ def uni_serial_mat_to_params(mat: np.ndarray, grad: bool = True,
             mat_01 + mat_12 + ... + mat_n-2,n-1,
             mat_10 + mat_21 + ... + mat_n-1,n-2.
     """
-    return _uni_mat(serial_mat_to_params(mat, drn), drn, grad)
+    return _uni_mat(serial_mat_to_params(mat, drn, axes), drn, grad)
 
 
-def ring_mat_to_params(mat: np.ndarray, drn: int = 0) -> la.lnarray:
+def ring_mat_to_params(mat: np.ndarray, drn: int = 0,
+                       axes: Axes = None) -> la.lnarray:
     """Independent parameters of ring transition matrix.
 
     Parameters
@@ -680,11 +713,13 @@ def ring_mat_to_params(mat: np.ndarray, drn: int = 0) -> la.lnarray:
         mat_01, mat_12, ..., mat_n-2,n-1, mat_n-1,0,
         mat_0,n-1, mat_10, mat_21, ..., mat_n-1,n-2.
     """
-    return _mat_to_params(ring_inds, mat, drn)
+    if axes is None:
+        return _mat_to_params(ring_inds, mat, drn)
+    return _mat_ax_to_params(ring_inds, mat, drn, axes)
 
 
 def uni_ring_mat_to_params(mat: np.ndarray, grad: bool = True,
-                           drn: int = 0) -> la.lnarray:
+                           drn: int = 0, axes: Axes = None) -> la.lnarray:
     """Independent parameters of ring transition matrix.
 
     Parameters
@@ -708,12 +743,13 @@ def uni_ring_mat_to_params(mat: np.ndarray, grad: bool = True,
             mat_01 + mat_12 + ... + mat_n-2,n-1 + mat_n-10,
             mat_0n-1 + mat10 + mat_21 + ... + mat_n-1,n-2.
     """
-    return _uni_mat(ring_mat_to_params(mat, drn), drn, grad)
+    return _uni_mat(ring_mat_to_params(mat, drn, axes), drn, grad)
 
 
 def mat_to_params(mat: np.ndarray,
                   serial: bool = False, ring: bool = False, drn: int = 0,
-                  uniform: bool = False, grad: bool = True) -> la.lnarray:
+                  uniform: bool = False, grad: bool = True,
+                  axes: Axes = None) -> la.lnarray:
     """Independent parameters of transition matrix.
 
     Parameters
@@ -741,7 +777,10 @@ def mat_to_params(mat: np.ndarray,
     params : la.lnarray (n(n-1),) or (2(n-1),) or (2n,) or (2,) or half of them
         Vector of independent elements. For the order, see docs for `*_inds`.
     """
-    params = _mat_to_params(_ind_fun(serial, ring), mat, drn)
+    if axes is None:
+        params = _mat_to_params(_ind_fun(serial, ring), mat, drn)
+    else:
+        params = _mat_ax_to_params(_ind_fun(serial, ring), mat, drn, axes)
     if uniform:
         return _uni_mat(params, drn, grad)
     return params
@@ -812,7 +851,8 @@ def mat_update_params(mat: np.ndarray, params: np.ndarray,
 
 
 def tens_to_mat(tens: np.ndarray,
-                serial: bool = False, ring: bool = False, drn: int = (0, 0),
+                serial: bool = False, ring: bool = False,
+                drn: _ty.Tuple[int, int] = (0, 0),
                 uniform: bool = False, grad: bool = True) -> la.lnarray:
     """Independent parameters of 4th rank tensor.
 
