@@ -222,7 +222,6 @@ class SliceToIter:
         return self.iterfun(*argspre, *argsslc, *argspost)
 
 
-
 # -----------------------------------------------------------------------------
 # Arithmetic operations
 # -----------------------------------------------------------------------------
@@ -268,7 +267,6 @@ def wrap_op(args: Tuple[SArgsOrNum, ...], opr: NumOp, step: bool) -> SliceArgs:
         return [flex_op(s, t) for s, t in zip(*args)]
     raise_if_steps(*args)
     ops = (flex_op, flex_op, default)
-    # new_args[2] = default(arg1[2], arg2[2])
     return [_op(s, t) for _op, s, t in zip(ops, *args)]
 
 
@@ -291,8 +289,8 @@ def _range_ops(opr: NumOp, case_steps: Tuple[bool, ...],
     opr
         operator to use
     case_steps : tuple(bool, bool, bool)
-        if (both, left, right) argument(s) isinstance(SomeType), that element of
-        `case_steps` will be passed to `wrap_op`.
+        if (both, left, right) argument(s) isinstance(SomeType), that element
+        of `case_steps` will be passed to `wrap_op`.
     conv_in
         function to convert inputs to input argument
     conv_out
@@ -311,57 +309,57 @@ def _range_ops(opr: NumOp, case_steps: Tuple[bool, ...],
     return conv_out(*wrap_op(*args, opr, case_steps))
 
 
-def arg_mul(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum,
+def arg_mul(cin: ConvIn, cout: ConvOut, one: SorNum, two: SorNum,
             step: bool = True) -> SomeType:
     """multiply range by a number.
 
     Parameters
     ----------
-    arg1, arg2 : RangeIsh or Number
+    one, two : RangeIsh or Number
         Arguments to multiply
     step : bool
         Also multiply step?
     """
-    return _range_ops(mul, (None, step, step), cin, cout, arg1, arg2)
+    return _range_ops(mul, (None, step, step), cin, cout, one, two)
 
 
-def arg_div(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: Number,
+def arg_div(cin: ConvIn, cout: ConvOut, one: SorNum, two: Number,
             step: bool = True) -> SomeType:
     """divide range by a number.
 
     Parameters
     ----------
-    arg1, arg2 : RangeIsh or Number
+    one, two : RangeIsh or Number
         Arguments to divide
     step : bool
         Also divide step?
     """
-    return _range_ops(floordiv, (None, step, None), cin, cout, arg1, arg2)
+    return _range_ops(floordiv, (None, step, None), cin, cout, one, two)
 
 
-def arg_add(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum) -> SomeType:
+def arg_add(cin: ConvIn, cout: ConvOut, one: SorNum, two: SorNum) -> SomeType:
     """add ranges / numbers.
 
     Parameters
     ----------
-    arg1, arg2 : RangeIsh or Number
+    one, two : RangeIsh or Number
         Arguments to add
     """
-    return _range_ops(add, (False, False, False), cin, cout, arg1, arg2)
+    return _range_ops(add, (False, False, False), cin, cout, one, two)
 
 
-def arg_sub(cin: ConvIn, cout: ConvOut, arg1: SorNum, arg2: SorNum) -> SomeType:
+def arg_sub(cin: ConvIn, cout: ConvOut, one: SorNum, two: SorNum) -> SomeType:
     """subtract ranges / numbers.
 
     Parameters
     ----------
-    arg1, arg2 : RangeIsh or Number
+    one, two : RangeIsh or Number
         Arguments to subtract
     """
     try:
-        return arg_add(cin, cout, arg1, arg_mul(cin, cout, arg2, -1, True))
+        return arg_add(cin, cout, one, arg_mul(cin, cout, two, -1, True))
     except ValueError:
-        return arg_add(cin, cout, arg1, arg_mul(cin, cout, arg2, -1, False))
+        return arg_add(cin, cout, one, arg_mul(cin, cout, two, -1, False))
 
 
 # =============================================================================

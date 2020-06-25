@@ -31,8 +31,7 @@ class SliceLike(SliceIsh, typecheckonly=True):
 
     @abstractmethod
     def indices(self, length: int) -> SliceArgs:
-        """return index of value.
-        Raise ValueError if the value is not present.
+        """Start, stop, step of equivalent slice.
         """
 
 

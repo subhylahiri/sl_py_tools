@@ -1,6 +1,6 @@
 """Displaying iterator classes
 """
-import itertools
+from itertools import chain
 import sys
 from typing import ContextManager, Iterable, Iterator, Optional
 
@@ -238,9 +238,8 @@ class DisplayBatch(DisplayCount):
 
     def format(self, *ctrs: int) -> str:
         """String for display of counter, e.g.' 7/12,'."""
-#        return self._frmt.format(ctr)
-        return super().format(*itertools.chain(*((n, n + abs(self.step) - 1)
-                                                 for n in ctrs)))
+        return super().format(*chain.from_iterable((n, n + abs(self.step) - 1)
+                                                   for n in ctrs))
 
     def __next__(self):
         """Increment counter, erase previous counter and display new one."""
