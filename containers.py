@@ -115,6 +115,30 @@ def unsetify(arg: _ty.Set[Var, ...]) -> InstanceOrSet[Var]:
     return arg
 
 
+def seq_get(seq: _ty.Sequence[Val], ind: int,
+            default: _ty.Optional[Val] = None) -> Val:
+    """Get an element from a sequence, or default if index is out of range
+
+    Parameters
+    ----------
+    seq : Sequence[Val]
+        The sequence from which we get the element.
+    ind : int
+        The index of the element we want from `seq`.
+    default : Optional[Val], optional
+        Value to return if `ind` is out of range for `seq`, by default `None`.
+
+    Returns
+    -------
+    element : Val
+        Element of the sequence, `seq[ind]`, or `default`.
+    """
+    try:
+        return seq[ind]
+    except IndexError:
+        return default
+
+
 unlistify = untuplify
 unlistify.__name__ = 'unlistify'
 unlistify.__doc__ = untuplify.__doc__.replace('tuple', 'list')
