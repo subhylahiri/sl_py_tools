@@ -55,27 +55,6 @@ import typing
 from typing import Dict, Tuple, Callable, Type, TypeVar, Any, Iterable
 import numpy as np
 
-Param = TypeVar('Param')
-Result = TypeVar('Result')
-Custom = TypeVar('Custom')
-
-ArraysOr = Tuple[typing.Union[np.ndarray, Param], ...]
-ArgTuple = Tuple[np.ndarray, ...]
-OutTuple = ArraysOr[None]
-ArgDict = Dict[str, Any]
-
-Converter = Callable[[Custom], np.ndarray]
-UnConverter = Callable[[np.ndarray], Custom]
-BoolList = typing.List[bool]
-BoolSequence = Iterable[bool]
-ArrayUfunc = Callable[[np.ufunc, str, ArgTuple, ArgDict], ArgTuple]
-
-NumpyFun = Callable[[np.ndarray], Any]
-MyFun = Callable[[Custom], Result]
-HandleMap = Dict[NumpyFun, MyFun[Custom, Result]]
-Decorator = Callable[[MyFun[Custom, Result]], MyFun[Custom, Result]]
-DecoratorParamd = Callable[[Param], Decorator[Custom, Result]]
-
 # ======================================================================
 # Ufunc Inputs
 # ======================================================================
@@ -587,7 +566,7 @@ def array_ufunc_help_view(obj_type: Type[Custom], obj: Custom, ufunc: np.ufunc,
 
 def make_implements_decorator(handled: HandleMap[Custom, Result]
                               ) -> DecoratorParamd[NumpyFun, Custom, Result]:
-    """Create decorator function to register __array_function__ implementations.
+    """Create decorator to register __array_function__ implementations.
 
     Parameters
     ----------
@@ -651,3 +630,29 @@ def array_function_help(obj: Custom,
     if not all(issubclass(t, obj.__class__) for t in types):
         return NotImplemented
     return handled[func](*args, **kwargs)
+
+
+# =============================================================================
+# Type hint classes
+# =============================================================================
+
+Param = TypeVar('Param')
+Result = TypeVar('Result')
+Custom = TypeVar('Custom')
+
+ArraysOr = Tuple[typing.Union[np.ndarray, Param], ...]
+ArgTuple = Tuple[np.ndarray, ...]
+OutTuple = ArraysOr[None]
+ArgDict = Dict[str, Any]
+
+Converter = Callable[[Custom], np.ndarray]
+UnConverter = Callable[[np.ndarray], Custom]
+BoolList = typing.List[bool]
+BoolSequence = Iterable[bool]
+ArrayUfunc = Callable[[np.ufunc, str, ArgTuple, ArgDict], ArgTuple]
+
+NumpyFun = Callable[[np.ndarray], Any]
+MyFun = Callable[[Custom], Result]
+HandleMap = Dict[NumpyFun, MyFun[Custom, Result]]
+Decorator = Callable[[MyFun[Custom, Result]], MyFun[Custom, Result]]
+DecoratorParamd = Callable[[Param], Decorator[Custom, Result]]
