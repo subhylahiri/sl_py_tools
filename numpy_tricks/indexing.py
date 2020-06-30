@@ -17,10 +17,9 @@ from ..slice_tricks import in_slice, is_subslice, disjoint_slice
 from ..arg_tricks import default, default_non_eval, Export, args_to_kwargs
 from . import subclass as sc
 
-# pylint: disable=pointless-statement
-Export[same_shape, identical_shape, broadcastable, ShapeTuple]
-Export[slice_to_range, SliceRange, srange, slice_str]
-Export[in_slice, is_subslice, disjoint_slice]
+_EXPORTED = Export[same_shape, identical_shape, broadcastable, ShapeTuple]
+_EXPORTED = Export[slice_to_range, SliceRange, srange, slice_str]
+_EXPORTED = Export[in_slice, is_subslice, disjoint_slice]
 
 
 def mesh_stack(*arrays):
@@ -107,7 +106,7 @@ def slice_to_inds(the_slice: slice, size: int = 0):
     the_slice
         The `slice` to convert.
     size
-        Upper limit of `range`s, used if `the_slice.stop` is `None` or negative,
+        Upper limit of `range`s. Used if `the_slice.stop` is `None` or negative
         or if `the_slice.start` is negative.
 
     Returns
@@ -212,9 +211,9 @@ def expand_dims(arr: np.ndarray, *axis) -> np.ndarray:
     return expand_dims(expand_dims(arr, axes_sort[0]), *axes_sort[1:].tolist())
 
 
-HANDLED_FNS = {}
+BCAST_FNS = {}
 # pylint: disable=invalid-name
-implements = sc.make_implements_decorator(HANDLED_FNS)
+implements = sc.make_implements_decorator(BCAST_FNS)
 
 
 def _minimal(shape, *args, **kwds) -> np.ndarray:
@@ -270,7 +269,7 @@ class BroadcastType:
         return iter(self.bcast)
 
     def __array_function__(self, func, types, args, kwds):
-        return sc.array_function_help(self, HANDLED_FNS, func, types, args, kwds)
+        return sc.array_function_help(self, BCAST_FNS, func, types, args, kwds)
 
 
 def _like_kwds(obj: BroadcastType, kwds):

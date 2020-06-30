@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 import numpy as np
 import numpy_linalg as la
 
-import sl_py_tools.numpy_tricks.logic as lgc
+from . import logic as lgc
 
 
 def stochastify_c(mat: la.lnarray):  # make cts time stochastic

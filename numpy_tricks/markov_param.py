@@ -17,9 +17,13 @@ triangle are equal. When extracting parameters we average them, unless
 `grad` is True when we take the sum.
 """
 import typing as _ty
+
 import numpy as np
+
 import numpy_linalg as la
+
 from .markov import stochastify_c
+
 Sized = _ty.Union[int, np.ndarray]
 Axes = _ty.Optional[_ty.Tuple[int, int]]
 
@@ -545,7 +549,7 @@ def _mat_to_params(fun, mat, drn):
 
 def _mat_ax_to_params(fun: _ty.Callable[[int, int], np.ndarray],
                       mat: np.ndarray, drn: int,
-                      axes: _ty.Tuple[int, int] = (-2, -1)) -> np.ndarray:
+                      axes: Axes = (-2, -1)) -> np.ndarray:
     """Helper function for *_mat_to_params
 
     Parameters
@@ -556,9 +560,11 @@ def _mat_ax_to_params(fun: _ty.Callable[[int, int], np.ndarray],
         Continuous time stochastic matrix.
     drn : int
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
-    axes : Tuple[int, int]
-        Axes to treat as (from, to) axes, by default: None
+    axes : Tuple[int, int] or None
+        Axes to treat as (from, to) axes, by default: (-2, -1)
     """
+    if axes is None:
+        return _mat_to_params(fun, mat, drn)
     nst = mat.shape[axes[0]]
     param = np.moveaxis(mat, axes, [-2, -1])
     param = param.reshape(param.shape[:-2] + (-1,))
@@ -605,10 +611,8 @@ def gen_mat_to_params(mat: np.ndarray, drn: int = 0,
     params : la.lnarray (...,n(n-1),)
         Vector of off-diagonal elements, in order:
         mat_01, mat_02, ..., mat_0n-1, mat10, mat_12, ..., mat_n-2,n-1.
-        Second element of `axes` used for the result, if given.
+        Elements lie across the axis given by `axes[1]`, if given.
     """
-    if axes is None:
-        return _mat_to_params(offdiag_inds, mat, drn)
     return _mat_ax_to_params(offdiag_inds, mat, drn, axes)
 
 
@@ -626,6 +630,8 @@ def uni_gen_mat_to_params(mat: np.ndarray, grad: bool = True,
         Is the output for a gradient (True) or a transition matrix (False).
         If True, return sum of left/right transitions.
         If False, return the mean.
+    axes : Tuple[int, int] or None
+        Axes to treat as (from, to) axes, by default: None - all axes.
 
     Returns
     -------
@@ -636,6 +642,7 @@ def uni_gen_mat_to_params(mat: np.ndarray, grad: bool = True,
         Or, in order (grad=True):
         mat_01 + ... + mat_0n-1 + mat_12 + ... mat_1n-1 + ... + mat_n-2,n-1,
         mat_10 + mat_20 + mat_21 + mat_30 + ... + mat_n-10 + ... + mat_n-1,n-2.
+        Elements lie across the axis given by `axes[1]`, if given.
     """
     if drn:
         return _uni_mat(gen_mat_to_params(mat, drn, axes), drn, grad)
@@ -654,6 +661,8 @@ def serial_mat_to_params(mat: np.ndarray, drn: int = 0,
         Continuous time stochastic matrix.
     drn: int, optional, default: 0
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
+    axes : Tuple[int, int] or None
+        Axes to treat as (from, to) axes, by default: None - all axes.
 
     Returns
     -------
@@ -661,9 +670,8 @@ def serial_mat_to_params(mat: np.ndarray, drn: int = 0,
         Vector of independent elements, in order:
         mat_01, mat_12, ..., mat_n-2,n-1,
         mat_10, mat_21, ..., mat_n-2,n-1.
+        Elements lie across the axis given by `axes[1]`, if given.
     """
-    if axes is None:
-        return _mat_to_params(serial_inds, mat, drn)
     return _mat_ax_to_params(serial_inds, mat, drn, axes)
 
 
@@ -681,6 +689,8 @@ def uni_serial_mat_to_params(mat: np.ndarray, grad: bool = True,
         Is the output for a gradient (True) or a transition matrix (False).
         If True, return sum of left/right transitions.
         If False, return the mean.
+    axes : Tuple[int, int] or None
+        Axes to treat as (from, to) axes, by default: None - all axes.
 
     Returns
     -------
@@ -691,6 +701,7 @@ def uni_serial_mat_to_params(mat: np.ndarray, grad: bool = True,
         Or, in order (grad=True):
             mat_01 + mat_12 + ... + mat_n-2,n-1,
             mat_10 + mat_21 + ... + mat_n-1,n-2.
+        Elements lie across the axis given by `axes[1]`, if given.
     """
     return _uni_mat(serial_mat_to_params(mat, drn, axes), drn, grad)
 
@@ -705,6 +716,8 @@ def ring_mat_to_params(mat: np.ndarray, drn: int = 0,
         Continuous time stochastic matrix.
     drn: int, optional, default: 0
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
+    axes : Tuple[int, int] or None
+        Axes to treat as (from, to) axes, by default: None - all axes.
 
     Returns
     -------
@@ -712,9 +725,8 @@ def ring_mat_to_params(mat: np.ndarray, drn: int = 0,
         Vector of independent elements, in order:
         mat_01, mat_12, ..., mat_n-2,n-1, mat_n-1,0,
         mat_0,n-1, mat_10, mat_21, ..., mat_n-1,n-2.
+        Elements lie across the axis given by `axes[1]`, if given.
     """
-    if axes is None:
-        return _mat_to_params(ring_inds, mat, drn)
     return _mat_ax_to_params(ring_inds, mat, drn, axes)
 
 
@@ -732,6 +744,8 @@ def uni_ring_mat_to_params(mat: np.ndarray, grad: bool = True,
         Is the output for a gradient (True) or a transition matrix (False).
         If True, return sum of (anti)clockwise transitions.
         If False, return the mean.
+    axes : Tuple[int, int] or None
+        Axes to treat as (from, to) axes, by default: None - all axes.
 
     Returns
     -------
@@ -742,6 +756,7 @@ def uni_ring_mat_to_params(mat: np.ndarray, grad: bool = True,
         Or, in order (grad=True):
             mat_01 + mat_12 + ... + mat_n-2,n-1 + mat_n-10,
             mat_0n-1 + mat10 + mat_21 + ... + mat_n-1,n-2.
+        Elements lie across the axis given by `axes[1]`, if given.
     """
     return _uni_mat(ring_mat_to_params(mat, drn, axes), drn, grad)
 
@@ -771,16 +786,16 @@ def mat_to_params(mat: np.ndarray,
         Is the output for a gradient (True) or a transition matrix (False).
         If True, return sum of each group of equal transitions.
         If False, return the mean.
+    axes : Tuple[int, int] or None
+        Axes to treat as (from, to) axes, by default: None - all axes.
 
     Returns
     -------
     params : la.lnarray (n(n-1),) or (2(n-1),) or (2n,) or (2,) or half of them
         Vector of independent elements. For the order, see docs for `*_inds`.
+        Elements lie across the axis given by `axes[1]`, if given.
     """
-    if axes is None:
-        params = _mat_to_params(_ind_fun(serial, ring), mat, drn)
-    else:
-        params = _mat_ax_to_params(_ind_fun(serial, ring), mat, drn, axes)
+    params = _mat_ax_to_params(_ind_fun(serial, ring), mat, drn, axes)
     if uniform:
         return _uni_mat(params, drn, grad)
     return params
