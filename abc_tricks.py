@@ -98,7 +98,7 @@ def check_attributes(the_class: type, *properties: str) -> CheckResult:
 
 
 def check_properties(the_class: type, *properties: str) -> CheckResult:
-    """Check if properties are in class dictionary (as property) or annotations.
+    """Check if properties are in class dictionary (as property) or annotations
     """
     return _check_generic(the_class, _check_property, *properties)
 
