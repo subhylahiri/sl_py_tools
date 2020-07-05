@@ -19,21 +19,25 @@ unless `grad` is `True` when we take the sum.
 import typing as _ty
 
 import numpy as np
+# from numpy import ndarray as array
+# from numpy import zeros
 
-import numpy_linalg as la
+from numpy_linalg import lnarray as array
+from numpy_linalg import zeros
 
 from .markov import stochastify_c
 
+ArrayType = _ty.TypeVar('ArrayType', bound=np.ndarray)
 Sized = _ty.Union[int, np.ndarray]
 Axes = _ty.Optional[_ty.Tuple[int, int]]
-IndFun = _ty.Callable[[int, int], la.lnarray]
+IndFun = _ty.Callable[[int, int], np.ndarray]
 
 # =============================================================================
 # Indices of parameters
 # =============================================================================
 
 
-def offdiag_inds(nst: int, drn: int = 0) -> la.lnarray:
+def offdiag_inds(nst: int, drn: int = 0) -> np.ndarray:
     """Indices of independent parameters of transition matrix.
 
     Parameters
@@ -45,26 +49,26 @@ def offdiag_inds(nst: int, drn: int = 0) -> la.lnarray:
 
     Returns
     -------
-    K : lnarray (n(n-1),)
+    K : ndarray (n(n-1),)
         Vector of ravel indices of off-diagonal elements, in order:
         mat_01, mat_02, ..., mat_0n-1, mat10, mat_12, ..., mat_n-2,n-1.
     """
     if drn > 0:
-        return np.ravel_multi_index(la.triu_indices(nst, 1), (nst, nst))
+        return np.ravel_multi_index(np.triu_indices(nst, 1), (nst, nst))
     if drn < 0:
-        return np.ravel_multi_index(la.tril_indices(nst, -1), (nst, nst))
+        return np.ravel_multi_index(np.tril_indices(nst, -1), (nst, nst))
     # when put into groups of size nst+1:
     # M[0,0], M[0,1], M[0,2], ..., M[0,n-1], M[1,0],
     # M[1,1], M[1,2], ..., M[1,n-1], M[2,0], M[2,1],
     # ...
     # M[n-2,n-2], M[n-2,n-1], M[n-1,0], ..., M[n-1,n-2],
     # unwanted elements are 1st in each group
-    k_1st = la.arange(0, nst**2, nst+1)  # ravel ind of 1st element in group
-    k = la.arange(nst**2)
+    k_1st = np.arange(0, nst**2, nst+1)  # ravel ind of 1st element in group
+    k = np.arange(nst**2)
     return np.delete(k, k_1st)
 
 
-def serial_inds(nst: int, drn: int = 0) -> la.lnarray:
+def serial_inds(nst: int, drn: int = 0) -> np.ndarray:
     """Ravel indices of independent parameters of serial transition matrix.
 
     Parameters
@@ -76,21 +80,21 @@ def serial_inds(nst: int, drn: int = 0) -> la.lnarray:
 
     Returns
     -------
-    K : lnarray (2(n-1),)
+    K : ndarray (2(n-1),)
         Vector of ravel indices of off-diagonal elements, in order:
         mat_01, mat_12, ..., mat_n-2,n-1,
         mat_10, mat_21, ..., mat_n-1,n-2.
     """
-    pos = la.arange(1, nst**2, nst+1)
+    pos = np.arange(1, nst**2, nst+1)
     if drn > 0:
         return pos
-    neg = la.arange(nst, nst**2, nst+1)
+    neg = np.arange(nst, nst**2, nst+1)
     if drn < 0:
         return neg
     return np.hstack((pos, neg))
 
 
-def ring_inds(nst: int, drn: int = 0) -> la.lnarray:
+def ring_inds(nst: int, drn: int = 0) -> np.ndarray:
     """Ravel indices of independent parameters of ring transition matrix.
 
     Parameters
@@ -102,15 +106,15 @@ def ring_inds(nst: int, drn: int = 0) -> la.lnarray:
 
     Returns
     -------
-    K : lnarray (2n,)
+    K : ndarray (2n,)
         Vector of ravel indices of off-diagonal elements, in order:
         mat_01, mat_12, ..., mat_n-2,n-1, mat_n-1,0,
         mat_0,n-1, mat_10, mat_21, ..., mat_n-1,n-2.
     """
-    pos = np.hstack((la.arange(1, nst**2, nst+1), [nst*(nst-1)]))
+    pos = np.hstack((np.arange(1, nst**2, nst+1), [nst*(nst-1)]))
     if drn > 0:
         return pos
-    neg = np.hstack(([nst-1], la.arange(nst, nst**2, nst+1)))
+    neg = np.hstack(([nst-1], np.arange(nst, nst**2, nst+1)))
     if drn < 0:
         return neg
     return np.hstack((pos, neg))
@@ -126,7 +130,7 @@ def _ind_fun(serial: bool, ring: bool) -> IndFun:
 
 
 def param_inds(nst: int, serial: bool = False, ring: bool = False,
-               drn: int = 0) -> la.lnarray:
+               drn: int = 0) -> np.ndarray:
     """Ravel indices of independent parameters of transition matrix.
 
     Parameters
@@ -147,7 +151,7 @@ def param_inds(nst: int, serial: bool = False, ring: bool = False,
 
     Returns
     -------
-    mat : lnarray (k,k), k in (n(n-1), 2(n-1), 2n, 2)
+    mat : ndarray (k,k), k in (n(n-1), 2(n-1), 2n, 2)
         Indices of independent elements. For the order, see docs for `*_inds`.
     """
     return _ind_fun(serial, ring)(nst, drn)
@@ -164,7 +168,7 @@ def num_param(states: Sized, serial: bool = False, ring: bool = False,
 
     Parameters
     ----------
-    states : int or np.ndarray (n,...)
+    states : int or ndarray (n,...)
         Number of states, or array over states.
     serial : bool, optional, default: False
         Is the rate vector meant for `serial_params_to_mat` or
@@ -201,7 +205,7 @@ def num_state(params: Sized, serial: bool = False, ring: bool = False,
 
     Parameters
     ----------
-    params : int or np.ndarray (n,)
+    params : int or ndarray (n,)
         Number of rate parameters, or vector of rates.
     serial : bool, optional, default: False
         Is the rate vector meant for `serial_params_to_mat` or
@@ -233,9 +237,9 @@ def mat_type(params: Sized, states: Sized) -> _ty.Tuple[bool, ...]:
 
     Parameters
     ----------
-    params : int or np.ndarray (np,)
+    params : int or ndarray (np,)
         Number of rate parameters, or vector of rates.
-    states : int or np.ndarray (n,...)
+    states : int or ndarray (n,...)
         Number of states, or array over states.
 
     Returns
@@ -269,9 +273,9 @@ def mat_type_dict(params: Sized, states: Sized) -> _ty.Tuple[bool, ...]:
 
     Parameters
     ----------
-    params : int or np.ndarray (np,)
+    params : int or ndarray (np,)
         Number of rate parameters, or vector of rates.
-    states : int or np.ndarray (n,...)
+    states : int or ndarray (n,...)
         Number of states, or array over states.
 
     Returns
@@ -300,7 +304,7 @@ def mat_type_dict(params: Sized, states: Sized) -> _ty.Tuple[bool, ...]:
 
 
 def _params_to_mat(fun: IndFun, params: np.ndarray, nst: int, drn: int,
-                   axis: int = -1) -> la.lnarray:
+                   axis: int = -1) -> array:
     """Helper function for *_params_to_mat
 
     Parameters
@@ -319,14 +323,14 @@ def _params_to_mat(fun: IndFun, params: np.ndarray, nst: int, drn: int,
 
     Returns
     -------
-    mat : lnarray (n,n)
+    mat : array (n,n)
         Continuous time stochastic matrix.
         The (from,to) axes are inserted in position `axis`, if given.
     """
     axis = params.ndim - 1 if axis is None else axis % params.ndim
     params = np.moveaxis(params, axis, -1)
     shape = params.shape[:-1]
-    mat = la.zeros(shape + (nst**2,))
+    mat = zeros(shape + (nst**2,))
     mat[..., fun(nst, drn)] = params
     mat = mat.reshape(shape + (nst, nst))
     stochastify_c(mat)
@@ -369,7 +373,7 @@ def _uni_to_any(params: np.ndarray, nst: int, axis: int = -1,
 
 
 def gen_params_to_mat(params: np.ndarray, drn: int = 0,
-                      axis: int = -1) -> la.lnarray:
+                      axis: int = -1) -> array:
     """Transition matrix from independent parameters.
 
     Parameters
@@ -384,7 +388,7 @@ def gen_params_to_mat(params: np.ndarray, drn: int = 0,
 
     Returns
     -------
-    mat : lnarray (n,n)
+    mat : array (n,n)
         Continuous time stochastic matrix.
         The (from,to) axes are inserted in position `axis`, if given.
     """
@@ -393,7 +397,7 @@ def gen_params_to_mat(params: np.ndarray, drn: int = 0,
 
 
 def uni_gen_params_to_mat(params: np.ndarray, num_st: int, drn: int = 0,
-                          axis: int = -1) -> la.lnarray:
+                          axis: int = -1) -> array:
     """Uniform transition matrix from independent parameters.
 
     Parameters
@@ -411,7 +415,7 @@ def uni_gen_params_to_mat(params: np.ndarray, num_st: int, drn: int = 0,
 
     Returns
     -------
-    mat : lnarray (n,n)
+    mat : array (n,n)
         Continuous time stochastic matrix.
         The (from,to) axes are inserted in position `axis`, if given.
     """
@@ -424,7 +428,7 @@ def uni_gen_params_to_mat(params: np.ndarray, num_st: int, drn: int = 0,
 
 
 def serial_params_to_mat(params: np.ndarray, drn: int = 0,
-                         axis: int = -1) -> la.lnarray:
+                         axis: int = -1) -> array:
     """Serial transition matrix from independent parameters.
 
     Parameters
@@ -440,7 +444,7 @@ def serial_params_to_mat(params: np.ndarray, drn: int = 0,
 
     Returns
     -------
-    mat : lnarray (n,n)
+    mat : array (n,n)
         Continuous time stochastic matrix.
         The (from,to) axes are inserted in position `axis`, if given.
     """
@@ -449,7 +453,7 @@ def serial_params_to_mat(params: np.ndarray, drn: int = 0,
 
 
 def uni_serial_params_to_mat(params: np.ndarray, num_st: int, drn: int = 0,
-                             axis: int = -1) -> la.lnarray:
+                             axis: int = -1) -> array:
     """Uniform serial transition matrix from independent parameters.
 
     Parameters
@@ -467,7 +471,7 @@ def uni_serial_params_to_mat(params: np.ndarray, num_st: int, drn: int = 0,
 
     Returns
     -------
-    mat : lnarray (n,n)
+    mat : array (n,n)
         Continuous time stochastic matrix.
         The (from,to) axes are inserted in position `axis`, if given.
     """
@@ -476,7 +480,7 @@ def uni_serial_params_to_mat(params: np.ndarray, num_st: int, drn: int = 0,
 
 
 def ring_params_to_mat(params: np.ndarray, drn: int = 0,
-                       axis: int = -1) -> la.lnarray:
+                       axis: int = -1) -> array:
     """Ring transition matrix from independent parameters.
 
     Parameters
@@ -492,7 +496,7 @@ def ring_params_to_mat(params: np.ndarray, drn: int = 0,
 
     Returns
     -------
-    mat : lnarray (n,n)
+    mat : array (n,n)
         Continuous time stochastic matrix.
         The (from,to) axes are inserted in position `axis`, if given.
     """
@@ -501,7 +505,7 @@ def ring_params_to_mat(params: np.ndarray, drn: int = 0,
 
 
 def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: int = 0,
-                           axis: int = -1) -> la.lnarray:
+                           axis: int = -1) -> array:
     """Ring transition matrix from independent parameters.
 
     Parameters
@@ -519,7 +523,7 @@ def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: int = 0,
 
     Returns
     -------
-    mat : lnarray (n,n)
+    mat : array (n,n)
         Continuous time stochastic matrix.
         The (from,to) axes are inserted in position `axis`, if given.
     """
@@ -529,7 +533,7 @@ def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: int = 0,
 
 def params_to_mat(params: np.ndarray, *, serial: bool = False,
                   ring: bool = False, uniform: bool = False,
-                  drn: int = 0, nst: int = 2, axis: int = -1) -> la.lnarray:
+                  drn: int = 0, nst: int = 2, axis: int = -1) -> array:
     """Transition matrix from independent parameters.
 
     Parameters
@@ -555,7 +559,7 @@ def params_to_mat(params: np.ndarray, *, serial: bool = False,
 
     Returns
     -------
-    mat : lnarray (n,n)
+    mat : array (n,n)
         Continuous time stochastic matrix.
         The (from,to) axes are inserted in position `axis`, if given.
     """
@@ -566,7 +570,7 @@ def params_to_mat(params: np.ndarray, *, serial: bool = False,
     return _params_to_mat(_ind_fun(serial, ring), params, nst, drn, axis)
 
 
-def matify(params_or_mat: np.ndarray, *args, **kwds) -> la.lnarray:
+def matify(params_or_mat: np.ndarray, *args, **kwds) -> array:
     """Transition matrix from independent parameters, if not already so.
 
     Parameters
@@ -578,7 +582,7 @@ def matify(params_or_mat: np.ndarray, *args, **kwds) -> la.lnarray:
 
     Returns
     -------
-    mat : lnarray (n,n)
+    mat : array (n,n)
         Continuous time stochastic matrix.
     """
     if params_or_mat.ndim >= 2:
@@ -591,8 +595,8 @@ def matify(params_or_mat: np.ndarray, *args, **kwds) -> la.lnarray:
 # =============================================================================
 
 
-def _mat_to_params(fun: IndFun, mat: np.ndarray, drn: int,
-                   axes: Axes) -> np.ndarray:
+def _mat_to_params(fun: IndFun, mat: ArrayType, drn: int,
+                   axes: Axes) -> ArrayType:
     """Helper function for *_mat_to_params
 
     Parameters
@@ -614,8 +618,8 @@ def _mat_to_params(fun: IndFun, mat: np.ndarray, drn: int,
     return np.moveaxis(param[..., fun(nst, drn)], -1, oaxis)
 
 
-def _to_uni(params: np.ndarray, drn: int, grad: bool,
-            axes: Axes) -> np.ndarray:
+def _to_uni(params: ArrayType, drn: int, grad: bool,
+            axes: Axes) -> ArrayType:
     """Helper for uni_*_mat_to_params
 
     Parameters
@@ -641,8 +645,8 @@ def _to_uni(params: np.ndarray, drn: int, grad: bool,
     return params
 
 
-def gen_mat_to_params(mat: np.ndarray, drn: int = 0,
-                      axes: Axes = (-2, -1)) -> np.ndarray:
+def gen_mat_to_params(mat: ArrayType, drn: int = 0,
+                      axes: Axes = (-2, -1)) -> ArrayType:
     """Independent parameters of transition matrix.
 
     Parameters
@@ -664,8 +668,8 @@ def gen_mat_to_params(mat: np.ndarray, drn: int = 0,
     return _mat_to_params(offdiag_inds, mat, drn, axes)
 
 
-def uni_gen_mat_to_params(mat: np.ndarray, grad: bool = True,
-                          drn: int = 0, axes: Axes = (-2, -1)) -> np.ndarray:
+def uni_gen_mat_to_params(mat: ArrayType, grad: bool = True,
+                          drn: int = 0, axes: Axes = (-2, -1)) -> ArrayType:
     """Independent parameters of uniform transition matrix.
 
     Parameters
@@ -700,8 +704,8 @@ def uni_gen_mat_to_params(mat: np.ndarray, grad: bool = True,
     return _to_uni(np.hstack((params_pos, params_neg)), drn, grad, axes)
 
 
-def serial_mat_to_params(mat: np.ndarray, drn: int = 0,
-                         axes: Axes = (-2, -1)) -> np.ndarray:
+def serial_mat_to_params(mat: ArrayType, drn: int = 0,
+                         axes: Axes = (-2, -1)) -> ArrayType:
     """Independent parameters of serial transition matrix.
 
     Parameters
@@ -724,8 +728,8 @@ def serial_mat_to_params(mat: np.ndarray, drn: int = 0,
     return _mat_to_params(serial_inds, mat, drn, axes)
 
 
-def uni_serial_mat_to_params(mat: np.ndarray, grad: bool = True, drn: int = 0,
-                             axes: Axes = (-2, -1)) -> np.ndarray:
+def uni_serial_mat_to_params(mat: ArrayType, grad: bool = True, drn: int = 0,
+                             axes: Axes = (-2, -1)) -> ArrayType:
     """Independent parameters of uniform serial transition matrix.
 
     Parameters
@@ -755,8 +759,8 @@ def uni_serial_mat_to_params(mat: np.ndarray, grad: bool = True, drn: int = 0,
     return _to_uni(serial_mat_to_params(mat, drn, axes), drn, grad, axes)
 
 
-def ring_mat_to_params(mat: np.ndarray, drn: int = 0,
-                       axes: Axes = (-2, -1)) -> np.ndarray:
+def ring_mat_to_params(mat: ArrayType, drn: int = 0,
+                       axes: Axes = (-2, -1)) -> ArrayType:
     """Independent parameters of ring transition matrix.
 
     Parameters
@@ -779,8 +783,8 @@ def ring_mat_to_params(mat: np.ndarray, drn: int = 0,
     return _mat_to_params(ring_inds, mat, drn, axes)
 
 
-def uni_ring_mat_to_params(mat: np.ndarray, grad: bool = True, drn: int = 0,
-                           axes: Axes = (-2, -1)) -> np.ndarray:
+def uni_ring_mat_to_params(mat: ArrayType, grad: bool = True, drn: int = 0,
+                           axes: Axes = (-2, -1)) -> ArrayType:
     """Independent parameters of ring transition matrix.
 
     Parameters
@@ -810,10 +814,10 @@ def uni_ring_mat_to_params(mat: np.ndarray, grad: bool = True, drn: int = 0,
     return _to_uni(ring_mat_to_params(mat, drn, axes), drn, grad, axes)
 
 
-def mat_to_params(mat: np.ndarray, *,
+def mat_to_params(mat: ArrayType, *,
                   serial: bool = False, ring: bool = False, drn: int = 0,
                   uniform: bool = False, grad: bool = True,
-                  axes: Axes = (-2, -1)) -> np.ndarray:
+                  axes: Axes = (-2, -1)) -> ArrayType:
     """Independent parameters of transition matrix.
 
     Parameters
@@ -850,7 +854,7 @@ def mat_to_params(mat: np.ndarray, *,
     return params
 
 
-def paramify(params_or_mat: np.ndarray, *args, **kwds) -> np.ndarray:
+def paramify(params_or_mat: ArrayType, *args, **kwds) -> ArrayType:
     """Independent parameters of transition matrix, if not already so.
 
     Parameters
@@ -871,8 +875,8 @@ def paramify(params_or_mat: np.ndarray, *args, **kwds) -> np.ndarray:
     return mat_to_params(params_or_mat, *args, **kwds)
 
 
-def mat_update_params(mat: np.ndarray, params: np.ndarray,
-                      **kwds) -> la.lnarray:
+def mat_update_params(mat: ArrayType, params: np.ndarray,
+                      **kwds) -> ArrayType:
     """Independent parameters of transition matrix.
 
     Parameters
@@ -914,10 +918,10 @@ def mat_update_params(mat: np.ndarray, params: np.ndarray,
     stochastify_c(mat)
 
 
-def tens_to_mat(tens: np.ndarray, *,
+def tens_to_mat(tens: ArrayType, *,
                 serial: bool = False, ring: bool = False,
                 drn: _ty.Tuple[int, int] = (0, 0),
-                uniform: bool = False, grad: bool = True) -> np.ndarray:
+                uniform: bool = False, grad: bool = True) -> ArrayType:
     """Independent parameters of 4th rank tensor.
 
     Parameters
@@ -930,7 +934,8 @@ def tens_to_mat(tens: np.ndarray, *,
     ring : bool, optional, default: False
         Is the rate vector meant for `ring_params_to_mat` or
         `gen_params_to_mat`?
-    drn: int, optional, default: 0
+    drn: Tuple[int], optional, default: (0,0)
+        Directions for first/last pair of axes.
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
     uniform : bool, optional, default: False
         Is the rate vector meant for `ring_params_to_mat` or
