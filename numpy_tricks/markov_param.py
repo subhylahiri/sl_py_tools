@@ -362,10 +362,10 @@ def _uni_to_any(params: np.ndarray, nst: int, axis: int = -1,
     params = np.asanyarray(params)
     axis = params.ndim - 1 if axis is None else axis % params.ndim
     params = np.moveaxis(params, axis, -1)
+    npr = num_param(nst, drn=1, uniform=False, **kwds)
+    full = np.broadcast_to(params[..., None], params.shape + (npr,))
     shape = params.shape[:-1] + (-1,)
-    npar = num_param(nst, drn=1, uniform=False, **kwds)
-    full = np.broadcast_to(params[..., None], shape + (npar,)).reshape(shape)
-    return np.moveaxis(full, -1, axis)
+    return np.moveaxis(full.reshape(shape), -1, axis)
 
 
 def gen_params_to_mat(params: np.ndarray, drn: int = 0,
