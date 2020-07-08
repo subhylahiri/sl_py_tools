@@ -23,12 +23,13 @@ Dictable = _ty.Union[_ty.Mapping[Var, Val], _ty.Iterable[_ty.Tuple[Var, Val]]]
 # =============================================================================
 # Function parameter/return helpers
 # =============================================================================
+EXCLUDIFY = (str, dict)
 
 
 def tuplify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.Tuple[Var, ...]:
     """Make argument a tuple.
 
-    If it is an iterable (except for `str`), it is converted to a `tuple`.
+    If it is an iterable (except `str`, `dict`), it is converted to a `tuple`.
     Otherwise, it is placed in a `tuple`.
 
     Parameters
@@ -39,7 +40,7 @@ def tuplify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.Tuple[Var, ...]:
         Number of times to put `arg` in `tuple`, default: 1. Not used for
         conversion of iterables.
     """
-    if isinstance(arg, cn.abc.Iterable) and not isinstance(arg, str):
+    if isinstance(arg, cn.abc.Iterable) and not isinstance(arg, EXCLUDIFY):
         return tuple(arg)
     return (arg,) * num
 
@@ -65,7 +66,7 @@ def untuplify(arg: _ty.Tuple[Var, ...]) -> InstanceOrTuple[Var]:
 def listify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.List[Var]:
     """Make argument a list.
 
-    If it is an iterable (except for `str`), it is converted to a `list`.
+    If it is an iterable (except `str`, `dict`), it is converted to a `list`.
     Otherwise, it is placed in a `list`.
 
     Parameters
@@ -76,7 +77,7 @@ def listify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.List[Var]:
         Number of times to put `arg` in `list`, default: 1. Not used for
         conversion of iterables.
     """
-    if isinstance(arg, cn.abc.Iterable) and not isinstance(arg, str):
+    if isinstance(arg, cn.abc.Iterable) and not isinstance(arg, EXCLUDIFY):
         return list(arg)
     return [arg] * num
 
@@ -84,7 +85,7 @@ def listify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.List[Var]:
 def setify(arg: InstanceOrIterable[Var]) -> _ty.Set[Var]:
     """Make argument a set.
 
-    If it is an iterable (except for `str`), it is converted to a `set`.
+    If it is an iterable (except `str`, `dict`), it is converted to a `set`.
     Otherwise, it is placed in a `set`.
 
     Parameters
@@ -92,7 +93,7 @@ def setify(arg: InstanceOrIterable[Var]) -> _ty.Set[Var]:
     arg
         Thing to be turned / put into a `set`.
     """
-    if isinstance(arg, cn.abc.Iterable) and not isinstance(arg, str):
+    if isinstance(arg, cn.abc.Iterable) and not isinstance(arg, EXCLUDIFY):
         return set(arg)
     return {arg}
 
@@ -142,6 +143,15 @@ def seq_get(seq: _ty.Sequence[Val], ind: int,
 unlistify = untuplify
 unlistify.__name__ = 'unlistify'
 unlistify.__doc__ = untuplify.__doc__.replace('tuple', 'list')
+
+
+def map_join(func: _ty.Callable[[Var], _ty.Iterable[Val]],
+             iterable: _ty.Iterable[Var]) -> _ty.List[Val]:
+    """Like map, but concatenates iterable outputs
+    """
+    return list(_it.chain.from_iterable(map(func, iterable)))
+
+
 # =============================================================================
 # Classes
 # =============================================================================
