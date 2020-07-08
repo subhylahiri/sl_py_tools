@@ -200,7 +200,7 @@ def num_param(states: Sized, serial: bool = False, ring: bool = False,
 
 
 def num_state(params: Sized, serial: bool = False, ring: bool = False,
-              drn: int = 0) -> int:
+              uniform: bool = False, drn: int = 0) -> int:
     """Number of states from rate vector
 
     Parameters
@@ -221,6 +221,8 @@ def num_state(params: Sized, serial: bool = False, ring: bool = False,
     states : int
         Number of states.
     """
+    if uniform:
+        raise ValueError("num_states is ambiguous when uniform")
     if isinstance(params, np.ndarray):
         params = params.shape[-1]
     if drn:
