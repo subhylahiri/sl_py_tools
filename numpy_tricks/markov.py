@@ -20,7 +20,7 @@ def stochastify_c(mat: la.lnarray):  # make cts time stochastic
         square matrix with non-negative off-diagonal elements.
         **Modified** in place.
     """
-    mat -= np.apply_along_axis(np.diagflat, -1, mat.sum(axis=-1))
+    mat -= mat.sum(axis=-1, keepdims=True) * la.identity(mat.shape[-1])
 
 
 def stochastify_d(mat: la.lnarray):  # make dscr time stochastic
@@ -61,8 +61,8 @@ def rand_trans(nst: int, npl: int = 1, sparsity: float = 1.) -> la.lnarray:
         total number of states
     npl : int
         number of matrices
-    sparsity : float
-        sparsity
+    sparsity : float, optional
+        sparsity, by default 1
 
     Returns
     -------
@@ -96,13 +96,12 @@ def calc_peq(rates: np.ndarray,
     """
     if isinstance(rates, tuple):
         z_lu, ipv = rates
-        evc = la.ones(z_lu[0].shape[0])
-        peq = la.gufuncs.rlu_solve(evc.r, z_lu, ipv).ur
+        evc = la.ones(z_lu.shape[0])
+        peq = la.gufuncs.rlu_solve(evc, z_lu, ipv)
     else:
         evc = la.ones(rates.shape[0])
         fund_inv = la.ones_like(rates) - rates
-        peq, z_lu, ipv = la.gufuncs.rsolve_lu(evc.r, fund_inv)
-        peq = peq.ur
+        peq, z_lu, ipv = la.gufuncs.rsolve_lu(evc, fund_inv)
     # check for singular matrix
     if not lgc.allfinite(z_lu) or lgc.tri_low_rank(z_lu):
         peq = la.full_like(evc, np.nan)
@@ -119,6 +118,8 @@ def calc_peq_d(jump: np.ndarray,
     ----------
     jump : np.ndarray (n,n) or tuple(np.ndarray) ((n,n), (n,))
         Discrete time stochastic matrix or LU factors of inverse fundamental.
+    luf : bool, optional
+        Return LU factorisation of inverse fundamental as well? default: True
 
     Returns
     -------

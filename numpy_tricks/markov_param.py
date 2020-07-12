@@ -333,6 +333,7 @@ def uni_gen_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
         Vector of independent elements, in order:
         mat_01 = ... = mat_0n-1 = mat_12 = ... mat_1n-1 = ... = mat_n-2,n-1,
         mat_10 = mat_20 = mat_21 = mat_30 = ... = mat_n-10 = ... = mat_n-1,n-2.
+        If `drn == 0`, you must provide 2 parameters, one for each direction.
     num_st : int
         Number of states.
     drn: int, optional, default: 0
@@ -355,7 +356,7 @@ def uni_gen_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
     if not isinstance(drn, int):
         return _mh.bcast_drns(uni_gen_params_to_mat,
                               params, drn, daxis, axis, num_st, to_mat=True)
-    gen_params = _mh.uni_to_any(params, num_st, axis)
+    gen_params = _mh.uni_to_any(params, num_st, axis=axis)
     if drn:
         return gen_params_to_mat(gen_params, drn, axis)
     return _mh.params_to_mat(offdiag_split_inds, params, num_st, drn, axis)
@@ -402,10 +403,11 @@ def uni_serial_params_to_mat(
 
     Parameters
     ----------
-    params : ndarray (2,)
+    params : ndarray (2,) or (1,)
         Vector of independent elements, in order:
         mat_01 = mat_12 = ... = mat_n-2,n-1,
         mat_10 = mat_21 = ... = mat_n-1,n-2.
+        If `drn == 0`, you must provide 2 parameters, one for each direction.
     num_st : int
         Number of states.
     drn: int, optional, default: 0
@@ -428,7 +430,7 @@ def uni_serial_params_to_mat(
     if not isinstance(drn, int):
         return _mh.bcast_drns(uni_serial_params_to_mat,
                               params, drn, daxis, axis, num_st, to_mat=True)
-    ser_params = _mh.uni_to_any(params, num_st, axis, serial=True)
+    ser_params = _mh.uni_to_any(params, num_st, axis=axis, serial=True)
     return serial_params_to_mat(ser_params, drn, axis)
 
 
@@ -472,13 +474,14 @@ def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
 
     Parameters
     ----------
-    params : ndarray (2,)
+    params : ndarray (2,) or (1,)
         Vector of independent elements, in order:
         mat_01 = mat_12 = ... = mat_n-2,n-1 = mat_n-1,0,
         mat_0,n-1 = mat_10 = mat_21 = ... = mat_n-1,n-2.
+        If `drn == 0`, you must provide 2 parameters, one for each direction.
     num_st : int
         Number of states.
-    drn: int, optional, default: 0
+    drn: int or Sequence[int], optional, default: 0
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
     axis : int, optional
         Axis along which each set of parameters lie, by default -1.
@@ -498,8 +501,8 @@ def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
     if not isinstance(drn, int):
         return _mh.bcast_drns(uni_ring_params_to_mat,
                               params, drn, daxis, axis, num_st, to_mat=True)
-    return ring_params_to_mat(_mh.uni_to_any(params, num_st, axis, ring=True),
-                              drn, axis)
+    ring_params = _mh.uni_to_any(params, num_st, axis=axis, ring=True)
+    return ring_params_to_mat(ring_params, drn, axis)
 
 
 def params_to_mat(params: np.ndarray, *, serial: bool = False,
@@ -513,6 +516,7 @@ def params_to_mat(params: np.ndarray, *, serial: bool = False,
     params : ndarray (n(n-1),) or (2(n-1),) or (2n,) or (2,)
         Vector of independent elements, in order that depends on flags below.
         See docs for `*_inds` for details.
+        If `uniform and drn == 0`, we need 2 parameters, one for each direction
     serial : bool, optional, default: False
         Is the rate vector meant for `serial_params_to_mat` or
         `gen_params_to_mat`?
@@ -525,7 +529,7 @@ def params_to_mat(params: np.ndarray, *, serial: bool = False,
     drn: int, optional, default: 0
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
     nst : int, optional, default: 2
-        Number of states. Only needed when `uniform` is True
+        Number of states. Only needed when `uniform` is `True`.
     axis : int, optional
         Axis along which each set of parameters lie, by default -1.
     daxis : int, optional
@@ -541,14 +545,14 @@ def params_to_mat(params: np.ndarray, *, serial: bool = False,
     --------
     param_inds, mat_to_params
     """
+    opts = {'serial': serial, 'ring': ring}
     if not isinstance(drn, int):
         return _mh.bcast_drns(params_to_mat, params, drn, daxis, axis, nst=nst,
-                              serial=serial, ring=ring, uniform=uniform,
-                              to_mat=True)
+                              uniform=uniform, to_mat=True, **opts)
     if uniform:
-        params = _mh.uni_to_any(params, nst, axis, serial=serial, ring=ring)
+        params = _mh.uni_to_any(params, nst, axis=axis, **opts)
     else:
-        nst = num_state(params, serial=serial, ring=ring, drn=drn)
+        nst = num_state(params, drn=drn, **opts)
     return _mh.params_to_mat(_ind_fun(serial, ring, uniform),
                              params, nst, drn, axis)
 
@@ -939,6 +943,7 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
                          (mdaxis, pdaxis), **kwds)
     else:
         nst = mat.shape[maxes[0]]
+        params = np.asanyarray(params)
         params = np.moveaxis(params, paxis, -1)
         if kwds.get('uniform', False):
             params = _mh.uni_to_any(params, nst, **kwds)

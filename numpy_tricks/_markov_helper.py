@@ -90,7 +90,7 @@ def bcast_drns(fun: _ty.Callable[..., ArrayType], arr: ArrayType,
                fun_axis: OrSeqOf[Axies], *args, **kwds) -> ArrayType:
     """broadcast an axis wrt drn"""
     if not isinstance(drn_axis, (int, type(None))):
-        outarr = arr
+        outarr = np.asanyarray(arr)
         to_mat = kwds.get('to_mat', False)
         fun_axis, drn_axis = _sort_axes(fun_axis, drn_axis, to_mat, arr.ndim)
         for daxis, faxis in zip(drn_axis, fun_axis):
@@ -101,7 +101,8 @@ def bcast_drns(fun: _ty.Callable[..., ArrayType], arr: ArrayType,
     kwds[fkey] = fun_axis
     if isinstance(drns, int):
         return fun(arr, *args, drn=drns, **kwds)
-    drn_axis = 0 if drn_axis is None else drn_axis % arr.ndim
+    arr = np.asanyarray(arr)
+    drn_axis = _posify(arr.ndim, drn_axis)
     narg = np.moveaxis(arr, drn_axis, 0)
     result = [fun(slc, *args, drn=drn, **kwds) for slc, drn in zip(narg, drns)]
     return np.moveaxis(np.stack(result), 0, drn_axis)
@@ -163,6 +164,7 @@ def params_to_mat(fun: IndFun, params: np.ndarray, nst: int, drn: int,
         Continuous time stochastic matrix.
         The extra axis in (from,to) is inserted after `axis`.
     """
+    params = np.asanyarray(params)
     axis = _posify(params.ndim, axis)
     params = np.moveaxis(params, axis, -1)
     shape = params.shape[:-1]
@@ -181,6 +183,7 @@ def uni_to_any(params: np.ndarray, nst: int, axis: int = -1, **kwds
     ----------
     params : ndarray (1,) or (2,)
         Vector of independent elements, in order that depends on flags below.
+        If `drn == 0`, you must provide 2 parameters, one for each direction.
         See docs for `*_inds` for details.
     nst : int
         Number of states.
@@ -202,10 +205,12 @@ def uni_to_any(params: np.ndarray, nst: int, axis: int = -1, **kwds
     params = np.asanyarray(params)
     axis = _posify(params.ndim, axis)
     params = np.moveaxis(params, axis, -1)
+    # if drn == 0, then params.shape[axis] == 2, so each needs expanding by
+    # half of the real num_param
     kwds.update({'drn': 1, 'uniform': False})
     npr = num_param(nst, **kwds)
     full = np.broadcast_to(params[..., None], params.shape + (npr,))
-    shape = params.shape[:-1] + (-1,)
+    shape = full.shape[:-2] + (-1,)
     return np.moveaxis(full.reshape(shape), -1, axis)
 
 
@@ -234,6 +239,7 @@ def mat_to_params(fun: IndFun, mat: ArrayType, drn: int, axes: Axes
     axes : Tuple[int, int] or None
         Axes to treat as (from, to) axes.
     """
+    mat = np.asanyarray(mat)
     oaxis = _out_axis(mat.ndim, axes)
     nst = mat.shape[axes[0]]
     mat = np.moveaxis(mat, axes, [-2, -1])
