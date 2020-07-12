@@ -17,18 +17,16 @@ triangle are equal. When extracting `uniform` parameters we average them,
 unless `grad` is `True` when we take the sum.
 """
 from __future__ import annotations
+
 import typing as _ty
 
 import numpy as np
-# from numpy import ndarray as array
-# from numpy import zeros
 
 from numpy_linalg import flattish, foldaxis
 
-from .markov import stochastify_c
-from . import _markov_helper as _mp
+from . import _markov_helper as _mh
 
-num_param = _mp.num_param
+num_param = _mh.num_param
 
 # =============================================================================
 # Indices of parameters
@@ -49,7 +47,7 @@ def offdiag_inds(nst: int, drn: int = 0) -> np.ndarray:
     -------
     K : ndarray (n(n-1),)
         Vector of ravel indices of off-diagonal elements, in order:
-        mat_01, mat_02, ..., mat_0n-1, mat10, mat_12, ..., mat_n-2,n-1.
+        mat_01, mat_02, ..., mat_0n-1, mat10, mat_12, ..., mat_n-1,n-2.
     """
     if drn > 0:
         return np.ravel_multi_index(np.triu_indices(nst, 1), (nst, nst))
@@ -80,7 +78,10 @@ def offdiag_split_inds(nst: int, drn: int = 0) -> np.ndarray:
     -------
     K : ndarray (n(n-1),)
         Vector of ravel indices of off-diagonal elements, in order:
-        mat_01, mat_02, ..., mat_0n-1, mat10, mat_12, ..., mat_n-2,n-1.
+        First, te upper/right triangle:
+        mat_01, ..., mat_0n-1, mat_12, ..., mat_n-3n-2, mat_n-3n-1, mat_n-2n-1,
+        followed by the lower/left triangle:
+        mat_10, mat_20, mat_21, ..., mat_n-2n-3, mat_n-10, ... mat_n-1n-2.
     """
     if drn:
         return offdiag_inds(nst, drn)
@@ -309,13 +310,17 @@ def gen_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
     -------
     mat : array (n,n)
         Continuous time stochastic matrix.
-        The (from,to) axes are inserted in position `axis`, if given.
+        The extra axis in (from,to) is inserted after `axis`.
+
+    See Also
+    --------
+    offdiag_inds, gen_mat_to_params
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(gen_params_to_mat, params, drn, daxis, axis,
+        return _mh.bcast_drns(gen_params_to_mat, params, drn, daxis, axis,
                               to_mat=True)
     nst = num_state(params, drn=drn)
-    return _mp.params_to_mat(offdiag_inds, params, nst, drn, axis)
+    return _mh.params_to_mat(offdiag_inds, params, nst, drn, axis)
 
 
 def uni_gen_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
@@ -341,15 +346,19 @@ def uni_gen_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
     -------
     mat : array (n,n)
         Continuous time stochastic matrix.
-        The (from,to) axes are inserted in position `axis`, if given.
+        The extra axis in (from,to) is inserted after `axis`.
+
+    See Also
+    --------
+    offdiag_split_inds, uni_gen_mat_to_params
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(uni_gen_params_to_mat,
+        return _mh.bcast_drns(uni_gen_params_to_mat,
                               params, drn, daxis, axis, num_st, to_mat=True)
-    gen_params = _mp.uni_to_any(params, num_st, axis)
+    gen_params = _mh.uni_to_any(params, num_st, axis)
     if drn:
         return gen_params_to_mat(gen_params, drn, axis)
-    return _mp.params_to_mat(offdiag_split_inds, params, num_st, drn, axis)
+    return _mh.params_to_mat(offdiag_split_inds, params, num_st, drn, axis)
 
 
 def serial_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
@@ -373,13 +382,17 @@ def serial_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
     -------
     mat : array (n,n)
         Continuous time stochastic matrix.
-        The (from,to) axes are inserted in position `axis`, if given.
+        The extra axis in (from,to) is inserted after `axis`.
+
+    See Also
+    --------
+    serial_inds, serial_mat_to_params
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(serial_params_to_mat, params, drn, daxis, axis,
+        return _mh.bcast_drns(serial_params_to_mat, params, drn, daxis, axis,
                               to_mat=True)
     nst = num_state(params, serial=True, drn=drn)
-    return _mp.params_to_mat(serial_inds, params, nst, drn, axis)
+    return _mh.params_to_mat(serial_inds, params, nst, drn, axis)
 
 
 def uni_serial_params_to_mat(
@@ -406,12 +419,16 @@ def uni_serial_params_to_mat(
     -------
     mat : array (n,n)
         Continuous time stochastic matrix.
-        The (from,to) axes are inserted in position `axis`, if given.
+        The extra axis in (from,to) is inserted after `axis`.
+
+    See Also
+    --------
+    serial_inds, uni_serial_mat_to_params
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(uni_serial_params_to_mat,
+        return _mh.bcast_drns(uni_serial_params_to_mat,
                               params, drn, daxis, axis, num_st, to_mat=True)
-    ser_params = _mp.uni_to_any(params, num_st, axis, serial=True)
+    ser_params = _mh.uni_to_any(params, num_st, axis, serial=True)
     return serial_params_to_mat(ser_params, drn, axis)
 
 
@@ -436,13 +453,17 @@ def ring_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
     -------
     mat : array (n,n)
         Continuous time stochastic matrix.
-        The (from,to) axes are inserted in position `axis`, if given.
+        The extra axis in (from,to) is inserted after `axis`.
+
+    See Also
+    --------
+    ring_inds, ring_mat_to_params
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(ring_params_to_mat, params, drn, daxis, axis,
+        return _mh.bcast_drns(ring_params_to_mat, params, drn, daxis, axis,
                               to_mat=True)
     nst = num_state(params.size, ring=True, drn=drn)
-    return _mp.params_to_mat(ring_inds, params, nst, drn, axis)
+    return _mh.params_to_mat(ring_inds, params, nst, drn, axis)
 
 
 def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
@@ -468,12 +489,16 @@ def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
     -------
     mat : array (n,n)
         Continuous time stochastic matrix.
-        The (from,to) axes are inserted in position `axis`, if given.
+        The extra axis in (from,to) is inserted after `axis`.
+
+    See Also
+    --------
+    ring_inds, ring_mat_to_params
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(uni_ring_params_to_mat,
+        return _mh.bcast_drns(uni_ring_params_to_mat,
                               params, drn, daxis, axis, num_st, to_mat=True)
-    return ring_params_to_mat(_mp.uni_to_any(params, num_st, axis, ring=True),
+    return ring_params_to_mat(_mh.uni_to_any(params, num_st, axis, ring=True),
                               drn, axis)
 
 
@@ -510,17 +535,21 @@ def params_to_mat(params: np.ndarray, *, serial: bool = False,
     -------
     mat : array (n,n)
         Continuous time stochastic matrix.
-        The (from,to) axes are inserted in position `axis`, if given.
+        The extra axis in (from,to) is inserted after `axis`.
+
+    See Also
+    --------
+    param_inds, mat_to_params
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(params_to_mat, params, drn, daxis, axis, nst=nst,
+        return _mh.bcast_drns(params_to_mat, params, drn, daxis, axis, nst=nst,
                               serial=serial, ring=ring, uniform=uniform,
                               to_mat=True)
     if uniform:
-        params = _mp.uni_to_any(params, nst, axis, serial=serial, ring=ring)
+        params = _mh.uni_to_any(params, nst, axis, serial=serial, ring=ring)
     else:
         nst = num_state(params, serial=serial, ring=ring, drn=drn)
-    return _mp.params_to_mat(_ind_fun(serial, ring, uniform),
+    return _mh.params_to_mat(_ind_fun(serial, ring, uniform),
                              params, nst, drn, axis)
 
 
@@ -532,12 +561,16 @@ def matify(params_or_mat: np.ndarray, *args, **kwds) -> Array:
     params_or_mat : ndarray (np,) or (n,n)
         Either vector of independent elements (in order that depends on flags,
         see docs for `params_to_mat`) or continuous time stochastic matrix.
-    other arguments passed to `params_to_mat`
+    Other arguments passed to `params_to_mat`
 
     Returns
     -------
     mat : array (n,n)
         Continuous time stochastic matrix.
+
+    See Also
+    --------
+    params_to_mat, paramify
     """
     if params_or_mat.ndim >= 2:
         return params_or_mat
@@ -570,11 +603,15 @@ def gen_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
     params : ndarray (...,n(n-1),)
         Vector of off-diagonal elements, in order:
         mat_01, mat_02, ..., mat_0n-1, mat10, mat_12, ..., mat_n-2,n-1.
-        Elements lie across the axis given by `min(axes)`, if given.
+        Elements lie across the earlier axis of `axes`.
+
+    See Also
+    --------
+    offdiag_inds, gen_params_to_mat
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(gen_mat_to_params, mat, drn, daxis, axes)
-    return _mp.mat_to_params(offdiag_inds, mat, drn, axes)
+        return _mh.bcast_drns(gen_mat_to_params, mat, drn, daxis, axes)
+    return _mh.mat_to_params(offdiag_inds, mat, drn, axes)
 
 
 def uni_gen_mat_to_params(mat: ArrayType, grad: bool = True, drn: IntOrSeq = 0,
@@ -606,15 +643,19 @@ def uni_gen_mat_to_params(mat: ArrayType, grad: bool = True, drn: IntOrSeq = 0,
         Or, in order (grad=True):
         mat_01 + ... + mat_0n-1 + mat_12 + ... mat_1n-1 + ... + mat_n-2,n-1,
         mat_10 + mat_20 + mat_21 + mat_30 + ... + mat_n-10 + ... + mat_n-1,n-2.
-        Elements lie across the axis given by `min(axes)`, if given.
+        Elements lie across the earlier axis of `axes`.
+
+    See Also
+    --------
+    offdiag_split_inds, uni_gen_params_to_mat
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(uni_gen_mat_to_params, mat, drn, daxis, axes,
+        return _mh.bcast_drns(uni_gen_mat_to_params, mat, drn, daxis, axes,
                               grad=grad)
     if drn:
-        return _mp.to_uni(gen_mat_to_params(mat, drn, axes), drn, grad, axes)
+        return _mh.to_uni(gen_mat_to_params(mat, drn, axes), drn, grad, axes)
     # need to separate pos, neg
-    return _mp.to_uni(_mp.mat_to_params(offdiag_split_inds, mat, drn, axes),
+    return _mh.to_uni(_mh.mat_to_params(offdiag_split_inds, mat, drn, axes),
                       drn, grad, axes)
 
 
@@ -640,11 +681,15 @@ def serial_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
         Vector of independent elements, in order:
         mat_01, mat_12, ..., mat_n-2,n-1,
         mat_10, mat_21, ..., mat_n-2,n-1.
-        Elements lie across the axis given by `min(axes)`, if given.
+        Elements lie across the earlier axis of `axes`.
+
+    See Also
+    --------
+    serial_inds, serial_params_to_mat
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(serial_mat_to_params, mat, drn, daxis, axes)
-    return _mp.mat_to_params(serial_inds, mat, drn, axes)
+        return _mh.bcast_drns(serial_mat_to_params, mat, drn, daxis, axes)
+    return _mh.mat_to_params(serial_inds, mat, drn, axes)
 
 
 def uni_serial_mat_to_params(mat: ArrayType, grad: bool = True,
@@ -676,12 +721,16 @@ def uni_serial_mat_to_params(mat: ArrayType, grad: bool = True,
         Or, in order (grad=True):
             mat_01 + mat_12 + ... + mat_n-2,n-1,
             mat_10 + mat_21 + ... + mat_n-1,n-2.
-        Elements lie across the axis given by `min(axes)`, if given.
+        Elements lie across the earlier axis of `axes`.
+
+    See Also
+    --------
+    serial_inds, uni_serial_params_to_mat
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(uni_serial_mat_to_params, mat, drn, daxis, axes,
+        return _mh.bcast_drns(uni_serial_mat_to_params, mat, drn, daxis, axes,
                               grad=grad)
-    return _mp.to_uni(serial_mat_to_params(mat, drn, axes), drn, grad, axes)
+    return _mh.to_uni(serial_mat_to_params(mat, drn, axes), drn, grad, axes)
 
 
 def ring_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
@@ -706,11 +755,15 @@ def ring_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
         Vector of independent elements, in order:
         mat_01, mat_12, ..., mat_n-2,n-1, mat_n-1,0,
         mat_0,n-1, mat_10, mat_21, ..., mat_n-1,n-2.
-        Elements lie across the axis given by `min(axes)`, if given.
+        Elements lie across the earlier axis of `axes`.
+
+    See Also
+    --------
+    ring_inds, ring_params_to_mat
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(ring_mat_to_params, mat, drn, daxis, axes)
-    return _mp.mat_to_params(ring_inds, mat, drn, axes)
+        return _mh.bcast_drns(ring_mat_to_params, mat, drn, daxis, axes)
+    return _mh.mat_to_params(ring_inds, mat, drn, axes)
 
 
 def uni_ring_mat_to_params(mat: ArrayType, grad: bool = True,
@@ -742,12 +795,16 @@ def uni_ring_mat_to_params(mat: ArrayType, grad: bool = True,
         Or, in order (grad=True):
             mat_01 + mat_12 + ... + mat_n-2,n-1 + mat_n-10,
             mat_0n-1 + mat10 + mat_21 + ... + mat_n-1,n-2.
-        Elements lie across the axis given by `min(axes)`, if given.
+        Elements lie across the earlier axis of `axes`.
+
+    See Also
+    --------
+    ring_inds, uni_ring_params_to_mat
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(uni_ring_mat_to_params, mat, drn, daxis, axes,
+        return _mh.bcast_drns(uni_ring_mat_to_params, mat, drn, daxis, axes,
                               grad=grad)
-    return _mp.to_uni(ring_mat_to_params(mat, drn, axes), drn, grad, axes)
+    return _mh.to_uni(ring_mat_to_params(mat, drn, axes), drn, grad, axes)
 
 
 def mat_to_params(mat: ArrayType, *,
@@ -785,14 +842,18 @@ def mat_to_params(mat: ArrayType, *,
     -------
     params : ndarray (n(n-1),) or (2(n-1),) or (2n,) or (2,) or half of them
         Vector of independent elements. For the order, see docs for `*_inds`.
-        Elements lie across the axis given by `min(axes)`, if given.
+        Elements lie across the earlier axis of `axes`.
+
+    See Also
+    --------
+    param_inds, params_to_mat
     """
     if not isinstance(drn, int):
-        return _mp.bcast_drns(mat_to_params, mat, drn, daxis, axes, grad=grad,
+        return _mh.bcast_drns(mat_to_params, mat, drn, daxis, axes, grad=grad,
                               serial=serial, ring=ring, uniform=uniform)
-    params = _mp.mat_to_params(_ind_fun(serial, ring, uniform), mat, drn, axes)
+    params = _mh.mat_to_params(_ind_fun(serial, ring, uniform), mat, drn, axes)
     if uniform:
-        return _mp.to_uni(params, drn, grad, axes)
+        return _mh.to_uni(params, drn, grad, axes)
     return params
 
 
@@ -811,10 +872,19 @@ def paramify(params_or_mat: ArrayType, *args, **kwds) -> ArrayType:
     params : ndarray (np,)
         Vector of independent elements (in order that depends on flags,
         see docs for `*_inds` for details).
+
+    See Also
+    --------
+    mat_to_params, matify
     """
     if params_or_mat.ndim >= 2:
         return params_or_mat
     return mat_to_params(params_or_mat, *args, **kwds)
+
+
+# =============================================================================
+# Update matrix in-place from parameters
+# =============================================================================
 
 
 def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
@@ -859,20 +929,23 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
     -------
     None
         modifies `mat` in place.
+
+    See Also
+    --------
+    param_inds, mat_to_params
     """
-    if not isinstance(mdaxis, int) or not isinstance(drn, int):
-        kwds['axes_keys'] = ('maxes', 'paxis', 'mdaxis', 'pdaxis')
-        _mp.bcast_update(_mat_update, (mat, params), drn, (maxes, paxis),
+    if not isinstance(drn, int):
+        _mh.bcast_update(_mat_update, (mat, params), drn, (maxes, paxis),
                          (mdaxis, pdaxis), **kwds)
     else:
         nst = mat.shape[maxes[0]]
         params = np.moveaxis(params, paxis, -1)
         if kwds.get('uniform', False):
-            params = _mp.uni_to_any(params, nst, **kwds)
+            params = _mh.uni_to_any(params, nst, **kwds)
         nmat = flattish(np.moveaxis(mat, maxes, (-2, -1)), -2)
         nmat[param_inds(nst, **kwds)] = params
         nmat = foldaxis(nmat, -1, (nst, nst))
-        stochastify_c(nmat)
+        _mh.stochastify(nmat)
         if not np.may_share_memory(nmat, mat):
             mat[...] = np.moveaxis(nmat, (-2, -1), maxes)
 
@@ -886,21 +959,10 @@ def _mat_update(arrays: _ty.Tuple[np.ndarray, np.ndarray], drn: int,
     mat_update_params(*arrays, **kwds)
 
 
-
-def tens_to_mat(tens: ArrayType, *,
-                serial: bool = False, ring: bool = False,
-                drn: _ty.Tuple[int, int] = (0, 0),
-                uniform: bool = False, grad: bool = True) -> ArrayType:
-    """Independent parameters of 4th rank tensor.
-    Use mat_to_params instead, broadcast over axes arguments
-    """
-    raise TypeError("Use mat_to_params instead, broadcast over axes arguments")
-
-
 # =============================================================================
 # Type hints
 # =============================================================================
-Array, ArrayType, Sized, Axes = _mp.array, _mp.ArrayType, _mp.Sized, _mp.Axes
-IndFun = _mp.IndFun
-IntOrSeq = _mp.OrSeqOf[int]
-AxesOrSeq = _mp.OrSeqOf[Axes]
+Array, ArrayType, Sized, Axes = _mh.array, _mh.ArrayType, _mh.Sized, _mh.Axes
+IndFun = _mh.IndFun
+IntOrSeq = _mh.OrSeqOf[int]
+AxesOrSeq = _mh.OrSeqOf[Axes]

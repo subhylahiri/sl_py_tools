@@ -2,16 +2,18 @@
 """Utilities for module markov_param
 """
 from __future__ import annotations
+
 import typing as _ty
 
 import numpy as np
-# from numpy import ndarray as array
-# from numpy import zeros
 
 from numpy_linalg import lnarray as array
 from numpy_linalg import zeros
 
-from .markov import stochastify_c
+from .markov import stochastify_c as stochastify
+
+# from numpy import ndarray as array
+# from numpy import zeros
 
 # =============================================================================
 # Counts & types
@@ -105,6 +107,33 @@ def bcast_drns(fun: _ty.Callable[..., ArrayType], arr: ArrayType,
     return np.moveaxis(np.stack(result), 0, drn_axis)
 
 
+def bcast_update(updater: _ty.Callable[..., None],
+                 arrays: _ty.Tuple[np.ndarray, ...],
+                 drn: OrSeqOf[int],
+                 fun_axes: _ty.Tuple[OrSeqOf[Axies], ...],
+                 drn_axes: _ty.Tuple[OrSeqOf[int], ...],
+                 *args, **kwds):
+    """Update arrays with other arrays.
+
+    Returns
+    -------
+    None
+        modifies `mat` in place.
+    """
+    num = len(arrays)
+    if not isinstance(drn_axes[0], int):
+        for axes in zip(*fun_axes, *drn_axes):
+            bcast_update(updater, arrays, drn, axes[:num], axes[num:], *args,
+                         **kwds)
+    elif not isinstance(drn, int):
+        narr = [np.moveaxis(arr, dax, 0) for arr, dax in zip(arrays, drn_axes)]
+        for arrd in zip(*narr, drn):
+            bcast_update(updater, arrd[:-1], arrd[-1], fun_axes, (0,) * num,
+                         *args, **kwds)
+    else:
+        updater(arrays, drn, fun_axes, drn_axes, *args, **kwds)
+
+
 # =============================================================================
 # Parameters to matrices
 # =============================================================================
@@ -132,15 +161,15 @@ def params_to_mat(fun: IndFun, params: np.ndarray, nst: int, drn: int,
     -------
     mat : array (n,n)
         Continuous time stochastic matrix.
-        The (from,to) axes are inserted in position `axis`, if given.
+        The extra axis in (from,to) is inserted after `axis`.
     """
-    axis = params.ndim - 1 if axis is None else axis % params.ndim
+    axis = _posify(params.ndim, axis)
     params = np.moveaxis(params, axis, -1)
     shape = params.shape[:-1]
     mat = zeros(shape + (nst**2,))
     mat[..., fun(nst, drn)] = params
     mat = mat.reshape(shape + (nst, nst))
-    stochastify_c(mat)
+    stochastify(mat)
     return np.moveaxis(mat, (-2, -1), (axis, axis+1))
 
 
@@ -171,7 +200,7 @@ def uni_to_any(params: np.ndarray, nst: int, axis: int = -1, **kwds
         See docs for `*_inds` for details.
     """
     params = np.asanyarray(params)
-    axis = params.ndim - 1 if axis is None else axis % params.ndim
+    axis = _posify(params.ndim, axis)
     params = np.moveaxis(params, axis, -1)
     kwds.update({'drn': 1, 'uniform': False})
     npr = num_param(nst, **kwds)
@@ -183,6 +212,11 @@ def uni_to_any(params: np.ndarray, nst: int, axis: int = -1, **kwds
 # =============================================================================
 # Matrices to parameters
 # =============================================================================
+
+
+def _out_axis(ndim: int, axes: Axes) -> int:
+    """Which matrix axis to use for parameters"""
+    return min(_posify(ndim, axes))
 
 
 def mat_to_params(fun: IndFun, mat: ArrayType, drn: int, axes: Axes
@@ -200,12 +234,11 @@ def mat_to_params(fun: IndFun, mat: ArrayType, drn: int, axes: Axes
     axes : Tuple[int, int] or None
         Axes to treat as (from, to) axes.
     """
-    axes = (-2, -1) if axes is None else axes
-    oaxis = min(axes) % mat.ndim
+    oaxis = _out_axis(mat.ndim, axes)
     nst = mat.shape[axes[0]]
-    param = np.moveaxis(mat, axes, [-2, -1])
-    param = param.reshape(param.shape[:-2] + (-1,))
-    return np.moveaxis(param[..., fun(nst, drn)], -1, oaxis)
+    mat = np.moveaxis(mat, axes, [-2, -1])
+    mat = mat.reshape(mat.shape[:-2] + (-1,))
+    return np.moveaxis(mat[..., fun(nst, drn)], -1, oaxis)
 
 
 def to_uni(params: ArrayType, drn: int, grad: bool, axes: Axes) -> ArrayType:
@@ -225,40 +258,14 @@ def to_uni(params: ArrayType, drn: int, grad: bool, axes: Axes) -> ArrayType:
     axes : Tuple[int, int] or None
         Original axes to treat as (from, to) axes.
     """
-    axis = params.ndim - 1 if axes is None else min(axes) % (params.ndim + 1)
-    npar = params.shape[axis] / (1 + (drn == 0))
-    new_shape = params.shape[:axis] + (-1, npar) + params.shape[axis+1:]
-    params = params.reshape(new_shape).sum(axis=axis+1)
+    # Ensure the same oaxis here as in mat_to_params
+    oaxis = _out_axis(params.ndim + 1, axes)
+    npar = params.shape[oaxis] / (1 + (drn == 0))
+    new_shape = params.shape[:oaxis] + (-1, npar) + params.shape[oaxis+1:]
+    params = params.reshape(new_shape).sum(axis=oaxis+1)
     if not grad:
         params /= npar
     return params
-
-
-def bcast_update(updater: _ty.Callable[..., None],
-                 arrays: _ty.Tuple[np.ndarray, ...],
-                 drn: OrSeqOf[int],
-                 fun_axes: _ty.Tuple[OrSeqOf[Axies], ...],
-                 drn_axes: _ty.Tuple[OrSeqOf[int], ...],
-                 *args, **kwds):
-    """Update arrays with other arrays.
-
-    Returns
-    -------
-    None
-        modifies `mat` in place.
-    """
-    num = len(arrays)
-    if not isinstance(drn_axes[0], int):
-        for axes in zip(*fun_axes, *drn_axes):
-            bcast_update(updater, arrays, drn, axes[:num], axes[num:], *args,
-                         **kwds)
-    elif not isinstance(drn, int):
-        narr = [np.moveaxis(arr, dax, 0) for arr, dax in zip(arrays, drn_axes)]
-        for arrd in zip(*narr, drn):
-            bcast_update(updater, arrd[:-1], arrd[-1], fun_axes, (0,) * num,
-                         *args, **kwds)
-    else:
-        updater(arrays, drn, fun_axes, drn_axes, *args, **kwds)
 
 
 # =============================================================================
@@ -266,7 +273,7 @@ def bcast_update(updater: _ty.Callable[..., None],
 # =============================================================================
 ArrayType = _ty.TypeVar('ArrayType', bound=np.ndarray)
 Sized = _ty.Union[int, np.ndarray]
-Axes = _ty.Optional[_ty.Tuple[int, int]]
+Axes = _ty.Tuple[int, int]
 IndFun = _ty.Callable[[int, int], np.ndarray]
 Axies = _ty.Union[int, Axes]
 AxType = _ty.TypeVar('AxType', int, Axes)
