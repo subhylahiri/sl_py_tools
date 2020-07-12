@@ -60,46 +60,43 @@ def num_param(states: Sized, *, serial: bool = False, ring: bool = False,
 # =============================================================================
 
 
-def _posify(ndim: int, axes: OrSeqOf[Axies], default: Axies, zax: bool = False
-            ) -> OrSeqOf[Axies]:
+def _posify(ndim: int, axes: OrSeqOf[Axies]) -> OrSeqOf[Axies]:
     """normalise axes"""
-    if isinstance(default, bool):
-        default = -1 if default else (-2, -1)
-    if isinstance(axes, int, type(None)):
-        return default if axes is None else axes % ndim
-    if isinstance(default, int):
-        return [_posify(ndim, axs, default, False) for axs in axes]
-    if zax:
-        return [_posify(ndim, axs, dfl) for axs, dfl in zip(axes, default)]
-    return [_posify(ndim, axs, default, True) for axs in axes]
+    if isinstance(axes, int):
+        return axes % ndim
+    return [_posify(ndim, axs) for axs in axes]
+
+
+def _negify(ndim: int, axes: OrSeqOf[Axies]) -> OrSeqOf[Axies]:
+    """normalise axes"""
+    if isinstance(axes, int):
+        return (axes % ndim) - ndim
+    return [_negify(ndim, axs) for axs in axes]
 
 
 def _sort_axes(fun_axes: OrSeqOf[Axies], drn_axes: OrSeqOf[int], to_mat: bool,
                ndim: int) -> (OrSeqOf[Axies], OrSeqOf[int]):
-    """order axes so that fun_axes is decreasing"""
-    drn_axes = _posify(ndim, drn_axes, 0)
-    fun_axes = _posify(ndim, fun_axes, to_mat)
+    """order axes so that fun_axes is increasing"""
+    fun_axes, drn_axes = _negify(ndim, fun_axes), _negify(ndim, drn_axes)
     faxes, daxes = np.array(fun_axes), np.array(drn_axes)
-    inds = np.argsort(-faxes) if to_mat else np.argsort(-faxes[:, -1])
+    inds = np.argsort(faxes) if to_mat else np.argsort(faxes[:, -1])
     return faxes[inds].tolist(), daxes[inds].tolist()
 
 
-def bcast_drns(fun: _ty.Callable, arr: ArrayType,
+def bcast_drns(fun: _ty.Callable[..., ArrayType], arr: ArrayType,
                drns: OrSeqOf[int], drn_axis: OrSeqOf[int],
                fun_axis: OrSeqOf[Axies], *args, **kwds) -> ArrayType:
     """broadcast an axis wrt drn"""
     if not isinstance(drn_axis, (int, type(None))):
-        narr = arr
+        outarr = arr
         to_mat = kwds.get('to_mat', False)
         fun_axis, drn_axis = _sort_axes(fun_axis, drn_axis, to_mat, arr.ndim)
         for daxis, faxis in zip(drn_axis, fun_axis):
-            narr = bcast_drns(fun, narr, drns, daxis, faxis, *args, **kwds)
-        return narr
+            outarr = bcast_drns(fun, outarr, drns, daxis, faxis, *args, **kwds)
+        return outarr
     to_mat = kwds.pop('to_mat', False)
-    if to_mat:
-        kwds['axis'] = fun_axis
-    else:
-        kwds['axes'] = fun_axis
+    fkey = 'axis' if to_mat else 'axes'
+    kwds[fkey] = fun_axis
     if isinstance(drns, int):
         return fun(arr, *args, drn=drns, **kwds)
     drn_axis = 0 if drn_axis is None else drn_axis % arr.ndim
@@ -238,10 +235,10 @@ def to_uni(params: ArrayType, drn: int, grad: bool, axes: Axes) -> ArrayType:
 
 
 def bcast_update(updater: _ty.Callable[..., None],
-                 arrays: _ty.Tuple[ArrayType],
+                 arrays: _ty.Tuple[np.ndarray, ...],
                  drn: OrSeqOf[int],
-                 fun_axes: _ty.Tuple[OrSeqOf[Axies]],
-                 drn_axes: _ty.Tuple[OrSeqOf[int]],
+                 fun_axes: _ty.Tuple[OrSeqOf[Axies], ...],
+                 drn_axes: _ty.Tuple[OrSeqOf[int], ...],
                  *args, **kwds):
     """Update arrays with other arrays.
 
@@ -253,15 +250,15 @@ def bcast_update(updater: _ty.Callable[..., None],
     num = len(arrays)
     if not isinstance(drn_axes[0], int):
         for axes in zip(*fun_axes, *drn_axes):
-            bcast_update(updater, arrays, drn, axes[:num],
-                         axes[num:], *args, **kwds)
+            bcast_update(updater, arrays, drn, axes[:num], axes[num:], *args,
+                         **kwds)
     elif not isinstance(drn, int):
         narr = [np.moveaxis(arr, dax, 0) for arr, dax in zip(arrays, drn_axes)]
         for arrd in zip(*narr, drn):
-            bcast_update(arrd[:-1], arrd[-1], fun_axes, [0]*num, *args, **kwds)
+            bcast_update(updater, arrd[:-1], arrd[-1], fun_axes, (0,) * num,
+                         *args, **kwds)
     else:
-        kwds.update(zip(kwds.pop('keys'), tuple(fun_axes) + tuple(drn_axes)))
-        updater(*arrays, *args, drn=drn, **kwds)
+        updater(arrays, drn, fun_axes, drn_axes, *args, **kwds)
 
 
 # =============================================================================

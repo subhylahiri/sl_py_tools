@@ -28,7 +28,6 @@ from numpy_linalg import flattish, foldaxis
 from .markov import stochastify_c
 from . import _markov_helper as _mp
 
-Array = _mp.array
 num_param = _mp.num_param
 
 # =============================================================================
@@ -820,8 +819,7 @@ def paramify(params_or_mat: ArrayType, *args, **kwds) -> ArrayType:
 
 def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
                       maxes: AxesOrSeq = (-2, -1), paxis: IntOrSeq = -1,
-                      mdaxis: IntOrSeq = 0, pdaxis: IntOrSeq = 0,
-                      **kwds) -> ArrayType:
+                      mdaxis: IntOrSeq = 0, pdaxis: IntOrSeq = 0, **kwds):
     """Change independent parameters of transition matrix.
 
     Parameters
@@ -863,8 +861,8 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
         modifies `mat` in place.
     """
     if not isinstance(mdaxis, int) or not isinstance(drn, int):
-        kwds['keys'] = ('maxes', 'paxis', 'mdaxis', 'pdaxis')
-        _mp.bcast_update(mat_update_params, (mat, params), drn, (maxes, paxis),
+        kwds['axes_keys'] = ('maxes', 'paxis', 'mdaxis', 'pdaxis')
+        _mp.bcast_update(_mat_update, (mat, params), drn, (maxes, paxis),
                          (mdaxis, pdaxis), **kwds)
     else:
         nst = mat.shape[maxes[0]]
@@ -873,10 +871,20 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
             params = _mp.uni_to_any(params, nst, **kwds)
         nmat = flattish(np.moveaxis(mat, maxes, (-2, -1)), -2)
         nmat[param_inds(nst, **kwds)] = params
+        nmat = foldaxis(nmat, -1, (nst, nst))
         stochastify_c(nmat)
         if not np.may_share_memory(nmat, mat):
-            mat[...] = np.moveaxis(foldaxis(nmat, -1, (nst, nst)),
-                                   (-2, -1), maxes)
+            mat[...] = np.moveaxis(nmat, (-2, -1), maxes)
+
+
+def _mat_update(arrays: _ty.Tuple[np.ndarray, np.ndarray], drn: int,
+                fun_axes: _ty.Tuple[Axes, int], drn_axes: _ty.Tuple[int, int],
+                **kwds):
+    """call back wrapper for mat_update_params in bcast_update"""
+    kwds.update(zip(('drn', 'maxes', 'paxis', 'mdaxis', 'pdaxis'),
+                    (drn,) + fun_axes + drn_axes))
+    mat_update_params(*arrays, **kwds)
+
 
 
 def tens_to_mat(tens: ArrayType, *,
@@ -884,58 +892,15 @@ def tens_to_mat(tens: ArrayType, *,
                 drn: _ty.Tuple[int, int] = (0, 0),
                 uniform: bool = False, grad: bool = True) -> ArrayType:
     """Independent parameters of 4th rank tensor.
-
-    Does not broadcast.
-
-    Parameters
-    ----------
-    tens : ndarray (n,n,n,n)
-        Continuous time stochastic matrix.
-    serial : bool, optional, default: False
-        Is the rate vector meant for `serial_params_to_mat` or
-        `gen_params_to_mat`?
-    ring : bool, optional, default: False
-        Is the rate vector meant for `ring_params_to_mat` or
-        `gen_params_to_mat`?
-    drn: Tuple[int], optional, default: (0,0)
-        Directions for first/last pair of axes.
-        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
-    uniform : bool, optional, default: False
-        Is the rate vector meant for `ring_params_to_mat` or
-        `uni_ring_params_to_mat`?
-    grad : bool, optional, default: True
-        Is the output for a gradient (True) or a transition matrix (False).
-        If True, return sum of each group of equal transitions.
-        If False, return the mean.
-
-    Returns
-    -------
-    mat : ndarray (n**2,n**2)
-        Matrix of independent elements, each axis in order `*_mat_to_params`.
+    Use mat_to_params instead, broadcast over axes arguments
     """
-    nst = tens.shape[0]
-    mat = tens.reshape((nst**2, nst**2))
-    inds = [param_inds(nst, serial=serial, ring=ring, uniform=uniform, drn=d)
-            for d in drn]
-    mat = mat[np.ix_(inds[0], inds[1])]
-    if uniform:
-        nind = len(inds[0]) // 2
-        mat = np.block([[mat[:nind, :nind].sum(), mat[:nind, nind:].sum()],
-                        [mat[nind:, :nind].sum(), mat[nind:, nind:].sum()]])
-        if drn[0]:
-            mat = mat.sum()
-            nind = len(inds[0])
-        if not grad:
-            mat /= nind**2
-    return mat
+    raise TypeError("Use mat_to_params instead, broadcast over axes arguments")
 
 
 # =============================================================================
 # Type hints
 # =============================================================================
-ArrayType = _ty.TypeVar('ArrayType', bound=np.ndarray)
-Sized = _ty.Union[int, np.ndarray]
-Axes = _ty.Optional[_ty.Tuple[int, int]]
-IndFun = _ty.Callable[[int, int], np.ndarray]
+Array, ArrayType, Sized, Axes = _mp.array, _mp.ArrayType, _mp.Sized, _mp.Axes
+IndFun = _mp.IndFun
 IntOrSeq = _mp.OrSeqOf[int]
 AxesOrSeq = _mp.OrSeqOf[Axes]
