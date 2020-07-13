@@ -4,25 +4,80 @@
 from __future__ import annotations
 
 import typing as _ty
+from collections.abc import Sequence
 
 import numpy as np
 
 from numpy_linalg import lnarray as array
 from numpy_linalg import zeros
 
-from .markov import stochastify_c as stochastify
-
 # from numpy import ndarray as array
 # from numpy import zeros
 
+# =============================================================================
+# Fixing non-parameter parts
+# =============================================================================
+
+
+def stochastify_c(mat: np.ndarray):  # make cts time stochastic
+    """
+    Make a matrix the generator of a continuous time Markov process.
+    Changes diagonal to make row sums zero.
+    **Modifies** in place, **does not** return.
+
+    Parameters
+    ----------
+    mat : la.lnarray (...,n,n)
+        square matrix with non-negative off-diagonal elements.
+        **Modified** in place.
+    """
+    mat -= mat.sum(axis=-1, keepdims=True) * np.identity(mat.shape[-1])
+
+
+def stochastify_pd(mat: np.ndarray):  # make dscr time stochastic
+    """
+    Make a matrix the generator of a discrete time Markov process.
+    Shifts diagonals to make row sums one.
+
+    Parameters
+    ----------
+    mat : la.lnarray (...,n,n)
+        square matrix with non-negative elements.
+        **Modified** in place
+    """
+    mat += (1 - mat.sum(axis=-1, keepdims=True)) * np.identity(mat.shape[-1])
+
+
+def stochastify_d(mat: np.ndarray):  # make dscr time stochastic
+    """
+    Make a matrix the generator of a discrete time Markov process.
+    Scales rows to make row sums one.
+
+    Parameters
+    ----------
+    mat : la.lnarray (...,n,n)
+        square matrix with non-negative elements.
+        **Modified** in place
+    """
+    mat /= mat.sum(axis=-1, keepdims=True)
+
+
+stochastify = stochastify_c
 # =============================================================================
 # Counts & types
 # =============================================================================
 
 
+def unpack_nest(nest: OrSeqOf[int]) -> int:
+    """Get one element of (nested) sequence"""
+    while isinstance(nest, Sequence):
+        nest = nest[0]
+    return nest
+
+
 def num_param(states: Sized, *, serial: bool = False, ring: bool = False,
-              uniform: bool = False, drn: int = 0) -> int:
-    """Number of independent rates
+              uniform: bool = False, drn: int = 0, **kwds) -> int:
+    """Number of independent rates per matrix
 
     Parameters
     ----------
@@ -46,8 +101,9 @@ def num_param(states: Sized, *, serial: bool = False, ring: bool = False,
         Number of rate parameters.
     """
     if isinstance(states, np.ndarray):
-        states = states.shape[0]
-    mult = 2 - bool(drn)  # double if drn == 0
+        axis = unpack_nest(kwds.get('maxis', kwds.get('axis', -1)))
+        states = states.shape[axis]
+    mult = 1 if unpack_nest(drn) else 2
     if uniform:
         return mult
     if serial:

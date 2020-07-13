@@ -131,10 +131,12 @@ def ring_inds(nst: int, drn: int = 0) -> np.ndarray:
         mat_01, mat_12, ..., mat_n-2,n-1, mat_n-1,0,
         mat_0,n-1, mat_10, mat_21, ..., mat_n-1,n-2.
     """
-    pos = np.hstack((np.arange(1, nst**2, nst+1), [nst*(nst-1)]))
+    pos = np.r_[1:nst**2:nst+1, nst*(nst-1)]
+    # pos = np.hstack((np.arange(1, nst**2, nst+1), [nst*(nst-1)]))
     if drn > 0:
         return pos
-    neg = np.hstack(([nst-1], np.arange(nst, nst**2, nst+1)))
+    neg = np.r_[nst-1, 1:nst**2:nst+1]
+    # neg = np.hstack(([nst-1], np.arange(nst, nst**2, nst+1)))
     if drn < 0:
         return neg
     return np.hstack((pos, neg))
@@ -185,7 +187,7 @@ def param_inds(nst: int, serial: bool = False, ring: bool = False,
 
 
 def num_state(params: Sized, *, serial: bool = False, ring: bool = False,
-              uniform: bool = False, drn: int = 0) -> int:
+              uniform: bool = False, drn: int = 0, **kwds) -> int:
     """Number of states from rate vector
 
     Parameters
@@ -209,7 +211,8 @@ def num_state(params: Sized, *, serial: bool = False, ring: bool = False,
     if uniform:
         raise ValueError("num_states is ambiguous when uniform")
     if isinstance(params, np.ndarray):
-        params = params.shape[-1]
+        axis = _mh.unpack_nest(kwds.get('paxis', kwds.get('axis', -1)))
+        params = params.shape[axis]
     if drn:
         params *= 2
     if serial:
@@ -219,8 +222,26 @@ def num_state(params: Sized, *, serial: bool = False, ring: bool = False,
     return (0.5 + np.sqrt(0.25 + params)).astype(int)
 
 
-def mat_type(params: Sized, states: Sized) -> _ty.Tuple[bool, ...]:
-    """Is it a (uniform) ring
+def _mat_type(mat: np.ndarray, axes: Axes = (-2, -1)) -> _ty.Tuple[bool, ...]:
+    """Is process (uniform) ring/serial/...
+    """
+    nst = mat.shape[axes[-1]]
+    mat = np.moveaxis(mat, axes, (-2, -1))
+    mat = mat[(0,) * (mat.ndim - 2)].ravel()
+    ser_ind = serial_inds(nst, 0)
+    rng_inds = ring_inds(nst, 0)
+    gen_inds = offdiag_inds(nst, 0)
+    gen_inds = np.setdiff1d(gen_inds, rng_inds, True)
+    rng_inds = np.setdiff1d(rng_inds, ser_ind, True)
+    ring = np.allclose(mat[gen_inds], 0)
+    serial = ring and np.allclose(mat[rng_inds], 0)
+    return serial, ring
+
+
+def mat_type(params: Sized, states: Sized, **kwds) -> _ty.Tuple[bool, ...]:
+    """Is process (uniform) ring/serial/...
+
+    If `uniform`, we cannot distinguish `general`, `seial` and `ring`,
 
     Parameters
     ----------
@@ -244,14 +265,20 @@ def mat_type(params: Sized, states: Sized) -> _ty.Tuple[bool, ...]:
         Is the rate vector for `*_params_to_mat` or `uni_*_params_to_mat`?
         * = general, serial or ring.
     """
+    mat, maxes = None, None
     if isinstance(params, np.ndarray):
-        params = params.shape[-1]
+        paxis = _mh.unpack_nest(kwds.get('paxis', kwds.get('axis', -1)))
+        params = params.shape[paxis]
     if isinstance(states, np.ndarray):
-        states = states.shape[-1]
+        maxes = _mh.unpack_nest(kwds.get('maxes', kwds.get('axes', -1)))
+        mat = states
+        states = states.shape[maxes[-1]]
     uniform = params in {1, 2}
     drn = params in {1, states, states - 1, states * (states - 1) // 2}
     ring = uniform or (params in {2 * states, states})
     serial = uniform or (params in {2 * (states - 1), states - 1})
+    if uniform and mat is not None:
+        serial, ring = _mat_type(mat, maxes)
     return serial, ring, drn, uniform
 
 

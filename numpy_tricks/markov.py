@@ -6,41 +6,18 @@ import numpy as np
 import numpy_linalg as la
 
 from . import logic as lgc
+from ._markov_helper import stochastify_c, stochastify_d, num_param
+from .markov_param import params_to_mat
 
-
-def stochastify_c(mat: la.lnarray):  # make cts time stochastic
-    """
-    Make a matrix the generator of a continuous time Markov process.
-    Changes diagonal to make row sums zero.
-    **Modifies** in place, **does not** return.
-
-    Parameters
-    ----------
-    mat : la.lnarray (...,n,n)
-        square matrix with non-negative off-diagonal elements.
-        **Modified** in place.
-    """
-    mat -= mat.sum(axis=-1, keepdims=True) * la.identity(mat.shape[-1])
-
-
-def stochastify_d(mat: la.lnarray):  # make dscr time stochastic
-    """
-    Make a matrix the generator of a discrete time Markov process.
-    Scales rows to make row sums one.
-
-    Parameters
-    ----------
-    mat : la.lnarray (...,n,n)
-        square matrix with non-negative elements.
-        **Modified** in place
-    """
-    mat /= mat.sum(axis=-1, keepdims=True)
+RNG = np.random.default_rng()
+assert any((True, stochastify_c, stochastify_d))
+# =============================================================================
 
 
 def isstochastic_c(mat: la.lnarray, thresh: float = 1e-5) -> bool:
     """Are row sums zero?
     """
-    nonneg = mat.flattish(-2) >= 0
+    nonneg = mat.flattish(-2) >= -thresh
     nonneg[..., ::mat.shape[-1]+1] = True
     return nonneg.all() and (np.fabs(mat.sum(axis=-1)) < thresh).all()
 
@@ -51,7 +28,8 @@ def isstochastic_d(mat: la.lnarray, thresh: float = 1e-5) -> bool:
     return (np.fabs(mat.sum(axis=-1) - 1) < thresh).all() and (mat >= 0).all()
 
 
-def rand_trans(nst: int, npl: int = 1, sparsity: float = 1.) -> la.lnarray:
+def rand_trans(nst: int, npl: int = 1, sparsity: float = 1.,
+               **kwds) -> la.lnarray:
     """
     Make a random transition matrix (continuous time).
 
@@ -69,11 +47,11 @@ def rand_trans(nst: int, npl: int = 1, sparsity: float = 1.) -> la.lnarray:
     mat : la.lnarray
         transition matrix
     """
-    mat = la.random.rand(npl, nst, nst)
-    ind = la.random.rand(npl, nst, nst)
-    mat[ind > sparsity] = 0.
-    stochastify_c(mat)
-    return mat
+    params = RNG.random((npl, num_param(nst, **kwds)))
+    if sparsity < 1.:
+        ind = RNG.random(params.shape)
+        params[ind > sparsity] = 0.
+    return params_to_mat(params, **kwds)
 
 
 def calc_peq(rates: np.ndarray,
@@ -82,22 +60,22 @@ def calc_peq(rates: np.ndarray,
 
     Parameters
     ----------
-    rates : np.ndarray (n,n) or tuple(np.ndarray) ((n,n), (n,))
+    rates : np.ndarray (...,n,n) or tuple(np.ndarray) ((...,n,n), (...,n,))
         Continuous time stochastic matrix or LU factors of inverse fundamental.
     luf : bool, optional
         Return LU factorisation of inverse fundamental as well? default: True
 
     Returns
     -------
-    peq : la.lnarray (n,)
+    peq : la.lnarray (...,n,)
         Steady-state distribution.
-    (z_lu, ipv) : tuple(la.lnarray) ((n,n),(n,))
+    (z_lu, ipv) : tuple(la.lnarray) ((...,n,n),(...,n,))
         LU factors of inverse fundamental matrix.
     """
     if isinstance(rates, tuple):
         z_lu, ipv = rates
         evc = la.ones(z_lu.shape[0])
-        peq = la.gufuncs.rlu_solve(evc, z_lu, ipv)
+        peq = la.gufuncs.rlu_solve(evc.r, z_lu, ipv).ur
     else:
         evc = la.ones(rates.shape[0])
         fund_inv = la.ones_like(rates) - rates
@@ -116,16 +94,16 @@ def calc_peq_d(jump: np.ndarray,
 
     Parameters
     ----------
-    jump : np.ndarray (n,n) or tuple(np.ndarray) ((n,n), (n,))
+    jump : np.ndarray (...,n,n) or tuple(np.ndarray) ((...,n,n), (...,n,))
         Discrete time stochastic matrix or LU factors of inverse fundamental.
     luf : bool, optional
-        Return LU factorisation of inverse fundamental as well? default: True
+        Return LU factorisation of inverse fundamental as well? default: False
 
     Returns
     -------
-    peq : la.lnarray (n,)
+    peq : la.lnarray (...,n,)
         Steady-state distribution.
-    (z_lu, ipv) : tuple(la.lnarray) ((n,n),(n,))
+    (z_lu, ipv) : tuple(la.lnarray) ((...,n,n),(...,n,))
         LU factors of inverse fundamental matrix.
     """
     if isinstance(jump, tuple):
@@ -148,7 +126,7 @@ def adjoint(tensor: la.lnarray, measure: la.lnarray) -> la.lnarray:
     tensor : la.lnarray (...,n,n) or (...,n,1) or (...,1,n)
         The adjoint matrix/column/row vector.
     """
-    adj = tensor.t
+    adj = tensor.copy().t
     if adj.shape[-1] == 1:  # row -> col
         adj /= measure.c
     elif adj.shape[-2] == 1:  # col -> row
@@ -169,7 +147,7 @@ def mean_dwell(rates: np.ndarray, peq: Optional[np.ndarray] = None) -> float:
         Steady-state distribution, default: calculate frm `rates`.
     """
     if peq is None:
-        peq = calc_peq(rates)[0]
+        peq = calc_peq(rates)
     dwell = -1. / np.diagonal(rates)
     return 1. / (peq / dwell).sum()
 
