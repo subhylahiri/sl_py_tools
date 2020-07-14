@@ -26,8 +26,6 @@ from numpy_linalg import flattish, foldaxis
 
 from . import _markov_helper as _mh
 
-num_param = _mh.num_param
-
 # =============================================================================
 # Indices of parameters
 # =============================================================================
@@ -132,11 +130,9 @@ def ring_inds(nst: int, drn: int = 0) -> np.ndarray:
         mat_0,n-1, mat_10, mat_21, ..., mat_n-1,n-2.
     """
     pos = np.r_[1:nst**2:nst+1, nst*(nst-1)]
-    # pos = np.hstack((np.arange(1, nst**2, nst+1), [nst*(nst-1)]))
     if drn > 0:
         return pos
     neg = np.r_[nst-1, 1:nst**2:nst+1]
-    # neg = np.hstack(([nst-1], np.arange(nst, nst**2, nst+1)))
     if drn < 0:
         return neg
     return np.hstack((pos, neg))
@@ -186,69 +182,16 @@ def param_inds(nst: int, serial: bool = False, ring: bool = False,
 # =============================================================================
 
 
-def num_state(params: Sized, *, serial: bool = False, ring: bool = False,
-              uniform: bool = False, drn: int = 0, **kwds) -> int:
-    """Number of states from rate vector
+def mat_type_val(mat: np.ndarray, axes: Axes = (-2, -1)
+                 ) -> _ty.Tuple[bool, bool, int, bool]:
+    """Is process (uniform) ring/serial/... from elements
 
     Parameters
     ----------
-    params : int or ndarray (n,)
-        Number of rate parameters, or vector of rates.
-    serial : bool, optional, default: False
-        Is the rate vector meant for `serial_params_to_mat` or
-        `gen_params_to_mat`?
-    ring : bool, optional, default: True
-        Is the rate vector meant for `ring_params_to_mat` or
-        `gen_params_to_mat`?
-    drn: int, optional, default: 0
-        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
-
-    Returns
-    -------
-    states : int
-        Number of states.
-    """
-    if uniform:
-        raise ValueError("num_states is ambiguous when uniform")
-    if isinstance(params, np.ndarray):
-        axis = _mh.unpack_nest(kwds.get('paxis', kwds.get('axis', -1)))
-        params = params.shape[axis]
-    if drn:
-        params *= 2
-    if serial:
-        return params // 2 + 1
-    if ring:
-        return params // 2
-    return (0.5 + np.sqrt(0.25 + params)).astype(int)
-
-
-def _mat_type(mat: np.ndarray, axes: Axes = (-2, -1)) -> _ty.Tuple[bool, ...]:
-    """Is process (uniform) ring/serial/...
-    """
-    nst = mat.shape[axes[-1]]
-    mat = np.moveaxis(mat, axes, (-2, -1))
-    mat = mat[(0,) * (mat.ndim - 2)].ravel()
-    ser_ind = serial_inds(nst, 0)
-    rng_inds = ring_inds(nst, 0)
-    gen_inds = offdiag_inds(nst, 0)
-    gen_inds = np.setdiff1d(gen_inds, rng_inds, True)
-    rng_inds = np.setdiff1d(rng_inds, ser_ind, True)
-    ring = np.allclose(mat[gen_inds], 0)
-    serial = ring and np.allclose(mat[rng_inds], 0)
-    return serial, ring
-
-
-def mat_type(params: Sized, states: Sized, **kwds) -> _ty.Tuple[bool, ...]:
-    """Is process (uniform) ring/serial/...
-
-    If `uniform`, we cannot distinguish `general`, `seial` and `ring`,
-
-    Parameters
-    ----------
-    params : int or ndarray (np,)
-        Number of rate parameters, or vector of rates.
-    states : int or ndarray (n,...)
-        Number of states, or array over states.
+    mat : ndarray (...,n,n)
+        Continuous time stochastic matrix.
+    axes : Tuple[int, int] or None
+        Axes to treat as (from, to) axes, by default: (-2, -1)
 
     Returns
     -------
@@ -258,27 +201,30 @@ def mat_type(params: Sized, states: Sized, **kwds) -> _ty.Tuple[bool, ...]:
     ring : bool
         Is the rate vector meant for `ring_params_to_mat` or
         `gen_params_to_mat`?
-    drn: bool
+    drn: int
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
-        Can only determine `|drn|`, not its sign.
     uniform : bool
-        Is the rate vector for `*_params_to_mat` or `uni_*_params_to_mat`?
-        * = general, serial or ring.
+        Is the matrix from `*_params_to_mat` or `uni_*_params_to_mat`?
+        * = gen, serial or ring.
     """
-    mat, maxes = None, None
-    if isinstance(params, np.ndarray):
-        paxis = _mh.unpack_nest(kwds.get('paxis', kwds.get('axis', -1)))
-        params = params.shape[paxis]
-    if isinstance(states, np.ndarray):
-        maxes = _mh.unpack_nest(kwds.get('maxes', kwds.get('axes', -1)))
-        mat = states
-        states = states.shape[maxes[-1]]
-    uniform = params in {1, 2}
-    drn = params in {1, states, states - 1, states * (states - 1) // 2}
-    ring = uniform or (params in {2 * states, states})
-    serial = uniform or (params in {2 * (states - 1), states - 1})
-    if uniform and mat is not None:
-        serial, ring = _mat_type(mat, maxes)
+    nst = mat.shape[axes[-1]]
+    mat = np.moveaxis(mat, axes, (-2, -1))
+    mat = mat[(0,) * (mat.ndim - 2)].ravel()
+    rng_inds = ring_inds(nst, 0)
+    gen_inds = np.setdiff1d(offdiag_inds(nst, 0), rng_inds, True)
+    rng_inds = np.setdiff1d(rng_inds, serial_inds(nst, 0), True)
+    ring = np.allclose(mat[gen_inds], 0)
+    serial = ring and np.allclose(mat[rng_inds], 0)
+    ring &= not serial
+    if np.allclose(mat[offdiag_inds(nst, -1)], 0):
+        drn = 1
+    elif np.allclose(mat[offdiag_inds(nst, 1)], 0):
+        drn = -1
+    else:
+        drn = 0
+    ifun = _ind_fun(serial, ring)
+    uniform = np.allclose([np.std(mat[ifun(nst, 1)]),
+                           np.std(mat[ifun(nst, -1)])], 0)
     return serial, ring, drn, uniform
 
 
@@ -308,7 +254,7 @@ def mat_type_dict(params: Sized, states: Sized) -> _ty.Tuple[bool, ...]:
             Is the rate vector for `*_params_to_mat` or `uni_*_params_to_mat`?
             * = general, serial or ring.
     """
-    serial, ring, drn, uniform = mat_type(params, states)
+    serial, ring, drn, uniform = mat_type_siz(params, states)
     return {'serial': serial, 'ring': ring, 'drn': drn, 'uniform': uniform}
 
 
@@ -343,11 +289,7 @@ def gen_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
     --------
     offdiag_inds, gen_mat_to_params
     """
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(gen_params_to_mat, params, drn, daxis, axis,
-                              to_mat=True)
-    nst = num_state(params, drn=drn)
-    return _mh.params_to_mat(offdiag_inds, params, nst, drn, axis)
+    return _mh.params_to_mat(params, offdiag_inds, drn, axis, daxis)
 
 
 def uni_gen_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
@@ -380,13 +322,10 @@ def uni_gen_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
     --------
     offdiag_split_inds, uni_gen_mat_to_params
     """
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(uni_gen_params_to_mat,
-                              params, drn, daxis, axis, num_st, to_mat=True)
     gen_params = _mh.uni_to_any(params, num_st, axis=axis)
     if drn:
-        return gen_params_to_mat(gen_params, drn, axis)
-    return _mh.params_to_mat(offdiag_split_inds, params, num_st, drn, axis)
+        return gen_params_to_mat(gen_params, drn, axis, daxis)
+    return _mh.params_to_mat(params, offdiag_split_inds, drn, axis, daxis)
 
 
 def serial_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
@@ -416,11 +355,7 @@ def serial_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
     --------
     serial_inds, serial_mat_to_params
     """
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(serial_params_to_mat, params, drn, daxis, axis,
-                              to_mat=True)
-    nst = num_state(params, serial=True, drn=drn)
-    return _mh.params_to_mat(serial_inds, params, nst, drn, axis)
+    return _mh.params_to_mat(params, serial_inds, drn, axis, daxis)
 
 
 def uni_serial_params_to_mat(
@@ -454,11 +389,8 @@ def uni_serial_params_to_mat(
     --------
     serial_inds, uni_serial_mat_to_params
     """
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(uni_serial_params_to_mat,
-                              params, drn, daxis, axis, num_st, to_mat=True)
     ser_params = _mh.uni_to_any(params, num_st, axis=axis, serial=True)
-    return serial_params_to_mat(ser_params, drn, axis)
+    return serial_params_to_mat(ser_params, drn, axis, daxis)
 
 
 def ring_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
@@ -488,11 +420,7 @@ def ring_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
     --------
     ring_inds, ring_mat_to_params
     """
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(ring_params_to_mat, params, drn, daxis, axis,
-                              to_mat=True)
-    nst = num_state(params.size, ring=True, drn=drn)
-    return _mh.params_to_mat(ring_inds, params, nst, drn, axis)
+    return _mh.params_to_mat(params, ring_inds, drn, axis, daxis)
 
 
 def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
@@ -525,11 +453,8 @@ def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
     --------
     ring_inds, ring_mat_to_params
     """
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(uni_ring_params_to_mat,
-                              params, drn, daxis, axis, num_st, to_mat=True)
     ring_params = _mh.uni_to_any(params, num_st, axis=axis, ring=True)
-    return ring_params_to_mat(ring_params, drn, axis)
+    return ring_params_to_mat(ring_params, drn, axis, daxis)
 
 
 def params_to_mat(params: np.ndarray, *, serial: bool = False,
@@ -573,15 +498,10 @@ def params_to_mat(params: np.ndarray, *, serial: bool = False,
     param_inds, mat_to_params
     """
     opts = {'serial': serial, 'ring': ring}
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(params_to_mat, params, drn, daxis, axis, nst=nst,
-                              uniform=uniform, to_mat=True, **opts)
     if uniform:
         params = _mh.uni_to_any(params, nst, axis=axis, **opts)
-    else:
-        nst = num_state(params, drn=drn, **opts)
-    return _mh.params_to_mat(_ind_fun(serial, ring, uniform),
-                             params, nst, drn, axis)
+    return _mh.params_to_mat(params, _ind_fun(serial, ring, uniform),
+                             drn, axis, daxis)
 
 
 def matify(params_or_mat: np.ndarray, *args, **kwds) -> Array:
@@ -640,9 +560,7 @@ def gen_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
     --------
     offdiag_inds, gen_params_to_mat
     """
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(gen_mat_to_params, mat, drn, daxis, axes)
-    return _mh.mat_to_params(offdiag_inds, mat, drn, axes)
+    return _mh.mat_to_params(mat, offdiag_inds, drn, axes, daxis)
 
 
 def uni_gen_mat_to_params(mat: ArrayType, grad: bool = True, drn: IntOrSeq = 0,
@@ -680,13 +598,11 @@ def uni_gen_mat_to_params(mat: ArrayType, grad: bool = True, drn: IntOrSeq = 0,
     --------
     offdiag_split_inds, uni_gen_params_to_mat
     """
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(uni_gen_mat_to_params, mat, drn, daxis, axes,
-                              grad=grad)
     if drn:
-        return _mh.to_uni(gen_mat_to_params(mat, drn, axes), drn, grad, axes)
+        return _mh.to_uni(gen_mat_to_params(mat, drn, axes, daxis),
+                          drn, grad, axes)
     # need to separate pos, neg
-    return _mh.to_uni(_mh.mat_to_params(offdiag_split_inds, mat, drn, axes),
+    return _mh.to_uni(_mh.mat_to_params(mat, offdiag_split_inds, drn, axes),
                       drn, grad, axes)
 
 
@@ -718,9 +634,7 @@ def serial_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
     --------
     serial_inds, serial_params_to_mat
     """
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(serial_mat_to_params, mat, drn, daxis, axes)
-    return _mh.mat_to_params(serial_inds, mat, drn, axes)
+    return _mh.mat_to_params(mat, serial_inds, drn, axes, daxis)
 
 
 def uni_serial_mat_to_params(mat: ArrayType, grad: bool = True,
@@ -758,10 +672,8 @@ def uni_serial_mat_to_params(mat: ArrayType, grad: bool = True,
     --------
     serial_inds, uni_serial_params_to_mat
     """
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(uni_serial_mat_to_params, mat, drn, daxis, axes,
-                              grad=grad)
-    return _mh.to_uni(serial_mat_to_params(mat, drn, axes), drn, grad, axes)
+    return _mh.to_uni(serial_mat_to_params(mat, drn, axes, daxis),
+                      drn, grad, axes)
 
 
 def ring_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
@@ -792,9 +704,7 @@ def ring_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
     --------
     ring_inds, ring_params_to_mat
     """
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(ring_mat_to_params, mat, drn, daxis, axes)
-    return _mh.mat_to_params(ring_inds, mat, drn, axes)
+    return _mh.mat_to_params(mat, ring_inds, drn, axes, daxis)
 
 
 def uni_ring_mat_to_params(mat: ArrayType, grad: bool = True,
@@ -832,10 +742,8 @@ def uni_ring_mat_to_params(mat: ArrayType, grad: bool = True,
     --------
     ring_inds, uni_ring_params_to_mat
     """
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(uni_ring_mat_to_params, mat, drn, daxis, axes,
-                              grad=grad)
-    return _mh.to_uni(ring_mat_to_params(mat, drn, axes), drn, grad, axes)
+    return _mh.to_uni(ring_mat_to_params(mat, drn, axes, daxis),
+                      drn, grad, axes)
 
 
 def mat_to_params(mat: ArrayType, *,
@@ -879,10 +787,8 @@ def mat_to_params(mat: ArrayType, *,
     --------
     param_inds, params_to_mat
     """
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(mat_to_params, mat, drn, daxis, axes, grad=grad,
-                              serial=serial, ring=ring, uniform=uniform)
-    params = _mh.mat_to_params(_ind_fun(serial, ring, uniform), mat, drn, axes)
+    params = _mh.mat_to_params(mat, _ind_fun(serial, ring, uniform),
+                               drn, axes, daxis)
     if uniform:
         return _mh.to_uni(params, drn, grad, axes)
     return params
@@ -965,7 +871,7 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
     --------
     param_inds, mat_to_params
     """
-    if not isinstance(drn, int):
+    if not isinstance(drn, int) or not isinstance(paxis, int):
         _mh.bcast_update(_mat_update, (mat, params), drn, (maxes, paxis),
                          (mdaxis, pdaxis), **kwds)
     else:
@@ -986,15 +892,19 @@ def _mat_update(arrays: _ty.Tuple[np.ndarray, np.ndarray], drn: int,
                 fun_axes: _ty.Tuple[Axes, int], drn_axes: _ty.Tuple[int, int],
                 **kwds):
     """call back wrapper for mat_update_params in bcast_update"""
-    kwds.update(zip(('drn', 'maxes', 'paxis', 'mdaxis', 'pdaxis'),
-                    (drn,) + fun_axes + drn_axes))
+    kwds.update(zip(('maxes', 'paxis', 'mdaxis', 'pdaxis'),
+                    fun_axes + drn_axes), drn=drn)
     mat_update_params(*arrays, **kwds)
 
 
 # =============================================================================
+# Exports
+# =============================================================================
+num_param = _mh.num_param
+num_state = _mh.num_state
+mat_type_siz = _mh.mat_type_siz
+# =============================================================================
 # Type hints
 # =============================================================================
 Array, ArrayType, Sized, Axes = _mh.array, _mh.ArrayType, _mh.Sized, _mh.Axes
-IndFun = _mh.IndFun
-IntOrSeq = _mh.OrSeqOf[int]
-AxesOrSeq = _mh.OrSeqOf[Axes]
+IndFun, IntOrSeq, AxesOrSeq = _mh.IndFun, _mh.IntOrSeq, _mh.AxesOrSeq

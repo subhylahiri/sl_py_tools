@@ -68,15 +68,31 @@ stochastify = stochastify_c
 # =============================================================================
 
 
-def unpack_nest(nest: OrSeqOf[int]) -> int:
+def _unpack_nest(nest: IntOrSeq) -> int:
     """Get one element of (nested) sequence"""
     while isinstance(nest, Sequence):
         nest = nest[0]
     return nest
 
 
+def _get_size(arr: np.ndarray, kwds: dict, is_params: bool) -> int:
+    """get size by pulling axes argument from keywords"""
+    args = ('num_param', 'npar') if is_params else ('num_st', 'nst')
+    siz = kwds.get(args[0], kwds.get(args[1], None))
+    if siz is not None:
+        return siz
+    args = ('paxis', 'axis', -1) if is_params else ('maxes', 'axes', (-2, -1))
+    axis = _unpack_nest(kwds.get(args[0], kwds.get(*args[1:])))
+    return arr.shape[axis]
+
+
+def _drn_mult(drn: IntOrSeq) -> int:
+    """Get factor of two if drn == 0"""
+    return 1 if _unpack_nest(drn) else 2
+
+
 def num_param(states: Sized, *, serial: bool = False, ring: bool = False,
-              uniform: bool = False, drn: int = 0, **kwds) -> int:
+              uniform: bool = False, drn: IntOrSeq = 0, **kwds) -> int:
     """Number of independent rates per matrix
 
     Parameters
@@ -101,9 +117,8 @@ def num_param(states: Sized, *, serial: bool = False, ring: bool = False,
         Number of rate parameters.
     """
     if isinstance(states, np.ndarray):
-        axis = unpack_nest(kwds.get('maxis', kwds.get('axis', -1)))
-        states = states.shape[axis]
-    mult = 1 if unpack_nest(drn) else 2
+        states = _get_size(states, kwds, False)
+    mult = _drn_mult(drn)
     if uniform:
         return mult
     if serial:
@@ -113,50 +128,130 @@ def num_param(states: Sized, *, serial: bool = False, ring: bool = False,
     return mult * states * (states - 1) // 2
 
 
+def num_state(params: Sized, *, serial: bool = False, ring: bool = False,
+              uniform: bool = False, drn: IntOrSeq = 0, **kwds) -> int:
+    """Number of states from rate vector
+
+    Parameters
+    ----------
+    params : int or ndarray (n,)
+        Number of rate parameters, or vector of rates.
+    serial : bool, optional, default: False
+        Is the rate vector meant for `serial_params_to_mat` or
+        `gen_params_to_mat`?
+    ring : bool, optional, default: True
+        Is the rate vector meant for `ring_params_to_mat` or
+        `gen_params_to_mat`?
+    drn: int, optional, default: 0
+        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
+
+    Returns
+    -------
+    states : int
+        Number of states.
+    """
+    if uniform:
+        raise ValueError("num_states is ambiguous when uniform")
+    if isinstance(params, np.ndarray):
+        params = _get_size(params, kwds, True)
+    params *= 2 // _drn_mult(drn)
+    if serial:
+        return params // 2 + 1
+    if ring:
+        return params // 2
+    return np.rint(0.5 + np.sqrt(0.25 + params)).astype(int)
+
+
+def mat_type_siz(params: Sized, states: Sized, **kwds) -> _ty.Tuple[bool, ...]:
+    """Is process (uniform) ring/serial/... from shapes
+
+    If `uniform`, we cannot distinguish `general`, `seial` and `ring` without
+    looking at matrix elements.
+
+    Parameters
+    ----------
+    params : int or ndarray (np,)
+        Number of rate parameters, or vector of rates.
+    states : int or ndarray (n,...)
+        Number of states, or array over states.
+
+    Returns
+    -------
+    serial : bool
+        Is the rate vector meant for `serial_params_to_mat` or
+        `gen_params_to_mat`?
+    ring : bool
+        Is the rate vector meant for `ring_params_to_mat` or
+        `gen_params_to_mat`?
+    drn: bool
+        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
+        Can only determine `|drn|`, not its sign.
+    uniform : bool
+        Is the rate vector for `*_params_to_mat` or `uni_*_params_to_mat`?
+        * = general, serial or ring.
+    """
+    if isinstance(params, np.ndarray):
+        params = _get_size(params, kwds, True)
+    if isinstance(states, np.ndarray):
+        states = _get_size(states, kwds, False)
+    uniform = params in {1, 2}
+    drn = params in {1, states, states - 1, states * (states - 1) // 2}
+    ring = uniform or (params in {2 * states, states})
+    serial = uniform or (params in {2 * (states - 1), states - 1})
+    return serial, ring, drn, uniform
+
+
 # =============================================================================
 # Helper for broadcasting
 # =============================================================================
 
 
-def _posify(ndim: int, axes: OrSeqOf[Axies]) -> OrSeqOf[Axies]:
+def _posify(ndim: int, axes: AxesOrSeq) -> AxesOrSeq:
     """normalise axes"""
     if isinstance(axes, int):
         return axes % ndim
     return [_posify(ndim, axs) for axs in axes]
 
 
-def _negify(ndim: int, axes: OrSeqOf[Axies]) -> OrSeqOf[Axies]:
+def _negify(ndim: int, axes: AxesOrSeq) -> AxesOrSeq:
     """normalise axes"""
     if isinstance(axes, int):
         return (axes % ndim) - ndim
     return [_negify(ndim, axs) for axs in axes]
 
 
-def _sort_axes(fun_axes: OrSeqOf[Axies], drn_axes: OrSeqOf[int], to_mat: bool,
-               ndim: int) -> (OrSeqOf[Axies], OrSeqOf[int]):
+def _sort_axes(ndim: int, fun_axes: AxesOrSeq, drn_axes: IntOrSeq,
+               to_mat: bool) -> (AxesOrSeq, IntOrSeq):
     """order axes so that fun_axes is increasing"""
     fun_axes, drn_axes = _negify(ndim, fun_axes), _negify(ndim, drn_axes)
+    if isinstance(drn_axes, int):
+        drn_axes = (drn_axes,) * len(fun_axes)
     faxes, daxes = np.array(fun_axes), np.array(drn_axes)
     inds = np.argsort(faxes) if to_mat else np.argsort(faxes[:, -1])
     return faxes[inds].tolist(), daxes[inds].tolist()
 
 
-def bcast_drns(fun: _ty.Callable[..., ArrayType], arr: ArrayType,
-               drns: OrSeqOf[int], drn_axis: OrSeqOf[int],
-               fun_axis: OrSeqOf[Axies], *args, **kwds) -> ArrayType:
+def bcast_axes(fun: _ty.Callable[..., ArrayType], arr: ArrayType, *args,
+               drns: IntOrSeq = 0, drn_axis: IntOrSeq = 0,
+               fun_axis: _ty.Sequence[Axies] = (-2, -1), **kwds) -> ArrayType:
+    """broadcast over axes"""
+    outarr = np.asanyarray(arr)
+    to_mat = kwds.get('to_mat', False)
+    fun_axis, drn_axis = _sort_axes(fun_axis, drn_axis, to_mat, arr.ndim)
+    fkey = 'axis' if to_mat else 'axes'
+    for daxis, faxis in zip(drn_axis, fun_axis):
+        kwds[fkey] = faxis
+        outarr = fun(outarr, *args, drn=drns, daxis=daxis, **kwds)
+    return outarr
+
+
+def bcast_drns(fun: _ty.Callable[..., ArrayType], arr: ArrayType, *args,
+               drns: _ty.Sequence[int] = 0, drn_axis: IntOrSeq = 0,
+               fun_axis: AxesOrSeq = -1, **kwds) -> ArrayType:
     """broadcast an axis wrt drn"""
-    if not isinstance(drn_axis, (int, type(None))):
-        outarr = np.asanyarray(arr)
-        to_mat = kwds.get('to_mat', False)
-        fun_axis, drn_axis = _sort_axes(fun_axis, drn_axis, to_mat, arr.ndim)
-        for daxis, faxis in zip(drn_axis, fun_axis):
-            outarr = bcast_drns(fun, outarr, drns, daxis, faxis, *args, **kwds)
-        return outarr
     to_mat = kwds.pop('to_mat', False)
     fkey = 'axis' if to_mat else 'axes'
     kwds[fkey] = fun_axis
-    if isinstance(drns, int):
-        return fun(arr, *args, drn=drns, **kwds)
     arr = np.asanyarray(arr)
     drn_axis = _posify(arr.ndim, drn_axis)
     narg = np.moveaxis(arr, drn_axis, 0)
@@ -166,9 +261,9 @@ def bcast_drns(fun: _ty.Callable[..., ArrayType], arr: ArrayType,
 
 def bcast_update(updater: _ty.Callable[..., None],
                  arrays: _ty.Tuple[np.ndarray, ...],
-                 drn: OrSeqOf[int],
-                 fun_axes: _ty.Tuple[OrSeqOf[Axies], ...],
-                 drn_axes: _ty.Tuple[OrSeqOf[int], ...],
+                 drn: IntOrSeq,
+                 fun_axes: _ty.Tuple[AxesOrSeq, ...],
+                 drn_axes: _ty.Tuple[IntOrSeq, ...],
                  *args, **kwds):
     """Update arrays with other arrays.
 
@@ -196,8 +291,8 @@ def bcast_update(updater: _ty.Callable[..., None],
 # =============================================================================
 
 
-def params_to_mat(fun: IndFun, params: np.ndarray, nst: int, drn: int,
-                  axis: int = -1) -> array:
+def params_to_mat(params: np.ndarray, fun: IndFun, drn: IntOrSeq = 0,
+                  axis: IntOrSeq = -1, daxis: IntOrSeq = 0, **kwds) -> array:
     """Helper function for *_params_to_mat
 
     Parameters
@@ -220,6 +315,13 @@ def params_to_mat(fun: IndFun, params: np.ndarray, nst: int, drn: int,
         Continuous time stochastic matrix.
         The extra axis in (from,to) is inserted after `axis`.
     """
+    kwds.update(drns=drn, fun_axis=axis, drn_axis=daxis, to_mat=True)
+    if isinstance(axis, Sequence):
+        return bcast_axes(params_to_mat, params, fun, **kwds)
+    if isinstance(drn, Sequence):
+        return bcast_drns(params_to_mat, params, fun, **kwds)
+    npar = _get_size(params, kwds, True)
+    nst = num_state(npar, **kwds)
     params = np.asanyarray(params)
     axis = _posify(params.ndim, axis)
     params = np.moveaxis(params, axis, -1)
@@ -231,7 +333,7 @@ def params_to_mat(fun: IndFun, params: np.ndarray, nst: int, drn: int,
     return np.moveaxis(mat, (-2, -1), (axis, axis+1))
 
 
-def uni_to_any(params: np.ndarray, nst: int, axis: int = -1, **kwds
+def uni_to_any(params: np.ndarray, nst: int, axis: IntOrSeq = -1, **kwds
                ) -> np.ndarray:
     """Helper for uni_*_params_to_mat
 
@@ -258,14 +360,17 @@ def uni_to_any(params: np.ndarray, nst: int, axis: int = -1, **kwds
         Vector of independent elements, in order that depends on flags above.
         See docs for `*_inds` for details.
     """
+    if isinstance(axis, Sequence):
+        kwds.update(fun_axis=axis, to_mat=True)
+        return bcast_axes(uni_to_any, params, nst, **kwds)
     params = np.asanyarray(params)
     axis = _posify(params.ndim, axis)
     params = np.moveaxis(params, axis, -1)
     # if drn == 0, then params.shape[axis] == 2, so each needs expanding by
     # half of the real num_param
-    kwds.update({'drn': 1, 'uniform': False})
-    npr = num_param(nst, **kwds)
-    full = np.broadcast_to(params[..., None], params.shape + (npr,))
+    kwds.update(drn=1, uniform=False)
+    npar = num_param(nst, **kwds)
+    full = np.broadcast_to(params[..., None], params.shape + (npar,))
     shape = full.shape[:-2] + (-1,)
     return np.moveaxis(full.reshape(shape), -1, axis)
 
@@ -280,8 +385,8 @@ def _out_axis(ndim: int, axes: Axes) -> int:
     return min(_posify(ndim, axes))
 
 
-def mat_to_params(fun: IndFun, mat: ArrayType, drn: int, axes: Axes
-                  ) -> ArrayType:
+def mat_to_params(mat: ArrayType, fun: IndFun, drn: IntOrSeq = 0,
+                  axes: Axes = (-2, -1), daxis: IntOrSeq = 0, **kwds) -> ArrayType:
     """Helper function for *_mat_to_params
 
     Parameters
@@ -292,9 +397,14 @@ def mat_to_params(fun: IndFun, mat: ArrayType, drn: int, axes: Axes
         Continuous time stochastic matrix.
     drn : int
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
-    axes : Tuple[int, int] or None
+    axes : Tuple[int, int]
         Axes to treat as (from, to) axes.
     """
+    kwds.update(drns=drn, fun_axis=axes, drn_axis=daxis)
+    if isinstance(axes[0], Sequence):
+        return bcast_axes(mat_to_params, mat, fun, **kwds)
+    if isinstance(drn, Sequence):
+        return bcast_drns(mat_to_params, mat, fun, **kwds)
     mat = np.asanyarray(mat)
     oaxis = _out_axis(mat.ndim, axes)
     nst = mat.shape[axes[0]]
@@ -303,7 +413,8 @@ def mat_to_params(fun: IndFun, mat: ArrayType, drn: int, axes: Axes
     return np.moveaxis(mat[..., fun(nst, drn)], -1, oaxis)
 
 
-def to_uni(params: ArrayType, drn: int, grad: bool, axes: Axes) -> ArrayType:
+def to_uni(params: ArrayType, drn: IntOrSeq = 0, grad: bool = True,
+           axes: Axes = (-2, -1), **kwds) -> ArrayType:
     """Helper for uni_*_mat_to_params
 
     Parameters
@@ -320,9 +431,12 @@ def to_uni(params: ArrayType, drn: int, grad: bool, axes: Axes) -> ArrayType:
     axes : Tuple[int, int] or None
         Original axes to treat as (from, to) axes.
     """
+    if isinstance(axes[0], Sequence):
+        kwds.update(drns=drn, fun_axis=axes, grad=grad)
+        return bcast_axes(to_uni, params, **kwds)
     # Ensure the same oaxis here as in mat_to_params
     oaxis = _out_axis(params.ndim + 1, axes)
-    npar = params.shape[oaxis] / (1 + (drn == 0))
+    npar = params.shape[oaxis] / _drn_mult(drn)
     new_shape = params.shape[:oaxis] + (-1, npar) + params.shape[oaxis+1:]
     params = params.reshape(new_shape).sum(axis=oaxis+1)
     if not grad:
@@ -340,3 +454,5 @@ IndFun = _ty.Callable[[int, int], np.ndarray]
 Axies = _ty.Union[int, Axes]
 AxType = _ty.TypeVar('AxType', int, Axes)
 OrSeqOf = _ty.Union[AxType, _ty.Sequence[AxType]]
+IntOrSeq = OrSeqOf[int]
+AxesOrSeq = OrSeqOf[Axes]
