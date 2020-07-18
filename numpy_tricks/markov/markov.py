@@ -5,9 +5,9 @@ from typing import Optional, Tuple
 import numpy as np
 import numpy_linalg as la
 
-from . import logic as lgc
-from ._markov_helper import stochastify_c, stochastify_d, num_param
-from .markov_param import params_to_mat
+from .. import logic as lgc
+from ._helpers import stochastify_c, stochastify_d, num_param
+from .params import params_to_mat
 
 RNG = np.random.default_rng()
 assert any((True, stochastify_c, stochastify_d))
@@ -185,9 +185,9 @@ def sim_markov_d(jump: la.lnarray, peq: Optional[np.ndarray] = None,
     return states
 
 
-def sim_markov(rates: la.lnarray, peq: Optional[np.ndarray] = None,
-               num_jump: Optional[int] = None,
-               max_time: Optional[float] = None) -> Tuple[la.lnarray, ...]:
+def sim_markov_c(rates: la.lnarray, peq: Optional[np.ndarray] = None,
+                 num_jump: Optional[int] = None,
+                 max_time: Optional[float] = None) -> Tuple[la.lnarray, ...]:
     """Simulate Markov process trajectory.
 
     Parameters

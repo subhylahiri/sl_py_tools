@@ -163,7 +163,7 @@ def num_state(params: Sized, *, serial: bool = False, ring: bool = False,
 
 
 def mat_type_siz(params: Sized, states: Sized, **kwds) -> _ty.Tuple[bool, ...]:
-    """Is process (uniform) ring/serial/... from shapes
+    """Is process (uniform) ring/serial/... inferred from array shapes
 
     If `uniform`, we cannot distinguish `general`, `seial` and `ring` without
     looking at matrix elements.
