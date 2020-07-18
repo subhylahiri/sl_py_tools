@@ -320,9 +320,9 @@ def params_to_mat(params: np.ndarray, fun: IndFun, drn: IntOrSeq = 0,
         return bcast_axes(params_to_mat, params, fun, **kwds)
     if isinstance(drn, Sequence):
         return bcast_drns(params_to_mat, params, fun, **kwds)
+    params = np.asanyarray(params)
     npar = _get_size(params, kwds, True)
     nst = num_state(npar, **kwds)
-    params = np.asanyarray(params)
     axis = _posify(params.ndim, axis)
     params = np.moveaxis(params, axis, -1)
     shape = params.shape[:-1]

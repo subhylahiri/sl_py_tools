@@ -224,6 +224,39 @@ def uni_ring_mat_to_params(mat: ArrayType, grad: bool = True,
                       drn, grad, axes)
 
 
+def cascade_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
+                          axes: AxesOrSeq = (-2, -1), daxis: IntOrSeq = 0
+                          ) -> ArrayType:
+    """Non-zero transition rates of cascade transition matrix.
+
+    Parameters
+    ----------
+    mat : ndarray (n,n)
+        Continuous time stochastic matrix.
+    drn: int, optional, default: 0
+        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
+    axes : Tuple[int, int] or None
+        Axes to treat as (from, to) axes, by default: (-2, -1)
+    daxis : int, optional
+        Axis to broadcast non-scalar `drn` over, by default: 0
+
+    Returns
+    -------
+    params : ndarray (2n-2,)
+        Vector of elements, in order:
+        mat_0n, mat_1n, ..., mat_n-1,n,
+        mat_n,n+1, mat_n+1,n+2, ..., mat_2n-2,2n-1,
+        mat_10, mat_21, ..., mat_n-1,n-2,
+        mat_n,n-1, mat_n+1,n-1, ..., mat_2n-1,n-1.
+        Elements lie across the earlier axis of `axes`.
+
+    See Also
+    --------
+    ring_inds, ring_params_to_mat
+    """
+    return _mh.mat_to_params(mat, _in.cascade_inds, drn, axes, daxis)
+
+
 def mat_to_params(mat: ArrayType, *,
                   serial: bool = False, ring: bool = False,
                   uniform: bool = False, grad: bool = True, drn: IntOrSeq = 0,

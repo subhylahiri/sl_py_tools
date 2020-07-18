@@ -67,7 +67,7 @@ def offdiag_split_inds(nst: int, drn: int = 0) -> np.ndarray:
 
 
 def serial_inds(nst: int, drn: int = 0) -> np.ndarray:
-    """Ravel indices of independent parameters of serial transition matrix.
+    """Ravel indices of non-zero elements of serial transition matrix.
 
     Parameters
     ----------
@@ -93,7 +93,7 @@ def serial_inds(nst: int, drn: int = 0) -> np.ndarray:
 
 
 def ring_inds(nst: int, drn: int = 0) -> np.ndarray:
-    """Ravel indices of independent parameters of ring transition matrix.
+    """Ravel indices of non-zero elements of ring transition matrix.
 
     Parameters
     ----------
@@ -113,6 +113,35 @@ def ring_inds(nst: int, drn: int = 0) -> np.ndarray:
     if drn > 0:
         return pos
     neg = np.r_[nst-1, 1:nst**2:nst+1]
+    if drn < 0:
+        return neg
+    return np.hstack((pos, neg))
+
+
+def cascade_inds(nst: int, drn: int = 0) -> np.ndarray:
+    """Indices of transitions for the cascade model
+
+    Parameters
+    ----------
+    nst : int
+        Number of states, `2n`.
+    drn: int, optional, default: 0
+        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
+
+    Returns
+    -------
+    K : ndarray (2(n-1),)
+        Vector of ravel indices of off-diagonal elements, in order:
+        mat_0n, mat_1n, ..., mat_n-1,n,
+        mat_n,n+1, mat_n+1,n+2, ... mat_2n-2,2n-1,
+        mat_10, mat_21, ..., mat_n-1,n-2,
+        mat_n,n-1, mat_n+1,n-1, ..., mat_2n-1,n-1.
+    """
+    npt = nst // 2
+    pos = np.r_[npt:nst*npt:nst, nst*npt + npt + 1:nst**2:nst + 1]
+    if drn > 0:
+        return pos
+    neg = np.r_[nst:nst*npt:nst + 1, nst*npt - npt - 2:nst**2:nst]
     if drn < 0:
         return neg
     return np.hstack((pos, neg))

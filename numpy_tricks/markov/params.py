@@ -47,7 +47,7 @@ assert any((True, gen_mat_to_params, mat_to_params, paramify,
 # =============================================================================
 
 
-def mat_type_val(mat: np.ndarray, axes: Axes = (-2, -1)
+def mat_type_val(mat: np.ndarray, axes: Axes = (-2, -1), **kwds
                  ) -> Tuple[bool, bool, int, bool]:
     """Is process (uniform) ring/serial/... from elements
 
@@ -78,12 +78,12 @@ def mat_type_val(mat: np.ndarray, axes: Axes = (-2, -1)
     rng_inds = _in.ring_inds(nst, 0)
     gen_inds = np.setdiff1d(_in.offdiag_inds(nst, 0), rng_inds, True)
     rng_inds = np.setdiff1d(rng_inds, _in.serial_inds(nst, 0), True)
-    ring = np.allclose(mat[gen_inds], 0)
-    serial = ring and np.allclose(mat[rng_inds], 0)
+    ring = np.allclose(mat[gen_inds], 0, **kwds)
+    serial = ring and np.allclose(mat[rng_inds], 0, **kwds)
     ring &= not serial
-    if np.allclose(mat[_in.offdiag_inds(nst, -1)], 0):
+    if np.allclose(mat[_in.offdiag_inds(nst, -1)], 0, **kwds):
         drn = 1
-    elif np.allclose(mat[_in.offdiag_inds(nst, 1)], 0):
+    elif np.allclose(mat[_in.offdiag_inds(nst, 1)], 0, **kwds):
         drn = -1
     else:
         drn = 0
@@ -93,7 +93,7 @@ def mat_type_val(mat: np.ndarray, axes: Axes = (-2, -1)
     return serial, ring, drn, uniform
 
 
-def mat_type_dict(params: Sized, states: Sized) -> Tuple[bool, ...]:
+def mat_type_dict(params: Sized, states: Sized, **kwds) -> Tuple[bool, ...]:
     """Is it a (uniform) ring
 
     Parameters
@@ -119,7 +119,12 @@ def mat_type_dict(params: Sized, states: Sized) -> Tuple[bool, ...]:
             Is the rate vector for `*_params_to_mat` or `uni_*_params_to_mat`?
             * = general, serial or ring.
     """
-    serial, ring, drn, uniform = mat_type_siz(params, states)
+    serial, ring, drn, uniform = mat_type_siz(params, states, **kwds)
+    if uniform and isinstance(states, np.ndarray):
+        bad_keys = set(kwds) - {'axes', 'rtol', 'atol', 'equal_nan'}
+        for k in bad_keys:
+            kwds.pop(k)
+        serial, ring, drn, uniform = mat_type_val(states, **kwds)
     return {'serial': serial, 'ring': ring, 'drn': drn, 'uniform': uniform}
 
 
@@ -188,7 +193,7 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
             params = _mh.uni_to_any(params, nst, **kwds)
         nmat = nmat.reshape(shape + (nst**2,))
         nmat[_in.param_inds(nst, **kwds)] = params
-        nmat = nmat.reshape(shape (nst, nst))
+        nmat = nmat.reshape(shape + (nst, nst))
         _mh.stochastify(nmat)
         if not np.may_share_memory(nmat, mat):
             mat[...] = np.moveaxis(nmat, (-2, -1), maxes)
