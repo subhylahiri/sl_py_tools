@@ -29,19 +29,23 @@ from ._helpers import (ArrayType, Axes, AxesOrSeq, IntOrSeq, Sized,
 from ._to_matrix import (gen_params_to_mat, matify, params_to_mat,
                          ring_params_to_mat, serial_params_to_mat,
                          uni_gen_params_to_mat, uni_ring_params_to_mat,
-                         uni_serial_params_to_mat)
+                         uni_serial_params_to_mat, cascade_params_to_mat,
+                         std_cascade_params_to_mat)
 from ._to_params import (gen_mat_to_params, mat_to_params, paramify,
                          ring_mat_to_params, serial_mat_to_params,
                          uni_gen_mat_to_params, uni_ring_mat_to_params,
-                         uni_serial_mat_to_params)
+                         uni_serial_mat_to_params, cascade_mat_to_params,
+                         std_cascade_mat_to_params)
 
 assert any((True, num_param, num_state))
 assert any((True, gen_params_to_mat, matify, params_to_mat, ring_params_to_mat,
             serial_params_to_mat, uni_gen_params_to_mat,
-            uni_ring_params_to_mat, uni_serial_params_to_mat))
+            uni_ring_params_to_mat, uni_serial_params_to_mat,
+            cascade_params_to_mat, std_cascade_params_to_mat))
 assert any((True, gen_mat_to_params, mat_to_params, paramify,
             ring_mat_to_params, serial_mat_to_params, uni_gen_mat_to_params,
-            uni_ring_mat_to_params, uni_serial_mat_to_params))
+            uni_ring_mat_to_params, uni_serial_mat_to_params,
+            cascade_mat_to_params, std_cascade_mat_to_params))
 # =============================================================================
 # Counts & types
 # =============================================================================

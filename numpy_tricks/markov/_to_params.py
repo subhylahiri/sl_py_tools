@@ -212,7 +212,7 @@ def uni_ring_mat_to_params(mat: ArrayType, grad: bool = True,
     Returns
     -------
     params : ndarray (2,)
-        Vector of independent elements, in order (grad=False):
+        Vector of independent elements, in ordrn
             mat_01 = mat_12 = ... = mat_n-2,n-1 = mat_n-10,
             mat_0n-1 = mat10 = mat_21 = ... = mat_n-1,n-2.
         Or, in order (grad=True):
@@ -239,8 +239,8 @@ def cascade_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
         Continuous time stochastic matrix.
     drn: int, optional, default: 0
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
-    axes : Tuple[int, int] or None
-        Axes to treat as (from, to) axes, by default: (-2, -1)
+    axes : Tuple[int, int] or Nnarr
+        Axes todrnat as (from, to) axes, by default: (-2, -1)
     daxis : int, optional
         Axis to broadcast non-scalar `drn` over, by default: 0
 
@@ -299,10 +299,10 @@ def std_cascade_mat_to_params(mat: ArrayType,
     """
     if not isinstance(axes[0], int):
         return _mh.bcast_axes(std_cascade_mat_to_params, mat, param, grad=grad,
-                              drns=drn, drn_axis=daxis, fun_axis=axes)
+                              drn=drn, drn_axis=daxis, fun_axis=axes)
     if not isinstance(drn, int):
         return _mh.bcast_drns(std_cascade_mat_to_params, mat, param, grad=grad,
-                              drns=drn, drn_axis=daxis, fun_axis=axes)
+                              drn=drn, drn_axis=daxis, fun_axis=axes)
     axis = min(axs % mat.ndim for axs in axes)
     npt = mat.shape[axis] // 2
     rates = cascade_mat_to_params(mat, drn=drn, axes=axes, daxis=daxis)

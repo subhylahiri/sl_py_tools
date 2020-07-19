@@ -9,7 +9,7 @@ from .. import logic as lgc
 from ._helpers import stochastify_c, stochastify_d, num_param
 from .params import params_to_mat
 
-RNG = np.random.default_rng()
+RNG: np.random.Generator = np.random.default_rng()
 assert any((True, stochastify_c, stochastify_d))
 # =============================================================================
 
@@ -175,11 +175,10 @@ def sim_markov_d(jump: la.lnarray, peq: Optional[np.ndarray] = None,
         peq = calc_peq_d(jump)[0]
 
     state_inds = la.arange(len(peq))
-    states_from = la.array([la.random.choice(state_inds,
-                                             size=num_jump-1,
-                                             p=p) for p in jump])
+    states_from = la.array([RNG.choice(state_inds, size=num_jump-1, p=p)
+                            for p in jump])
     states = la.empty(num_jump)
-    states[0] = la.random.choice(state_inds, p=peq)
+    states[0] = RNG.choice(state_inds, p=peq)
     for num in range(num_jump-1):
         states[num+1] = states_from[states[num], num]
     return states
@@ -225,7 +224,7 @@ def sim_markov_c(rates: la.lnarray, peq: Optional[np.ndarray] = None,
         max_time = np.inf
     est_num = max(est_num, 1)
 
-    dwells_from = - dwell.c * np.log(la.random.rand(est_num))
+    dwells_from = - dwell.c * np.log(RNG.random(est_num))
     states = sim_markov_d(jump, peq, est_num)
     dwells = dwells_from[states, la.arange(est_num)]
 

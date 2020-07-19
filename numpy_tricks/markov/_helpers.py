@@ -232,7 +232,7 @@ def _sort_axes(ndim: int, fun_axes: AxesOrSeq, drn_axes: IntOrSeq,
 
 
 def bcast_axes(fun: _ty.Callable[..., ArrayType], arr: ArrayType, *args,
-               drns: IntOrSeq = 0, drn_axis: IntOrSeq = 0,
+               drn: IntOrSeq = 0, drn_axis: IntOrSeq = 0,
                fun_axis: _ty.Sequence[Axies] = (-2, -1), **kwds) -> ArrayType:
     """broadcast over axes"""
     outarr = np.asanyarray(arr)
@@ -241,12 +241,12 @@ def bcast_axes(fun: _ty.Callable[..., ArrayType], arr: ArrayType, *args,
     fkey = 'axis' if to_mat else 'axes'
     for daxis, faxis in zip(drn_axis, fun_axis):
         kwds[fkey] = faxis
-        outarr = fun(outarr, *args, drn=drns, daxis=daxis, **kwds)
+        outarr = fun(outarr, *args, drn=drn, daxis=daxis, **kwds)
     return outarr
 
 
 def bcast_drns(fun: _ty.Callable[..., ArrayType], arr: ArrayType, *args,
-               drns: _ty.Sequence[int] = 0, drn_axis: IntOrSeq = 0,
+               drn: _ty.Sequence[int] = 0, drn_axis: IntOrSeq = 0,
                fun_axis: AxesOrSeq = -1, **kwds) -> ArrayType:
     """broadcast an axis wrt drn"""
     to_mat = kwds.pop('to_mat', False)
@@ -254,8 +254,8 @@ def bcast_drns(fun: _ty.Callable[..., ArrayType], arr: ArrayType, *args,
     kwds[fkey] = fun_axis
     arr = np.asanyarray(arr)
     drn_axis = _posify(arr.ndim, drn_axis)
-    narg = np.moveaxis(arr, drn_axis, 0)
-    result = [fun(slc, *args, drn=drn, **kwds) for slc, drn in zip(narg, drns)]
+    narr = np.moveaxis(arr, drn_axis, 0)
+    result = [fun(slc, *args, drn=way, **kwds) for slc, way in zip(narr, drn)]
     return np.moveaxis(np.stack(result), 0, drn_axis)
 
 
@@ -315,7 +315,7 @@ def params_to_mat(params: np.ndarray, fun: IndFun, drn: IntOrSeq = 0,
         Continuous time stochastic matrix.
         The extra axis in (from,to) is inserted after `axis`.
     """
-    kwds.update(drns=drn, fun_axis=axis, drn_axis=daxis, to_mat=True)
+    kwds.update(drn=drn, fun_axis=axis, drn_axis=daxis, to_mat=True)
     if isinstance(axis, Sequence):
         return bcast_axes(params_to_mat, params, fun, **kwds)
     if isinstance(drn, Sequence):
@@ -401,7 +401,7 @@ def mat_to_params(mat: ArrayType, fun: IndFun, drn: IntOrSeq = 0,
     axes : Tuple[int, int]
         Axes to treat as (from, to) axes.
     """
-    kwds.update(drns=drn, fun_axis=axes, drn_axis=daxis)
+    kwds.update(drn=drn, fun_axis=axes, drn_axis=daxis)
     if isinstance(axes[0], Sequence):
         return bcast_axes(mat_to_params, mat, fun, **kwds)
     if isinstance(drn, Sequence):
@@ -433,7 +433,7 @@ def to_uni(params: ArrayType, drn: IntOrSeq = 0, grad: bool = True,
         Original axes to treat as (from, to) axes.
     """
     if isinstance(axes[0], Sequence):
-        kwds.update(drns=drn, fun_axis=axes, grad=grad)
+        kwds.update(drn=drn, fun_axis=axes, grad=grad)
         return bcast_axes(to_uni, params, **kwds)
     # Ensure the same oaxis here as in mat_to_params
     oaxis = _out_axis(params.ndim + 1, axes)

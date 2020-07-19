@@ -107,7 +107,8 @@ def serial_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
     --------
     serial_inds, serial_mat_to_params
     """
-    return _mh.params_to_mat(params, _in.serial_inds, drn, axis, daxis)
+    return _mh.params_to_mat(params, _in.serial_inds, drn, axis, daxis,
+                             serial=True)
 
 
 def uni_serial_params_to_mat(
@@ -172,7 +173,8 @@ def ring_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
     --------
     ring_inds, ring_mat_to_params
     """
-    return _mh.params_to_mat(params, _in.ring_inds, drn, axis, daxis)
+    return _mh.params_to_mat(params, _in.ring_inds, drn, axis, daxis,
+                             ring=True)
 
 
 def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
@@ -217,8 +219,7 @@ def cascade_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
     ----------
     params : ndarray (2n-2,)
         Vector of elements, in order:
-        mat_0n, mat_1n, ..., mat_n-1,n,
-        mat_n,n+1, mat_n+1,n+2, ..., mat_2n-2,2n-1,
+        mat_0n, mat_1n, ..., madrnmat_n,n+1, mat_n+1,n+2, ..., mat_2n-2,2n-1,
         mat_2n-1,n-1, ..., mat_n+1,n-1, mat_n,n-1,
         mat_n-1,n-2, ..., mat_21, mat_10.
     drn: int, optional, default: 0
@@ -228,25 +229,22 @@ def cascade_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
     daxis : int, optional
         Axis to broadcast non-scalar `drn` over, by default: 0
 
-    Returns
+ drneturns
     -------
     mat : array (n,n)
         Continuous time stochastic matrix.
         The extra axis in (from,to) is inserted after `axis`.
-
-    See Also
-    --------
+drn
     cascade_inds, cascade_mat_to_params
     """
-    return _mh.params_to_mat(params, _in.cascade_inds, drn, axis, daxis)
+    return _mh.params_to_mat(params, _in.cascade_inds, drn, axis, daxis,
+                             serial=True)
 
 
 def std_cascade_params_to_mat(params: np.ndarray, num_st: int,
                               drn: IntOrSeq = 0, axis: IntOrSeq = -1,
                               daxis: IntOrSeq = 0) -> Array:
-    """Cascade transition matrix from transition rates.
-
-    Parameters
+    """Cascade transition matrix narr transition rates.drn    Parameters
     ----------
     params : ndarray (2,)
         Vector of elements, `x` so that:
@@ -273,11 +271,11 @@ def std_cascade_params_to_mat(params: np.ndarray, num_st: int,
     """
     if not isinstance(axis, int):
         return _mh.bcast_axes(std_cascade_params_to_mat, params, num_st,
-                              drns=drn, drn_axis=daxis, fun_axis=axis,
+                              drn=drn, drn_axis=daxis, fun_axis=axis,
                               to_mat=True)
     if not isinstance(drn, int):
         return _mh.bcast_drns(std_cascade_params_to_mat, params, num_st,
-                              drns=drn, drn_axis=daxis, fun_axis=axis,
+                              drn=drn, drn_axis=daxis, fun_axis=axis,
                               to_mat=True)
     npt = num_st // 2
     # (...,2,1)
@@ -286,9 +284,9 @@ def std_cascade_params_to_mat(params: np.ndarray, num_st: int,
     denom = np.r_[0, npt:2*npt-1]
     params = params**expn
     if drn >= 0:
-        params[..., :1, denom] /= (1 - params[..., :1, npt-1:npt])
+        params[..., :1, denom] /= (1 - params[..., :1, npt-2:npt-1])
     if drn <= 0:
-        params[..., -1:, denom] /= (1 - params[..., -1:, npt-1:npt])
+        params[..., -1:, denom] /= (1 - params[..., -1:, npt-2:npt-1])
     params = params.reshape(params.shape[:-2] + (-1,)).moveaxis(-1, axis)
     return cascade_params_to_mat(params, drn=drn, axis=axis, daxis=daxis)
 
@@ -337,7 +335,7 @@ def params_to_mat(params: np.ndarray, *, serial: bool = False,
     if uniform:
         params = _mh.uni_to_any(params, nst, axis=axis, **opts)
     return _mh.params_to_mat(params, _in.ind_fun(serial, ring, uniform),
-                             drn, axis, daxis)
+                             drn, axis, daxis, **opts)
 
 
 def matify(params_or_mat: np.ndarray, *args, **kwds) -> Array:
