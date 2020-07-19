@@ -386,7 +386,8 @@ def _out_axis(ndim: int, axes: Axes) -> int:
 
 
 def mat_to_params(mat: ArrayType, fun: IndFun, drn: IntOrSeq = 0,
-                  axes: Axes = (-2, -1), daxis: IntOrSeq = 0, **kwds) -> ArrayType:
+                  axes: Axes = (-2, -1), daxis: IntOrSeq = 0,
+                  **kwds) -> ArrayType:
     """Helper function for *_mat_to_params
 
     Parameters

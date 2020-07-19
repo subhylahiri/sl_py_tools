@@ -203,7 +203,7 @@ def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
 
     See Also
     --------
-    ring_inds, ring_mat_to_params
+    ring_inds, uni_ring_mat_to_params
     """
     ring_params = _mh.uni_to_any(params, num_st, axis=axis, ring=True)
     return ring_params_to_mat(ring_params, drn, axis, daxis)
@@ -211,7 +211,7 @@ def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
 
 def cascade_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
                           axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
-    """Cascade transition matrix from transition rates.
+    """Transition matrix with cascade topology from non-zero transition rates.
 
     Parameters
     ----------
@@ -219,8 +219,8 @@ def cascade_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
         Vector of elements, in order:
         mat_0n, mat_1n, ..., mat_n-1,n,
         mat_n,n+1, mat_n+1,n+2, ..., mat_2n-2,2n-1,
-        mat_10, mat_21, ..., mat_n-1,n-2,
-        mat_n,n-1, mat_n+1,n-1, ..., mat_2n-1,n-1.
+        mat_2n-1,n-1, ..., mat_n+1,n-1, mat_n,n-1,
+        mat_n-1,n-2, ..., mat_21, mat_10.
     drn: int, optional, default: 0
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
     axis : int, optional
@@ -250,10 +250,10 @@ def std_cascade_params_to_mat(params: np.ndarray, num_st: int,
     ----------
     params : ndarray (2,)
         Vector of elements, `x` so that:
-        [mat_0n, mat_1n, ..., mat_n-1,n] = [x**n-1/(1-x), x**n-2, ..., 1]
+        [mat_0n, mat_1n, ..., mat_n-1,n] = [x**n-1/(1-x), x**n-2, ..., 1],
         [mat_n,n+1, ..., mat_2n-2,2n-1] = [x/(1-x), ..., x**n-2/(1-x)],
-        [mat_10, ..., mat_n-1,n-2] = [x**n-2/(1-x), ..., x/(1-x)],
-        [mat_n,n-1, ..., mat_2n-1,n-1] = [1, ..., x**n-2, x**n-1/(1-x)].
+        mat_2n-1,n-1, ..., mat_n+1,n-1, mat_n,n-1 = [x**n-1/(1-x), ..., 1],
+        mat_n-1,n-2, ..., mat_21, mat_10 = [x/(1-x), ..., x**n-2/(1-x)].
     drn: int, optional, default: 0
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
     axis : int, optional
@@ -271,17 +271,24 @@ def std_cascade_params_to_mat(params: np.ndarray, num_st: int,
     --------
     cascade_inds, cascade_params_to_mat
     """
+    if not isinstance(axis, int):
+        return _mh.bcast_axes(std_cascade_params_to_mat, params, num_st,
+                              drns=drn, drn_axis=daxis, fun_axis=axis,
+                              to_mat=True)
+    if not isinstance(drn, int):
+        return _mh.bcast_drns(std_cascade_params_to_mat, params, num_st,
+                              drns=drn, drn_axis=daxis, fun_axis=axis,
+                              to_mat=True)
     npt = num_st // 2
     # (...,2,1)
-    params = la.asanyarray(params).moveaxis(axis, -1)[..., None]
+    params = la.array(params, copy=True).moveaxis(axis, -1)[..., None]
     expn = np.abs(np.arange(1 - npt, npt))
+    denom = np.r_[0, npt:2*npt-1]
     params = params**expn
     if drn >= 0:
-        params[..., :1, :1] /= (1 - params[..., :1, npt-1:npt])
-        params[..., :1, npt:] /= (1 - params[..., :1, npt-1:npt])
+        params[..., :1, denom] /= (1 - params[..., :1, npt-1:npt])
     if drn <= 0:
-        params[..., -1:, -1:] /= (1 - params[..., -1:, npt-1:npt])
-        params[..., -1:, :npt-1] /= (1 - params[..., -1:, npt-1:npt])
+        params[..., -1:, denom] /= (1 - params[..., -1:, npt-1:npt])
     params = params.reshape(params.shape[:-2] + (-1,)).moveaxis(-1, axis)
     return cascade_params_to_mat(params, drn=drn, axis=axis, daxis=daxis)
 

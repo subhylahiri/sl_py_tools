@@ -134,14 +134,14 @@ def cascade_inds(nst: int, drn: int = 0) -> np.ndarray:
         Vector of ravel indices of off-diagonal elements, in order:
         mat_0n, mat_1n, ..., mat_n-1,n,
         mat_n,n+1, mat_n+1,n+2, ... mat_2n-2,2n-1,
-        mat_10, mat_21, ..., mat_n-1,n-2,
-        mat_n,n-1, mat_n+1,n-1, ..., mat_2n-1,n-1.
+        mat_2n-1,n-1, ..., mat_n+1,n-1, mat_n,n-1,
+        mat_n-1,n-2, ..., mat_21, mat_10.
     """
     npt = nst // 2
     pos = np.r_[npt:nst*npt:nst, nst*npt + npt + 1:nst**2:nst + 1]
     if drn > 0:
         return pos
-    neg = np.r_[nst:nst*npt:nst + 1, nst*npt - npt - 2:nst**2:nst]
+    neg = np.r_[nst**2 - npt - 1:nst*npt:-nst, nst*npt - npt - 2:0:-nst - 1]
     if drn < 0:
         return neg
     return np.hstack((pos, neg))

@@ -2,6 +2,10 @@
 """
 from __future__ import annotations
 
+from typing import Optional
+
+import numpy as np
+
 from . import _helpers as _mh
 from . import indices as _in
 from ._helpers import ArrayType, AxesOrSeq, IntOrSeq
@@ -227,7 +231,7 @@ def uni_ring_mat_to_params(mat: ArrayType, grad: bool = True,
 def cascade_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
                           axes: AxesOrSeq = (-2, -1), daxis: IntOrSeq = 0
                           ) -> ArrayType:
-    """Non-zero transition rates of cascade transition matrix.
+    """Non-zero transition rates of transition matrix with cascade topology.
 
     Parameters
     ----------
@@ -246,8 +250,8 @@ def cascade_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
         Vector of elements, in order:
         mat_0n, mat_1n, ..., mat_n-1,n,
         mat_n,n+1, mat_n+1,n+2, ..., mat_2n-2,2n-1,
-        mat_10, mat_21, ..., mat_n-1,n-2,
-        mat_n,n-1, mat_n+1,n-1, ..., mat_2n-1,n-1.
+        mat_2n-1,n-1, ..., mat_n+1,n-1, mat_n,n-1,
+        mat_n-1,n-2, ..., mat_21, mat_10.
         Elements lie across the earlier axis of `axes`.
 
     See Also
@@ -257,8 +261,67 @@ def cascade_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
     return _mh.mat_to_params(mat, _in.cascade_inds, drn, axes, daxis)
 
 
-def mat_to_params(mat: ArrayType, *,
-                  serial: bool = False, ring: bool = False,
+def std_cascade_mat_to_params(mat: ArrayType,
+                              param: Optional[np.ndarray] = None,
+                              drn: IntOrSeq = 0, *, grad: bool = True,
+                              axes: AxesOrSeq = (-2, -1), daxis: IntOrSeq = 0
+                              ) -> ArrayType:
+    """(Gradient wrt) parameters of cascade transition matrix.
+
+    Parameters
+    ----------
+    mat : ndarray (n,n)
+        Continuous time stochastic matrix.
+    param : ndarray (2,)
+        The parameter of the cascade model, needed when taking gradients.
+        Can be omitted when `grad = True`.
+        Elements should lie across the earlier axis of `axes`.
+    drn: int, optional, default: 0
+        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
+    grad : bool, optional, default: True
+        Is the output for a gradient (True) or a transition matrix (False).
+        If True, return sum of (anti)clockwise transitions.
+        If False, return the mean.
+    axes : Tuple[int, int] or None
+        Axes to treat as (from, to) axes, by default: (-2, -1)
+    daxis : int, optional
+        Axis to broadcast non-scalar `drn` over, by default: 0
+
+    Returns
+    -------
+    params : ndarray (2,)
+        Vector of parameters, for `drn = +/-1`.
+        Elements lie across the earlier axis of `axes`.
+
+    See Also
+    --------
+    cascade_inds, std_cascade_params_to_mat
+    """
+    if not isinstance(axes[0], int):
+        return _mh.bcast_axes(std_cascade_mat_to_params, mat, param, grad=grad,
+                              drns=drn, drn_axis=daxis, fun_axis=axes)
+    if not isinstance(drn, int):
+        return _mh.bcast_drns(std_cascade_mat_to_params, mat, param, grad=grad,
+                              drns=drn, drn_axis=daxis, fun_axis=axes)
+    axis = min(axs % mat.ndim for axs in axes)
+    npt = mat.shape[axis] // 2
+    rates = cascade_mat_to_params(mat, drn=drn, axes=axes, daxis=daxis)
+    rates = np.moveaxis(rates, axis, -1)
+    rates = rates.reshape(rates.shape[:-1] + (-1, 2*npt - 1))
+    numer, denom = np.r_[1:npt], np.r_[0, npt:2*npt-1]
+    if not grad:
+        par = (rates[..., numer[:-1]] / rates[..., numer[1:]]).sum(axis=-1)
+        par += (rates[..., denom[2:]] / rates[..., denom[1:-1]]).sum(axis=-1)
+        return np.moveaxis(par / (2 * npt - 4), -1, axis)
+    expn = np.abs(np.arange(1 - npt, npt))
+    param = np.moveaxis(np.asanyarray(param), axis, -1)[..., None]
+    jac = param**(expn - 1)
+    jac[..., numer] *= expn[numer]
+    jac[..., denom] *= expn[denom]/(1 - param) + param/(1 - param)**2
+    return np.moveaxis(np.sum(rates * jac, axis=-1), -1, axis)
+
+
+def mat_to_params(mat: ArrayType, *, serial: bool = False, ring: bool = False,
                   uniform: bool = False, grad: bool = True, drn: IntOrSeq = 0,
                   axes: AxesOrSeq = (-2, -1), daxis: IntOrSeq = 0
                   ) -> ArrayType:
