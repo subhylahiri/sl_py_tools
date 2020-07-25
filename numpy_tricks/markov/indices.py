@@ -66,32 +66,6 @@ def offdiag_split_inds(nst: int, drn: int = 0) -> np.ndarray:
     return np.hstack((offdiag_inds(nst, 1), offdiag_inds(nst, -1)))
 
 
-def serial_inds(nst: int, drn: int = 0) -> np.ndarray:
-    """Ravel indices of non-zero elements of serial transition matrix.
-
-    Parameters
-    ----------
-    nst : int
-        Number of states.
-    drn: int, optional, default: 0
-        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
-
-    Returns
-    -------
-    K : ndarray (2(n-1),)
-        Vector of ravel indices of off-diagonal elements, in order:
-        mat_01, mat_12, ..., mat_n-2,n-1,
-        mat_10, mat_21, ..., mat_n-1,n-2.
-    """
-    pos = np.arange(1, nst**2, nst+1)
-    if drn > 0:
-        return pos
-    neg = np.arange(nst, nst**2, nst+1)
-    if drn < 0:
-        return neg
-    return np.hstack((pos, neg))
-
-
 def ring_inds(nst: int, drn: int = 0) -> np.ndarray:
     """Ravel indices of non-zero elements of ring transition matrix.
 
@@ -113,6 +87,32 @@ def ring_inds(nst: int, drn: int = 0) -> np.ndarray:
     if drn > 0:
         return pos
     neg = np.r_[nst-1, 1:nst**2:nst+1]
+    if drn < 0:
+        return neg
+    return np.hstack((pos, neg))
+
+
+def serial_inds(nst: int, drn: int = 0) -> np.ndarray:
+    """Ravel indices of non-zero elements of serial transition matrix.
+
+    Parameters
+    ----------
+    nst : int
+        Number of states.
+    drn: int, optional, default: 0
+        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
+
+    Returns
+    -------
+    K : ndarray (2(n-1),)
+        Vector of ravel indices of off-diagonal elements, in order:
+        mat_01, mat_12, ..., mat_n-2,n-1,
+        mat_10, mat_21, ..., mat_n-1,n-2.
+    """
+    pos = np.arange(1, nst**2, nst+1)
+    if drn > 0:
+        return pos
+    neg = np.arange(nst, nst**2, nst+1)
     if drn < 0:
         return neg
     return np.hstack((pos, neg))

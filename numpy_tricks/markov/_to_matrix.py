@@ -80,6 +80,71 @@ def uni_gen_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
     return _mh.params_to_mat(params, _in.offdiag_split_inds, drn, axis, daxis)
 
 
+def ring_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
+                       axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
+    """Ring transition matrix from independent parameters.
+
+    Parameters
+    ----------
+    params : ndarray (2n,)
+        Vector of independent elements, in order:
+        mat_01, mat_12, ..., mat_n-2,n-1, mat_n-1,0,
+        mat_0,n-1, mat_10, mat_21, ..., mat_n-1,n-2.
+    drn: int, optional, default: 0
+        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
+    axis : int, optional
+        Axis along which each set of parameters lie, by default -1.
+    daxis : int, optional
+        Axis to broadcast non-scalar `drn` over, by default: 0
+
+    Returns
+    -------
+    mat : array (n,n)
+        Continuous time stochastic matrix.
+        The extra axis in (from,to) is inserted after `axis`.
+
+    See Also
+    --------
+    ring_inds, ring_mat_to_params
+    """
+    return _mh.params_to_mat(params, _in.ring_inds, drn, axis, daxis,
+                             ring=True)
+
+
+def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
+                           axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
+    """Ring transition matrix from independent parameters.
+
+    Parameters
+    ----------
+    params : ndarray (2,) or (1,)
+        Vector of independent elements, in order:
+        mat_01 = mat_12 = ... = mat_n-2,n-1 = mat_n-1,0,
+        mat_0,n-1 = mat_10 = mat_21 = ... = mat_n-1,n-2.
+        If `drn == 0`, you must provide 2 parameters, one for each direction.
+    num_st : int
+        Number of states.
+    drn: int or Sequence[int], optional, default: 0
+        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
+    axis : int, optional
+        Axis along which each set of parameters lie, by default -1.
+    daxis : int, optional
+        Axis to broadcast non-scalar `drn` over, by default: 0
+
+    Returns
+    -------
+    mat : array (n,n)
+        Continuous time stochastic matrix.
+        The extra axis in (from,to) is inserted after `axis`.
+
+    See Also
+    --------
+    ring_inds, uni_ring_mat_to_params
+    """
+    ring_params = _mh.uni_to_any(params, num_st, axis=axis, ring=True)
+    return ring_params_to_mat(ring_params, drn, axis, daxis)
+
+
 def serial_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
                          axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
     """Serial transition matrix from independent parameters.
@@ -146,71 +211,6 @@ def uni_serial_params_to_mat(
     return serial_params_to_mat(ser_params, drn, axis, daxis)
 
 
-def ring_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
-                       axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
-    """Ring transition matrix from independent parameters.
-
-    Parameters
-    ----------
-    params : ndarray (2n,)
-        Vector of independent elements, in order:
-        mat_01, mat_12, ..., mat_n-2,n-1, mat_n-1,0,
-        mat_0,n-1, mat_10, mat_21, ..., mat_n-1,n-2.
-    drn: int, optional, default: 0
-        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
-    axis : int, optional
-        Axis along which each set of parameters lie, by default -1.
-    daxis : int, optional
-        Axis to broadcast non-scalar `drn` over, by default: 0
-
-    Returns
-    -------
-    mat : array (n,n)
-        Continuous time stochastic matrix.
-        The extra axis in (from,to) is inserted after `axis`.
-
-    See Also
-    --------
-    ring_inds, ring_mat_to_params
-    """
-    return _mh.params_to_mat(params, _in.ring_inds, drn, axis, daxis,
-                             ring=True)
-
-
-def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
-                           axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
-    """Ring transition matrix from independent parameters.
-
-    Parameters
-    ----------
-    params : ndarray (2,) or (1,)
-        Vector of independent elements, in order:
-        mat_01 = mat_12 = ... = mat_n-2,n-1 = mat_n-1,0,
-        mat_0,n-1 = mat_10 = mat_21 = ... = mat_n-1,n-2.
-        If `drn == 0`, you must provide 2 parameters, one for each direction.
-    num_st : int
-        Number of states.
-    drn: int or Sequence[int], optional, default: 0
-        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
-    axis : int, optional
-        Axis along which each set of parameters lie, by default -1.
-    daxis : int, optional
-        Axis to broadcast non-scalar `drn` over, by default: 0
-
-    Returns
-    -------
-    mat : array (n,n)
-        Continuous time stochastic matrix.
-        The extra axis in (from,to) is inserted after `axis`.
-
-    See Also
-    --------
-    ring_inds, uni_ring_mat_to_params
-    """
-    ring_params = _mh.uni_to_any(params, num_st, axis=axis, ring=True)
-    return ring_params_to_mat(ring_params, drn, axis, daxis)
-
-
 def cascade_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
                           axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
     """Transition matrix with cascade topology from non-zero transition rates.
@@ -229,12 +229,14 @@ def cascade_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
     daxis : int, optional
         Axis to broadcast non-scalar `drn` over, by default: 0
 
- drneturns
+    Returns
     -------
     mat : array (n,n)
         Continuous time stochastic matrix.
         The extra axis in (from,to) is inserted after `axis`.
-drn
+
+    See Also
+    --------
     cascade_inds, cascade_mat_to_params
     """
     return _mh.params_to_mat(params, _in.cascade_inds, drn, axis, daxis,
@@ -273,22 +275,18 @@ def std_cascade_params_to_mat(params: np.ndarray, num_st: int,
         return _mh.bcast_axes(std_cascade_params_to_mat, params, num_st,
                               drn=drn, drn_axis=daxis, fun_axis=axis,
                               to_mat=True)
-    if not isinstance(drn, int):
-        return _mh.bcast_drns(std_cascade_params_to_mat, params, num_st,
-                              drn=drn, drn_axis=daxis, fun_axis=axis,
-                              to_mat=True)
     npt = num_st // 2
     # (...,2,1)
     params = la.array(params, copy=True).moveaxis(axis, -1)[..., None]
+    # (n-1,)
     expn = np.abs(np.arange(1 - npt, npt))
     denom = np.r_[0, npt:2*npt-1]
-    params = params**expn
-    if drn >= 0:
-        params[..., :1, denom] /= (1 - params[..., :1, npt-2:npt-1])
-    if drn <= 0:
-        params[..., -1:, denom] /= (1 - params[..., -1:, npt-2:npt-1])
-    params = params.reshape(params.shape[:-2] + (-1,)).moveaxis(-1, axis)
-    return cascade_params_to_mat(params, drn=drn, axis=axis, daxis=daxis)
+    # (...,2,n-1)
+    full = params**expn
+    full[..., denom] /= (1 - params)
+    # (...,2(n-1)) -> (...,2(n-1),...)
+    full = full.flattish(-2).moveaxis(-1, axis)
+    return cascade_params_to_mat(full, drn=drn, axis=axis, daxis=daxis)
 
 
 def params_to_mat(params: np.ndarray, *, serial: bool = False,

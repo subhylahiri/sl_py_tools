@@ -14,6 +14,37 @@ from numpy_linalg import zeros
 # from numpy import ndarray as array
 # from numpy import zeros
 
+
+def diff_like(fun: _ty.Callable[[ArrayType, ArrayType], ArrayType],
+              arr: ArrayType, step: int = 1, axis: int = -1) -> ArrayType:
+    """Perform an operation on adjacent elements in an array
+
+    Parameters
+    ----------
+    fun : callable
+        Function to perform on elements, as in `fun(arr[i + step], arr[i])`.
+    arr : array (...,n,...)
+        array to perform operation on
+    step : int, optional
+        Perform operation on elemnts `step` apart, by default: 1.
+    axis : int, optional
+        Elements are separated by `step` along this axis, by default: -1.
+
+    Returns
+    -------
+    out_arr : array (...,n-step,...)
+        Output of `fun` for each pair of elements.
+    """
+    arr = np.moveaxis(arr, axis, -1)
+    if step > 0:
+        out_arr = fun(arr[..., step:], arr[..., :-step])
+    elif step < 0:
+        out_arr = fun(arr[..., :step], arr[..., -step:])
+    else:
+        out_arr = fun(arr, arr)
+    return np.moveaxis(out_arr, -1, axis)
+
+
 # =============================================================================
 # Fixing non-parameter parts
 # =============================================================================
@@ -202,7 +233,7 @@ def mat_type_siz(params: Sized, states: Sized, **kwds) -> _ty.Tuple[bool, ...]:
 
 
 # =============================================================================
-# Helper for broadcasting
+# Helpers for broadcasting drn/axis
 # =============================================================================
 
 
@@ -221,7 +252,7 @@ def _negify(ndim: int, axes: AxesOrSeq) -> AxesOrSeq:
 
 
 def _sort_axes(ndim: int, fun_axes: AxesOrSeq, drn_axes: IntOrSeq,
-               to_mat: bool) -> (AxesOrSeq, IntOrSeq):
+               to_mat: bool) -> _ty.Tuple[AxesOrSeq, IntOrSeq]:
     """order axes so that fun_axes is increasing"""
     fun_axes, drn_axes = _negify(ndim, fun_axes), _negify(ndim, drn_axes)
     if isinstance(drn_axes, int):
@@ -308,6 +339,9 @@ def params_to_mat(params: np.ndarray, fun: IndFun, drn: IntOrSeq = 0,
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
     axis : int, optional
         Axis along which each set of parameters lie, by default -1.
+    daxis : int, optional
+        Axis to broadcast non-scalar `drn` over, by default: 0
+    Other key word parameters for `num_state`.
 
     Returns
     -------
@@ -345,14 +379,9 @@ def uni_to_any(params: np.ndarray, nst: int, axis: IntOrSeq = -1, **kwds
         See docs for `*_inds` for details.
     nst : int
         Number of states.
-    serial : bool, optional, default: False
-        Is the rate vector meant for `serial_params_to_mat` or
-        `gen_params_to_mat`?
-    ring : bool, optional, default: False
-        Is the rate vector meant for `ring_params_to_mat` or
-        `gen_params_to_mat`?
     axis : int, optional
         Axis along which each set of parameters lie, by default -1.
+    Other key word parameters for `num_param`.
 
     Returns
     -------
@@ -400,6 +429,8 @@ def mat_to_params(mat: ArrayType, fun: IndFun, drn: IntOrSeq = 0,
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
     axes : Tuple[int, int]
         Axes to treat as (from, to) axes.
+    daxis : int, optional
+        Axis to broadcast non-scalar `drn` over, by default: 0
     """
     kwds.update(drn=drn, fun_axis=axes, drn_axis=daxis)
     if isinstance(axes[0], Sequence):
@@ -427,8 +458,7 @@ def to_uni(params: ArrayType, drn: IntOrSeq = 0, grad: bool = True,
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
     grad : bool
         Is the output for a gradient (True) or a transition matrix (False).
-        If True, return sum of transitions in each direction.
-        If False, return the mean.
+        If True, return sum of values in each direction, else, return mean.
     axes : Tuple[int, int] or None
         Original axes to treat as (from, to) axes.
     """
