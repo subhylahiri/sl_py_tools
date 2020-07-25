@@ -196,7 +196,7 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
         if kwds.get('uniform', False):
             params = _mh.uni_to_any(params, nst, **kwds)
         nmat = nmat.reshape(shape + (nst**2,))
-        nmat[_in.param_inds(nst, **kwds)] = params
+        nmat[_in.param_inds(nst, drn=drn, **kwds)] = params
         nmat = nmat.reshape(shape + (nst, nst))
         _mh.stochastify(nmat)
         if not np.may_share_memory(nmat, mat):
