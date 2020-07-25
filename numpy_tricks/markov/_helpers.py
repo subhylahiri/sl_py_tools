@@ -264,7 +264,7 @@ def _sort_axes(ndim: int, fun_axes: AxesOrSeq, drn_axes: IntOrSeq,
 
 def bcast_axes(fun: _ty.Callable[..., ArrayType], arr: ArrayType, *args,
                drn: IntOrSeq = 0, drn_axis: IntOrSeq = 0,
-               fun_axis: _ty.Sequence[Axies] = (-2, -1), **kwds) -> ArrayType:
+               fun_axis: OrSeqOf[Axies] = -1, **kwds) -> ArrayType:
     """broadcast over axes"""
     outarr = np.asanyarray(arr)
     to_mat = kwds.get('to_mat', False)
@@ -277,8 +277,8 @@ def bcast_axes(fun: _ty.Callable[..., ArrayType], arr: ArrayType, *args,
 
 
 def bcast_drns(fun: _ty.Callable[..., ArrayType], arr: ArrayType, *args,
-               drn: _ty.Sequence[int] = 0, drn_axis: IntOrSeq = 0,
-               fun_axis: AxesOrSeq = -1, **kwds) -> ArrayType:
+               drn: IntOrSeq = 0, drn_axis: IntOrSeq = 0,
+               fun_axis: OrSeqOf[Axies] = -1, **kwds) -> ArrayType:
     """broadcast an axis wrt drn"""
     to_mat = kwds.pop('to_mat', False)
     fkey = 'axis' if to_mat else 'axes'
@@ -322,8 +322,8 @@ def bcast_update(updater: _ty.Callable[..., None],
 # =============================================================================
 
 
-def params_to_mat(params: np.ndarray, fun: IndFun, drn: IntOrSeq = 0,
-                  axis: IntOrSeq = -1, daxis: IntOrSeq = 0, **kwds) -> array:
+def params_to_mat(params: np.ndarray, fun: IndFun, drn: IntOrSeq,
+                  axis: IntOrSeq, daxis: IntOrSeq, **kwds) -> array:
     """Helper function for *_params_to_mat
 
     Parameters
@@ -367,7 +367,7 @@ def params_to_mat(params: np.ndarray, fun: IndFun, drn: IntOrSeq = 0,
     return np.moveaxis(mat, (-2, -1), (axis, axis+1))
 
 
-def uni_to_any(params: np.ndarray, nst: int, axis: IntOrSeq = -1, **kwds
+def uni_to_any(params: np.ndarray, nst: int, axis: IntOrSeq, **kwds
                ) -> np.ndarray:
     """Helper for uni_*_params_to_mat
 
@@ -414,9 +414,8 @@ def _out_axis(ndim: int, axes: Axes) -> int:
     return min(_posify(ndim, axes))
 
 
-def mat_to_params(mat: ArrayType, fun: IndFun, drn: IntOrSeq = 0,
-                  axes: Axes = (-2, -1), daxis: IntOrSeq = 0,
-                  **kwds) -> ArrayType:
+def mat_to_params(mat: ArrayType, fun: IndFun, drn: IntOrSeq, axes: Axes,
+                  daxis: IntOrSeq, **kwds) -> ArrayType:
     """Helper function for *_mat_to_params
 
     Parameters
@@ -445,8 +444,8 @@ def mat_to_params(mat: ArrayType, fun: IndFun, drn: IntOrSeq = 0,
     return np.moveaxis(mat[..., fun(nst, drn)], -1, oaxis)
 
 
-def to_uni(params: ArrayType, drn: IntOrSeq = 0, grad: bool = True,
-           axes: Axes = (-2, -1), **kwds) -> ArrayType:
+def to_uni(params: ArrayType, drn: IntOrSeq, grad: bool, axes: AxesOrSeq,
+           **kwds) -> ArrayType:
     """Helper for uni_*_mat_to_params
 
     Parameters
@@ -483,7 +482,7 @@ Sized = _ty.Union[int, np.ndarray]
 Axes = _ty.Tuple[int, int]
 IndFun = _ty.Callable[[int, int], np.ndarray]
 Axies = _ty.Union[int, Axes]
-AxType = _ty.TypeVar('AxType', int, Axes)
+AxType = _ty.TypeVar('AxType', int, Axes, Axies)
 OrSeqOf = _ty.Union[AxType, _ty.Sequence[AxType]]
 IntOrSeq = OrSeqOf[int]
 AxesOrSeq = OrSeqOf[Axes]

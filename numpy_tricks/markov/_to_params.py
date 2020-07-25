@@ -85,8 +85,8 @@ def uni_gen_mat_to_params(mat: ArrayType, grad: bool = True, drn: IntOrSeq = 0,
         return _mh.to_uni(gen_mat_to_params(mat, drn, axes, daxis),
                           drn, grad, axes)
     # need to separate pos, neg
-    return _mh.to_uni(_mh.mat_to_params(mat, _in.offdiag_split_inds, drn, axes),
-                      drn, grad, axes)
+    params = _mh.mat_to_params(mat, _in.offdiag_split_inds, drn, axes, daxis)
+    return _mh.to_uni(params, drn, grad, axes)
 
 
 def ring_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
