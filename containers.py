@@ -98,7 +98,7 @@ def setify(arg: InstanceOrIterable[Var]) -> _ty.Set[Var]:
     return {arg}
 
 
-def unsetify(arg: _ty.Set[Var, ...]) -> InstanceOrSet[Var]:
+def unsetify(arg: _ty.Set[Var]) -> InstanceOrSet[Var]:
     """Unpack set before returning.
 
     If `set` has a single element, return that. If empty, return `None`.
@@ -158,12 +158,12 @@ def map_join(func: _ty.Callable[[Var], _ty.Iterable[Val]],
 
 
 class ZipSequences(cn.abc.Sequence):
-    """Like zip, but indexable
+    """Like zip, but indexable and reversible
     """
     _seqs: _ty.Tuple[_ty.Sequence, ...]
     _max: bool
 
-    def __init__(self, *sequences: _ty.Sequence, usemax=False):
+    def __init__(self, *sequences: _ty.Sequence, usemax: bool = False):
         self._seqs = sequences
         self._max = usemax
 

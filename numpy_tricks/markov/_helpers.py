@@ -286,6 +286,7 @@ def bcast_drns(fun: _ty.Callable[..., ArrayType], arr: ArrayType, *args,
     arr = np.asanyarray(arr)
     drn_axis = _posify(arr.ndim, drn_axis)
     narr = np.moveaxis(arr, drn_axis, 0)
+    kwds.setdefault('daxis', 0)
     result = [fun(slc, *args, drn=way, **kwds) for slc, way in zip(narr, drn)]
     return np.moveaxis(np.stack(result), 0, drn_axis)
 

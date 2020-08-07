@@ -153,7 +153,8 @@ def mean_dwell(rates: np.ndarray, peq: Optional[np.ndarray] = None) -> float:
 
 
 def sim_markov_d(jump: la.lnarray, peq: Optional[np.ndarray] = None,
-                 num_jump: int = 10) -> Tuple[la.lnarray, ...]:
+                 num_jump: int = 10, rng: np.random.Generator = RNG
+                 ) -> la.lnarray:
     """Simulate Markov process trajectory.
 
     Parameters
@@ -178,7 +179,7 @@ def sim_markov_d(jump: la.lnarray, peq: Optional[np.ndarray] = None,
     states_from = la.array([RNG.choice(state_inds, size=num_jump-1, p=p)
                             for p in jump])
     states = la.empty(num_jump)
-    states[0] = RNG.choice(state_inds, p=peq)
+    states[0] = rng.choice(state_inds, p=peq)
     for num in range(num_jump-1):
         states[num+1] = states_from[states[num], num]
     return states
@@ -186,7 +187,8 @@ def sim_markov_d(jump: la.lnarray, peq: Optional[np.ndarray] = None,
 
 def sim_markov_c(rates: la.lnarray, peq: Optional[np.ndarray] = None,
                  num_jump: Optional[int] = None,
-                 max_time: Optional[float] = None) -> Tuple[la.lnarray, ...]:
+                 max_time: Optional[float] = None,
+                 rng: np.random.Generator = RNG) -> Tuple[la.lnarray, ...]:
     """Simulate Markov process trajectory.
 
     Parameters
@@ -224,8 +226,8 @@ def sim_markov_c(rates: la.lnarray, peq: Optional[np.ndarray] = None,
         max_time = np.inf
     est_num = max(est_num, 1)
 
-    dwells_from = - dwell.c * np.log(RNG.random(est_num))
-    states = sim_markov_d(jump, peq, est_num)
+    dwells_from = - dwell.c * np.log(rng.random(est_num))
+    states = sim_markov_d(jump, peq, est_num, rng)
     dwells = dwells_from[states, la.arange(est_num)]
 
     states, dwells = states[slice(num_jump)], dwells[slice(num_jump)]

@@ -141,7 +141,8 @@ assert sys.version_info[:2] >= (3, 6)
 # =============================================================================
 
 
-def zenumerate(*iterables: _it.Iterable, start=0, step=1) -> zip:
+@_it.and_reverse
+def zenumerate(*iterables: _it.Iterable, start=0, step=1) -> ZipSequences:
     """Combination of enumerate and unpacked zip.
 
     Behaves like `enumerate`, but accepts multiple iterables.
@@ -158,7 +159,8 @@ def zenumerate(*iterables: _it.Iterable, start=0, step=1) -> zip:
     >>>     time.sleep(0.1)
     >>> print(words)
     """
-    return zip(itertools.count(start, step), *iterables)
+    counter = erange(start, _it.min_len(*iterables), step)
+    return ZipSequences(counter, *iterables)
 
 
 def batch(*sliceargs: _it.SliceArg, **kwargs: _it.SliceArg):
@@ -198,6 +200,45 @@ def batch(*sliceargs: _it.SliceArg, **kwargs: _it.SliceArg):
     start, stop, step = _it.extract_slice(sliceargs, kwargs)
     for i in erange(start, stop, step):
         yield slice(i, i+step, 1)
+
+
+def rbatch(*sliceargs: _it.SliceArg, **kwargs: _it.SliceArg):
+    """Iterate backwards over batches
+
+    Similar to reversed `range` object, except at each iteration it yields a
+    `slice` covering that step.
+
+    Parameters
+    ----------
+    start : int or None, optional, default=0
+        minimum counter value (inclusive).
+    stop : int or None, optional, default=None
+        maximum value of counter (exclusive).
+    step : int or None, optional, default=1
+        size of batch of counter after each loop.
+
+    `start`, `stop` and `step` behave like `slice` indices when omitted.
+    To specify `start/step` without setting `stop`, set `stop` to `None`.
+    To specify `step` without setting `start`, set `start` to 0 or `None`.
+    Or use keyword arguments.
+
+    Yields
+    ------
+    batch_slice
+        slice object that starts at current counter and stops at the next value
+        with step size 1.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.random.rand(1000, 3, 3)
+    >>> y = np.empty((1000, 3), dtype = complex)
+    >>> for s in batch(0, len(x), 10):
+    >>>     y[s] = np.linalg.eigvals(x[s])
+    """
+    start, stop, step = _it.extract_slice(sliceargs, kwargs)
+    for i in reversed(erange(start, stop, step)):
+        yield slice(i, i-step, -1)
 
 
 def batched(step: int, *sequences: Sequence, usemax=True):
@@ -594,6 +635,7 @@ rdcount = dcount.rev
 rdbatch = dbatch.rev
 rdenumerate = denumerate.rev
 rdzip = dzip.rev
+rzenumerate = zenumerate.rev
 
 # ============================================================================
 # Non-displaying iterator functions

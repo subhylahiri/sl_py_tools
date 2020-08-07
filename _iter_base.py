@@ -47,7 +47,7 @@ ConvOut = Callable[[SliceArg, SliceArg, SliceArg], SomeType]
 # =============================================================================
 
 
-def extract_name(args: DArgs, kwds: DKeys) -> (NameArg, Args):
+def extract_name(args: DArgs, kwds: DKeys) -> Tuple[NameArg, Args]:
     """Extract name from other args
 
     If name is in kwds, assume all of args is others, pop name from kwds.
@@ -362,6 +362,22 @@ def arg_sub(cin: ConvIn, cout: ConvOut, one: SorNum, two: SorNum) -> SomeType:
         return arg_add(cin, cout, one, arg_mul(cin, cout, two, -1, False))
 
 
+def min_len(*iterables) -> int:
+    """Length of shortest sequence.
+    """
+    return min((len(seq) for seq in
+                filter(lambda x: isinstance(x, Sized), iterables)),
+                default=None)
+
+
+def max_len(*iterables) -> int:
+    """Length of shortest sequence.
+    """
+    return max((len(seq) for seq in
+                filter(lambda x: isinstance(x, Sized), iterables)),
+                default=None)
+
+
 # =============================================================================
 # Client class for DisplayCount
 # =============================================================================
@@ -500,9 +516,7 @@ class AddDisplayToIterables:
     def __len__(self):
         """Length of shortest sequence.
         """
-        return min((len(seq) for seq in
-                    filter(lambda x: isinstance(x, Sized), self._iterables)),
-                   default=None)
+        return min_len(*self._iterables)
 
     def begin(self, *args, **kwds):
         """Display initial counter with prefix."""
