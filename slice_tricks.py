@@ -5,13 +5,14 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from numbers import Number
-from typing import Callable, Optional, Tuple, Union
+from typing import Callable, Optional, Sequence, Tuple, Union
 
 from . import _iter_base as _ib
 from . import integer_tricks as _ig
 from . import range_tricks as _rt
 from .arg_tricks import default as _default
 from .arg_tricks import default_non_eval as _default_neval
+from .containers import ZipSequences, tuplify
 from .modular_arithmetic import and_
 from .range_tricks import RangeIsh as SliceIsh
 
@@ -276,6 +277,159 @@ class SliceRange(_ib.SliceToIter):
 
 
 srange = SliceRange()
+
+
+class Batch(_rt.ExtendedRange):
+    """Iterator that yields slices covering each step
+
+    Any parameter can be given as `None` and the default will be used. `stop`
+    can also be `+/-inf`.
+
+    Parameters
+    ----------
+    start : int or None, optional, default=0
+        initial counter value (inclusive).
+    stop : int or None, optional, default=inf*sign(step)
+        value of counter at or above which the loop terminates (exclusive).
+    step : int or None, optional, default=1
+        increment of counter after each loop.
+    """
+    # step of yielded slices
+    _slice_step: int
+
+    def __init__(self, *args, **kwds):
+        super().__init__(*args, **kwds)
+        self._slice_step = self.step // abs(self.step)
+
+    def __iter__(self) -> Batch:
+        self._iter = iter(self._iter)
+        return self
+
+    def __next__(self) -> slice:
+        count = next(self._iter)
+        return slice(count, count + self.step, self._slice_step)
+
+    def __reversed__(self) -> Batch:
+        obj = super.__reversed__()
+        obj.start += self.step - self._slice_step
+        obj.stop += self.step - self._slice_step
+        return obj
+
+    def __repr__(self) -> str:
+        return type(self).__name__ + slice_repr(self)
+
+    def __contains__(self, arg: slice) -> bool:
+        start, stop, step = slice_args_def(arg)
+        if step * self._slice_step < 0:
+            start, stop, step = stop - step, start - step, -step
+        if step == self._slice_step:
+            return (in_slice(start, self) and in_slice(start, self)
+                    and stop - start == self.step)
+        return False
+
+
+class Batched:
+    """Iterator that yields slices of sequences
+
+    Similar to `zip` object, except at each iteration it yields a slice of the
+    sequences covering that step.
+
+    Parameters
+    ----------
+    step : int
+        increment of counter after each loop.
+    sequence1, sequence2, ...
+        sequences to iterate over
+    usemax : bool, keyword only, default=True
+        If True, we continue until all sequences are exhausted. If False, we
+        stop when we reach the end of the shortest sequence.
+
+    Yields
+    ------
+    sequence1[i:i+step], sequence2[i:i+step], ...
+        slice(s) of the sequence(s) that starts at current counter and stops at
+        the next value with step size 1.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.random.rand(1000, 3, 3)
+    >>> y = np.empty((1000, 3), dtype = complex)
+    >>> for xx, yy in Batched(10, x, y):
+    >>>     yy[...] = np.linalg.eigvals(xx)
+    """
+    _seqs: ZipSequences
+    _counter: Batch
+
+    def __init__(self, step: int, *args, **kwds):
+        self._seqs = ZipSequences(*args, **kwds)
+        self._counter = Batch(0, len(self._seqs), step)
+
+    def __iter__(self) -> Batched:
+        self._counter = iter(self._counter)
+        return self
+
+    def __next__(self) -> Sequence:
+        count = next(self._counter)
+        return self._seqs[count]
+
+    def __reversed__(self) -> Batched:
+        self._counter = reversed(self._counter)
+        return self
+
+    def __len__(self) -> int:
+        return len(self._counter)
+
+    def __repr__(self) -> str:
+        return type(self).__name__ + repr(self._seqs)[12:]
+
+    def __str__(self) -> str:
+        seqs = ','.join(type(s).__name__ for s in self._seqs)
+        return type(self).__name__ + f'({seqs})'
+
+
+class BatchEnum(Batched):
+    """Iterator that yields slices covering each step and slices of sequences
+
+    Similar to `enumerate` object, except at each iteration it yields a slice
+    of the sequences covering that step and the corresponding slice(s) of the
+    sequence(s).
+
+    Parameters
+    ----------
+    step : int
+        increment of counter after each loop.
+    sequence1, sequence2, ...
+        sequences to iterate over
+    usemax : bool, keyword only, default=True
+        If True, we continue until all sequences are exhausted. If False, we
+        stop when we reach the end of the shortest sequence.
+
+    Yields
+    ------
+    batch_slice
+        slice object that starts at current counter and stops at the next value
+        with step size 1.
+    sequence1[i:i+step], sequence2[i:i+step], ...
+        slice(s) of the sequence(s) that starts at current counter and stops at
+        the next value with step size 1.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.random.rand(1000, 3, 3)
+    >>> y = np.empty((1000, 3), dtype = complex)
+    >>> for ss, xx in batchenum(10, x):
+    >>>     y[ss] = np.linalg.eigvals(xx)
+    """
+    def __next__(self) -> Sequence:
+        count = next(self._counter)
+        return (count,) + tuplify(self._seqs[count])
+
+    def __contains__(self, arg: slice) -> bool:
+        return arg in self._counter
+
+
 # =============================================================================
 # Slice properties
 # =============================================================================
@@ -813,10 +967,10 @@ def _slice_disp(func: Callable[[SliceIsh], str],
     if isinstance(sliceobj, (tuple, list)):
         # in case we forgot to unpack a tuple originally
         return _slice_disp(func, sliceobj)
-    if isinstance(sliceobj, int):
-        return str(sliceobj)
     if sliceobj is Ellipsis:
         return '...'
     if isinstance(sliceobj, SliceIsh):
         return func(sliceobj)
+    # if isinstance(sliceobj, int):
+    #     return str(sliceobj)
     return str(sliceobj)

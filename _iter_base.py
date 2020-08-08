@@ -8,6 +8,8 @@
 Base classes and behind the scenes work for `iter_tricks`, `range_tricks`
 and `slice_tricks` modules.
 """
+from __future__ import annotations
+
 from abc import abstractmethod
 from collections.abc import Sized
 from typing import Optional, Union, Tuple, Iterable, Dict, Callable, TypeVar
@@ -20,28 +22,6 @@ from .display_tricks import DisplayTemporary
 from .arg_tricks import default
 from .containers import tuplify
 
-NameArg = Optional[str]
-SliceArg = Optional[int]
-DZipArg = Union[NameArg, Iterable]
-DSliceArg = Union[NameArg, SliceArg]
-Arg = Union[SliceArg, Iterable]
-DArg = Union[NameArg, Arg]
-SliceArgs = Tuple[SliceArg, ...]
-DSliceArgs = Tuple[DSliceArg, ...]
-Args = Tuple[Arg, ...]
-DArgs = Tuple[DArg, ...]
-SliceKeys = Dict[str, SliceArg]
-DSliceKeys = Dict[str, DSliceArg]
-Keys = Dict[str, Arg]
-DKeys = Dict[str, DArg]
-
-NumOrNone = TypeVar('NumOrNone', Number, None)
-NumOp = Callable[[Number, Number], Number]
-SomeType = TypeVar('SomeType')
-SorNum = Union[SomeType, Number]
-SArgsOrNum = Union[SliceArgs, Number]
-ConvIn = Callable[[SomeType], SliceArgs]
-ConvOut = Callable[[SliceArg, SliceArg, SliceArg], SomeType]
 # =============================================================================
 # %* Utility functions
 # =============================================================================
@@ -141,6 +121,7 @@ def and_reverse(it_func: Callable[..., Iterable]) -> Callable[..., Iterable]:
     new_name = it_func.__name__ + '.rev'
     rev_it_func.__name__ = new_name
     it_func.rev = rev_it_func
+    rev_it_func.rev = it_func
 #    __all__.append(new_name)
 #    setattr(current_module, new_name, rev_it_func)
     return it_func
@@ -191,13 +172,13 @@ class SliceToIter:
         Function to convert slice to `(start,stop,step)`. Default: `st_args`
     """
     argnum: int
-    iterfun: Callable[[SliceArgs], Iterable]
-    slicefun: Callable[[slice], SliceArgs]
+    iterfun: ConvOut[Iterable]
+    slicefun: ConvIn[slice]
 
     def __init__(self,
-                 iterfun: Callable[[SliceArgs], Iterable] = range,
+                 iterfun: ConvOut[Iterable] = range,
                  argnum: int = 0,
-                 slicefun: Callable[[slice], SliceArgs] = st_args,
+                 slicefun: ConvIn[slice] = st_args,
                  ):
         super().__init__()
         self.iterfun = iterfun
@@ -367,7 +348,7 @@ def min_len(*iterables) -> int:
     """
     return min((len(seq) for seq in
                 filter(lambda x: isinstance(x, Sized), iterables)),
-                default=None)
+               default=None)
 
 
 def max_len(*iterables) -> int:
@@ -375,7 +356,7 @@ def max_len(*iterables) -> int:
     """
     return max((len(seq) for seq in
                 filter(lambda x: isinstance(x, Sized), iterables)),
-                default=None)
+               default=None)
 
 
 # =============================================================================
@@ -474,11 +455,15 @@ class AddDisplayToIterables:
         Name to be used for display. See `extract_name`.
     iterable1, ...
         The iterables being wrapped.
+    usemax : bool, keyword only, default=False
+        If True, we continue until all sequences are exhausted. If False, we
+        stop when we reach the end of the shortest sequence.
     **kwds
         Keywords other than `name` are passed to the ``displayer`` constructor.
     """
     _iterables: Tuple[Iterable, ...]
     display: DisplayMixin
+    _max: bool
 
     def __init_subclass__(cls, displayer, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -488,6 +473,7 @@ class AddDisplayToIterables:
         """Construct the displayer"""
         name, self._iterables = extract_name(args, kwds)
         addto = kwds.pop('addto', 0)
+        self._max = kwds.pop('usemax', False)
         self.display = self.displayer(name, addto, addto + len(self), **kwds)
 
     def __reversed__(self):
@@ -516,6 +502,8 @@ class AddDisplayToIterables:
     def __len__(self):
         """Length of shortest sequence.
         """
+        if self._max:
+            return max_len(*self._iterables)
         return min_len(*self._iterables)
 
     def begin(self, *args, **kwds):
@@ -529,3 +517,30 @@ class AddDisplayToIterables:
     def end(self):
         """Erase previous counter and prefix."""
         self.display.end()
+
+
+# =============================================================================
+# Hinting
+# =============================================================================
+NameArg = Optional[str]
+SliceArg = Optional[int]
+DZipArg = Union[NameArg, Iterable]
+DSliceArg = Union[NameArg, SliceArg]
+Arg = Union[SliceArg, Iterable]
+DArg = Union[NameArg, Arg]
+SliceArgs = Tuple[SliceArg, ...]
+DSliceArgs = Tuple[DSliceArg, ...]
+Args = Tuple[Arg, ...]
+DArgs = Tuple[DArg, ...]
+SliceKeys = Dict[str, SliceArg]
+DSliceKeys = Dict[str, DSliceArg]
+Keys = Dict[str, Arg]
+DKeys = Dict[str, DArg]
+
+NumOrNone = TypeVar('NumOrNone', Number, None)
+NumOp = Callable[[Number, Number], Number]
+SomeType = TypeVar('SomeType')
+SorNum = Union[SomeType, Number]
+SArgsOrNum = Union[SliceArgs, Number]
+ConvIn = Callable[[SomeType], SliceArgs]
+ConvOut = Callable[[SliceArg, SliceArg, SliceArg], SomeType]

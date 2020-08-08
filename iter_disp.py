@@ -1,12 +1,15 @@
 """Displaying iterator classes
 """
+from __future__ import annotations
+
 from itertools import chain
 import sys
-from typing import ContextManager, Iterable, Iterator, Optional
+from typing import ContextManager, Iterable, Iterator, Optional, Sequence, Tuple
 
 from . import _iter_base as _it
 from .range_tricks import RangeCollectionMixin as _RangeCollectionMixin
 from .slice_tricks import ContainerMixin as _ContainerMixin
+from .containers import ZipSequences, tuplify
 
 
 def _raise_if_no_stop(obj):
@@ -131,27 +134,28 @@ class DisplayCount(_it.DisplayMixin, _RangeCollectionMixin, _ContainerMixin):
             self.formatter = _it.counter_format(self.stop)
         self.formatter += ','
 
-    def __iter__(self):
+    def __iter__(self) -> DisplayCount:
         """Display initial counter with prefix."""
         self.counter = self.start
         self.begin()
         self.counter -= self.step
         return self
 
-    def __reversed__(self):
+    def __reversed__(self) -> DisplayCount:
         """Prepare to display final counter with prefix.
         Calling iter and then next will count down.
         """
         _raise_if_no_stop(self)
-        self.start, self.stop = self.stop - self.step, self.start - self.step
-        self.step *= -1
-        if self.step < 0:
-            self._state.prefix += '-'
+        args = self.stop - self.step, self.start - self.step, -self.step
+        name = self._state.prefix
+        if self.step > 0:
+            name += '-'
         else:
-            self._state.prefix.rstrip('-')
-        return self
+            name.rstrip('-')
+        kwds = {'offset': self.offset, 'disp_step': self.disp_step}
+        return type(self)(name, *args, **kwds)
 
-    def __next__(self):
+    def __next__(self) -> int:
         """Increment counter, erase previous counter and display new one."""
         self.counter += self.step
         if self.counter in self:
@@ -160,11 +164,11 @@ class DisplayCount(_it.DisplayMixin, _RangeCollectionMixin, _ContainerMixin):
         self.end()
         raise StopIteration()
 
-    def _check_ctr(self) -> str:
+    def _check_ctr(self, msg: str = '') -> str:
         """Ensure that DisplayCount's are properly used"""
         # raise error if ctr is outside range
         if self.counter not in self:
-            msg = f'{self._state.name}: has value {self.counter} '
+            msg += f'{self._state.name}: has value {self.counter} '
             msg += f'when range is ({self.start}:{self.stop}:{self.step}).'
         return msg
 
@@ -215,7 +219,7 @@ class DisplayBatch(DisplayCount):
     ------
     batch_slice
         `slice` object that starts at current counter and stops at the next
-        value with step size 1.
+        value with step size `sgn(step)`.
 
     Example
     -------
@@ -225,6 +229,8 @@ class DisplayBatch(DisplayCount):
     >>> for s in dbatch('s', 0, len(x), 10):
     >>>     y[s] = np.linalg.eigvals(x[s])
     """
+    # step of yielded slices
+    _slice_step: int
 
     def __init__(self, *args: _it.DSliceArg, **kwargs):
         super().__init__(*args, **kwargs)
@@ -235,16 +241,23 @@ class DisplayBatch(DisplayCount):
             frmt = _it.counter_format(self.stop)
             self.formatter = frmt[:frmt.find('/')] + '-' + frmt
         self.formatter += ','
+        self._slice_step = self.step // abs(self.step)
 
     def format(self, *ctrs: int) -> str:
         """String for display of counter, e.g.' 7/12,'."""
         return super().format(*chain.from_iterable((n, n + abs(self.step) - 1)
                                                    for n in ctrs))
 
-    def __next__(self):
+    def __next__(self) -> slice:
         """Increment counter, erase previous counter and display new one."""
         counter = super().__next__()
-        return slice(counter, counter + abs(self.step))
+        return slice(counter, counter + self.step, self._slice_step)
+
+    def __reversed__(self) -> DisplayBatch:
+        obj = super.__reversed__()
+        obj.start += self.step - self._slice_step
+        obj.stop += self.step - self._slice_step
+        return obj
 
 
 class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):
@@ -272,7 +285,7 @@ class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):
         i.e. ``len(sequence)`` works, e.g. tuple, list, np.ndarray.
         Note: argument is unpacked.
     **kwds
-        Passed to `iterator`
+        Passed to `DisplayCount`
 
     Examples
     --------
@@ -294,7 +307,8 @@ class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):
 
     def __iter__(self):
         """Display initial counter with prefix."""
-        self._iterator = iter(zip(self.display, *self._iterables))
+        self._iterator = iter(ZipSequences(self.display, *self._iterables,
+                                           usemax=self._max))
         return self
 
     def __next__(self):
@@ -332,7 +346,7 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
         i.e. ``len(sequence)`` works, e.g. tuple, list, np.ndarray.
         Note: argument is unpacked.
     **kwds
-        Passed to `iterator`
+        Passed to `DisplayCount`
 
     Examples
     --------
@@ -348,7 +362,7 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
 
     See Also
     --------
-    DisplayCount, enumerate, zip
+    DisplayCount, zip
     """
     _iterator: Iterator
 
@@ -356,7 +370,8 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
         """Display initial counter with prefix."""
         self.display = iter(self.display)
         if len(self._iterables) > 1:
-            self._iterator = iter(zip(*self._iterables))
+            self._iterator = iter(ZipSequences(*self._iterables,
+                                               usemax=self._max))
         else:
             self._iterator = iter(self._iterables[0])
         return self
@@ -371,6 +386,153 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
             raise
         else:
             return output
+
+
+class DisplayBatched(_it.AddDisplayToIterables, displayer=DisplayBatch):
+    """Iterate over batches, with counter display
+
+    Similar to `DisplayZip` object, except at each iteration it yields a
+    slice of the zipped sequences over that step.
+
+    Nested loops display on one line and update correctly if the inner
+    DisplayCount ends before the outer one is updated.
+    Displays look like:
+        ' i: 3/5, j: 6/8(/2), k:  7/10(/5),'
+
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
+
+    Parameters
+    ----------
+    name : str or None
+        name of counter used for prefix.
+    step : int
+        Size of steps.
+    sequences : Tuple[Iterable]
+        Containers that can be used in a ``for`` loop, preferably `Sized`,
+        i.e. ``len(sequence)`` works, e.g. tuple, list, np.ndarray.
+        Note: argument is unpacked.
+    usemax : bool, keyword only, default=False
+        If True, we continue until all sequences are exhausted. If False, we
+        stop when we reach the end of the shortest sequence.
+    **kwds
+        Other keywords are passed to the ``DisplayBatch`` constructor.
+
+    Yields
+    ------
+    seq_slice : Tuple[Sequence]
+        `tuple` of slices of sequences that starts at current counter and
+        stops at the next value with step size `sgn(step)`.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.random.rand(1000, 3, 3)
+    >>> y = np.empty((1000, 3), dtype = complex)
+    >>> for xx, yy in DisplayBatched('s', 10, x, y):
+    >>>     yy[...] = np.linalg.eigvals(xx)
+    >>> print(x[15], y[15])
+
+    See Also
+    --------
+    DisplayBatch, zip
+    """
+    _iterator: Iterator
+
+    def __init__(self, name: Optional[str], step: int, *args: _it.SliceArgs,
+                 **kwds) -> None:
+        """Construct the displayer"""
+        super().__init__(name, *args, step=step, **kwds)
+        self._iterator = None
+
+    def __iter__(self) -> DisplayBatched:
+        """Display initial counter with prefix."""
+        self.display = iter(self.display)
+        if len(self._iterables) > 1:
+            self._iterator = ZipSequences(*self._iterables, usemax=self._max)
+        else:
+            self._iterator = self._iterables[0]
+        return self
+
+    def __next__(self) -> Tuple[Sequence, ...]:
+        """Increment counter, erase previous counter and display new one."""
+        try:
+            slc = next(self.display)
+            output = self._iterator[slc]
+        except StopIteration:
+            self.end()
+            raise
+        else:
+            return output
+
+    def __reversed__(self) -> DisplayBatched:
+        self.display = reversed(self.display)
+        return self
+
+
+class DisplayBatchEnum(DisplayBatched, displayer=DisplayBatch):
+    """Iterate over batches, with counter display
+
+    Similar to `DisplayBatch` object, except at each iteration it yields a
+    `slice` object covering that step.
+
+    Nested loops display on one line and update correctly if the inner
+    DisplayCount ends before the outer one is updated.
+    Displays look like:
+        ' i: 3/5, j: 6/8(/2), k:  7/10(/5),'
+
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
+
+    Parameters
+    ----------
+    name : str or None
+        name of counter used for prefix.
+    step : int
+        Size of steps.
+    sequences : Tuple[Iterable]
+        Containers that can be used in a ``for`` loop, preferably `Sized`,
+        i.e. ``len(sequence)`` works, e.g. tuple, list, np.ndarray.
+        Note: argument is unpacked.
+    usemax : bool, keyword only, default=False
+        If True, we continue until all sequences are exhausted. If False, we
+        stop when we reach the end of the shortest sequence.
+    **kwds
+        Other keywords are passed to the ``DisplayBatch`` constructor.
+
+    Yields
+    ------
+    batch_slice : slice
+        `slice` object that starts at current counter and stops at the next
+        value with step size `sgn(step)`.
+    seq_slice : Tuple[Sequence]
+        `tuple` of slices of sequences corresponding to `batch_slice`.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> x = np.random.rand(1000, 3, 3)
+    >>> y = np.empty((1000, 3), dtype = complex)
+    >>> for s, xx in DisplayBatchEnum('s', 10, x):
+    >>>     y[s] = np.linalg.eigvals(xx)
+    >>> print(x[15], y[15])
+
+    See Also
+    --------
+    DisplayBatch, DisplayBatched, DisplayEnumerate, enumerate
+    """
+    _iterator: Iterator
+
+    def __next__(self) -> Tuple[slice, Sequence]:
+        """Increment counter, erase previous counter and display new one."""
+        try:
+            slc = next(self.display)
+            output = self._iterator[slc]
+        except StopIteration:
+            self.end()
+            raise
+        else:
+            return (slc,) + tuplify(output)
 
 
 # =============================================================================

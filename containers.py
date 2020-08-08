@@ -16,14 +16,19 @@ from . import arg_tricks as _ag
 Var = _ty.TypeVar('Var')
 Val = _ty.TypeVar('Val')
 InstanceOrIterable = _ty.Union[Var, _ty.Iterable[Var]]
-InstanceOrTuple = _ty.Union[Var, _ty.Tuple[Var, ...]]
+InstanceOrSeq = _ty.Union[Var, _ty.Sequence[Var]]
 InstanceOrSet = _ty.Union[Var, _ty.Set[Var]]
 Dictable = _ty.Union[_ty.Mapping[Var, Val], _ty.Iterable[_ty.Tuple[Var, Val]]]
 
 # =============================================================================
 # Function parameter/return helpers
 # =============================================================================
-EXCLUDIFY = (str, dict)
+EXCLUDIFY = (str, dict, cn.UserDict)
+
+
+def _is_iter(arg: _ty.Any) -> bool:
+    """Is it a non-exluded iterable?"""
+    return isinstance(arg, cn.abc.Iterable) and not isinstance(arg, EXCLUDIFY)
 
 
 def tuplify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.Tuple[Var, ...]:
@@ -40,12 +45,10 @@ def tuplify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.Tuple[Var, ...]:
         Number of times to put `arg` in `tuple`, default: 1. Not used for
         conversion of iterables.
     """
-    if isinstance(arg, cn.abc.Iterable) and not isinstance(arg, EXCLUDIFY):
-        return tuple(arg)
-    return (arg,) * num
+    return tuple(arg) if _is_iter(arg) else (arg,) * num
 
 
-def untuplify(arg: _ty.Tuple[Var, ...]) -> InstanceOrTuple[Var]:
+def untuplify(arg: _ty.Sequence[Var]) -> InstanceOrSeq[Var]:
     """Unpack tuple before returning.
 
     If `tuple` has a single element, return that. If empty, return `None`.
@@ -77,9 +80,7 @@ def listify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.List[Var]:
         Number of times to put `arg` in `list`, default: 1. Not used for
         conversion of iterables.
     """
-    if isinstance(arg, cn.abc.Iterable) and not isinstance(arg, EXCLUDIFY):
-        return list(arg)
-    return [arg] * num
+    return list(arg) if _is_iter(arg) else [arg] * num
 
 
 def setify(arg: InstanceOrIterable[Var]) -> _ty.Set[Var]:
@@ -93,9 +94,7 @@ def setify(arg: InstanceOrIterable[Var]) -> _ty.Set[Var]:
     arg
         Thing to be turned / put into a `set`.
     """
-    if isinstance(arg, cn.abc.Iterable) and not isinstance(arg, EXCLUDIFY):
-        return set(arg)
-    return {arg}
+    return set(arg) if _is_iter(arg) else {arg}
 
 
 def unsetify(arg: _ty.Set[Var]) -> InstanceOrSet[Var]:
@@ -114,6 +113,27 @@ def unsetify(arg: _ty.Set[Var]) -> InstanceOrSet[Var]:
     if len(arg) == 1:
         return arg.pop()
     return arg
+
+
+def repeatify(arg: InstanceOrIterable[Var], *opt, **kwds) -> _ty.Iterable[Var]:
+    """Repeat argument if not iterable
+
+    Parameters
+    ----------
+    arg : InstanceOrIterable[Var]
+        Argument to repeat
+
+    Returns
+    -------
+    repeated : Iterable[Var]
+        Iterable version of `arg`.
+    """
+    return arg if _is_iter(arg) else _it.repeat(arg, *opt, **kwds)
+
+
+unlistify = untuplify
+unlistify.__name__ = 'unlistify'
+unlistify.__doc__ = untuplify.__doc__.replace('tuple', 'list')
 
 
 def seq_get(seq: _ty.Sequence[Val], ind: int,
@@ -140,11 +160,6 @@ def seq_get(seq: _ty.Sequence[Val], ind: int,
         return default
 
 
-unlistify = untuplify
-unlistify.__name__ = 'unlistify'
-unlistify.__doc__ = untuplify.__doc__.replace('tuple', 'list')
-
-
 def map_join(func: _ty.Callable[[Var], _ty.Iterable[Val]],
              iterable: _ty.Iterable[Var]) -> _ty.List[Val]:
     """Like map, but concatenates iterable outputs
@@ -158,7 +173,15 @@ def map_join(func: _ty.Callable[[Var], _ty.Iterable[Val]],
 
 
 class ZipSequences(cn.abc.Sequence):
-    """Like zip, but indexable and reversible
+    """Like zip, but sized, indexable and reversible
+
+    Parameters
+    ----------
+    sequence1, sequence2, ...
+        sequences to iterate over
+    usemax : bool, keyword only, default=False
+        If True, we continue until all sequences are exhausted. If False, we
+        stop when we reach the end of the shortest sequence.
     """
     _seqs: _ty.Tuple[_ty.Sequence, ...]
     _max: bool
@@ -175,12 +198,20 @@ class ZipSequences(cn.abc.Sequence):
     def __iter__(self):
         return iter(zip(*self._seqs))
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: _ty.Union[int, slice]):
         return untuplify(tuple(obj[index] for obj in self._seqs))
 
-    def __reversed__(self):
+    def __reversed__(self) -> ZipSequences:
         return ZipSequences(*(reversed(obj) for obj in self._seqs),
                             usemax=self._max)
+
+    def __repr__(self) -> str:
+        return type(self).__name__ + repr(self._seqs)
+
+    def __str__(self) -> str:
+        seqs = ','.join(type(s).__name__ for s in self._seqs)
+        return type(self).__name__ + f'({seqs})'
+
 
 
 class Interval(cn.abc.Container):
@@ -415,6 +446,7 @@ def is_inverse_dict(map1: _ty.Mapping, map2: _ty.Mapping) -> bool:
     return all(map2[v] == k for k, v in map1.items())
 
 
+# pylint: disable=too-many-ancestors
 class PairedDict(cn.UserDict):
     """One direction of bidirectional mapping
 
@@ -601,6 +633,7 @@ class PairedDict(cn.UserDict):
         return fwd, bwd
 
 
+# pylint: disable=too-many-ancestors
 class BijectiveMap(cn.ChainMap):
     """Bidirectional mapping
 

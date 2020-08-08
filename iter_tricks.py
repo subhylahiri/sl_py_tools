@@ -111,24 +111,29 @@ Examples
 """
 # current_module = __import__(__name__)
 __all__ = [
+    'b_', 'dc_', 'db_', 'rdc_', 'rdb_', 'udc_', 'udb_', 'urdc_', 'urdb_',
+    'ZipSequences', 'Batch', 'Batched', 'BatchEnum',
     'DisplayCount', 'DisplayBatch', 'DisplayEnumerate', 'DisplayZip',
-    'zenumerate', 'batch',
+    'DisplayBatched', 'DisplayBatchEnum', 'zenumerate', 'batch', 'batched',
+    'batchenum', 'rzenumerate', 'rbatch', 'rbatched', 'rbatchenum',
+    'dbatch', 'dcount', 'denumerate', 'dzip', 'dbatched', 'dbatchenum',
+    'rdcount', 'rdbatch', 'rdenumerate', 'rdzip', 'rdbatched', 'rdbatchenum',
+    'undcount', 'undbatch', 'undenumerate', 'undzip', 'undbatched',
+    'undbatchenum', 'unrdcount', 'unrdbatch', 'unrdenumerate', 'unrdzip',
+    'unrdbatched', 'unrdbatchenum', 'delay_warnings', 'erange', 'sr_',
     'range_to_slice', 'slice_to_range', 'SliceRange', 'srange',
-    'dbatch', 'dcount', 'denumerate', 'dzip',
-    'rdcount', 'rdbatch', 'rdenumerate', 'rdzip',
-    'undcount', 'undbatch', 'undenumerate', 'undzip',
-    'delay_warnings', 'erange', 'sr_',
     ]
-import itertools
 import sys
 from typing import Sequence
 
 from . import _iter_base as _it
-from .containers import ZipSequences, tuplify
+from .containers import ZipSequences
 from .display_tricks import delay_warnings
-from .iter_disp import DisplayBatch, DisplayCount, DisplayEnumerate, DisplayZip
+from .iter_disp import (DisplayBatch, DisplayCount, DisplayEnumerate,
+                        DisplayZip, DisplayBatched, DisplayBatchEnum)
 from .range_tricks import erange, sr_
-from .slice_tricks import SliceRange, range_to_slice, slice_to_range, srange
+from .slice_tricks import (Batch, SliceRange, range_to_slice, slice_to_range,
+                           srange, Batched, BatchEnum)
 
 # from .arg_tricks import Export as _Export
 
@@ -139,6 +144,11 @@ assert sys.version_info[:2] >= (3, 6)
 # =============================================================================
 # Convenience functions
 # =============================================================================
+
+
+def _sgn(val: int) -> int:
+    """Sign of argument"""
+    return val // max(1, abs(val))
 
 
 @_it.and_reverse
@@ -163,7 +173,8 @@ def zenumerate(*iterables: _it.Iterable, start=0, step=1) -> ZipSequences:
     return ZipSequences(counter, *iterables)
 
 
-def batch(*sliceargs: _it.SliceArg, **kwargs: _it.SliceArg):
+@_it.and_reverse
+def batch(*sliceargs: _it.SliceArg, **kwargs: _it.SliceArg) -> Batch:
     """Iterate over batches
 
     Similar to `range` object, except at each iteration it yields a `slice`
@@ -187,7 +198,7 @@ def batch(*sliceargs: _it.SliceArg, **kwargs: _it.SliceArg):
     ------
     batch_slice
         slice object that starts at current counter and stops at the next value
-        with step size 1.
+        with step size `sgn(step)`.
 
     Example
     -------
@@ -197,51 +208,11 @@ def batch(*sliceargs: _it.SliceArg, **kwargs: _it.SliceArg):
     >>> for s in batch(0, len(x), 10):
     >>>     y[s] = np.linalg.eigvals(x[s])
     """
-    start, stop, step = _it.extract_slice(sliceargs, kwargs)
-    for i in erange(start, stop, step):
-        yield slice(i, i+step, 1)
+    return Batch(*sliceargs, **kwargs)
 
 
-def rbatch(*sliceargs: _it.SliceArg, **kwargs: _it.SliceArg):
-    """Iterate backwards over batches
-
-    Similar to reversed `range` object, except at each iteration it yields a
-    `slice` covering that step.
-
-    Parameters
-    ----------
-    start : int or None, optional, default=0
-        minimum counter value (inclusive).
-    stop : int or None, optional, default=None
-        maximum value of counter (exclusive).
-    step : int or None, optional, default=1
-        size of batch of counter after each loop.
-
-    `start`, `stop` and `step` behave like `slice` indices when omitted.
-    To specify `start/step` without setting `stop`, set `stop` to `None`.
-    To specify `step` without setting `start`, set `start` to 0 or `None`.
-    Or use keyword arguments.
-
-    Yields
-    ------
-    batch_slice
-        slice object that starts at current counter and stops at the next value
-        with step size 1.
-
-    Example
-    -------
-    >>> import numpy as np
-    >>> x = np.random.rand(1000, 3, 3)
-    >>> y = np.empty((1000, 3), dtype = complex)
-    >>> for s in batch(0, len(x), 10):
-    >>>     y[s] = np.linalg.eigvals(x[s])
-    """
-    start, stop, step = _it.extract_slice(sliceargs, kwargs)
-    for i in reversed(erange(start, stop, step)):
-        yield slice(i, i-step, -1)
-
-
-def batched(step: int, *sequences: Sequence, usemax=True):
+@_it.and_reverse
+def batched(step: int, *sequences: Sequence, usemax: bool = True) -> Batched:
     """Iterate over chunks of sequence(s)
 
     Similar to `zip` object, except at each iteration it yields a slice of the
@@ -268,15 +239,14 @@ def batched(step: int, *sequences: Sequence, usemax=True):
     >>> import numpy as np
     >>> x = np.random.rand(1000, 3, 3)
     >>> y = np.empty((1000, 3), dtype = complex)
-    >>> for xx, yy in batchenum(10, x, y):
+    >>> for xx, yy in batched(10, x, y):
     >>>     yy[...] = np.linalg.eigvals(xx)
     """
-    seqs = ZipSequences(*sequences, usemax=usemax)
-    for slc in batch(0, len(seqs), step):
-        yield seqs[slc]
+    return Batched(step, *sequences, usemax=usemax)
 
 
-def batchenum(step: int, *sequences: Sequence, usemax=True):
+@_it.and_reverse
+def batchenum(step: int, *seqs: Sequence, usemax: bool = True) -> BatchEnum:
     """Iterate over chunks of sequence(s)
 
     Similar to `enumerate` object, except at each iteration it yields a slice
@@ -310,9 +280,7 @@ def batchenum(step: int, *sequences: Sequence, usemax=True):
     >>> for ss, xx in batchenum(10, x):
     >>>     y[ss] = np.linalg.eigvals(xx)
     """
-    seqs = ZipSequences(*sequences, usemax=usemax)
-    for slc in batch(0, len(seqs), step):
-        yield (slc,) + tuplify(seqs[slc])
+    return BatchEnum(step, *seqs, usemax=usemax)
 
 
 # =============================================================================
@@ -549,7 +517,9 @@ def dbatch(*args: _it.DSliceArg, **kwargs) -> DisplayBatch:
     return DisplayBatch(*args, **kwargs)
 
 
-def dbatched(name: str, step: int, *sequences: Sequence, usemax=True):
+@_it.and_reverse
+def dbatched(name: str, step: int, *sequences: Sequence, usemax=True, **kwds
+             ) -> DisplayBatched:
     """Iterate over chunks of sequence(s), with counter display
 
     Similar to `zip` object, except at each iteration it yields a slice of the
@@ -578,15 +548,15 @@ def dbatched(name: str, step: int, *sequences: Sequence, usemax=True):
     >>> import numpy as np
     >>> x = np.random.rand(1000, 3, 3)
     >>> y = np.empty((1000, 3), dtype = complex)
-    >>> for xx, yy in batchenum('xy', 10, x, y):
+    >>> for xx, yy in batched('xy', 10, x, y):
     >>>     yy[...] = np.linalg.eigvals(xx)
     """
-    seqs = ZipSequences(*sequences, usemax=usemax)
-    for slc in dbatch(name, 0, len(seqs), step):
-        yield seqs[slc]
+    return DisplayBatched(name, step, *sequences, usemax=usemax, **kwds)
 
 
-def dbatchenum(name: str, step: int, *sequences: Sequence, usemax=True):
+@_it.and_reverse
+def dbatchenum(name: str, step: int, *sequences: Sequence, usemax=True, **kwds
+               ) -> DisplayBatchEnum:
     """Iterate over chunks of sequence(s), with counter display
 
     Similar to `enumerate` object, except at each iteration it yields a slice
@@ -595,6 +565,8 @@ def dbatchenum(name: str, step: int, *sequences: Sequence, usemax=True):
 
     Parameters
     ----------
+    name : str
+        name of counter used for prefix.
     step : int
         increment of counter after each loop.
     sequence1, sequence2, ...
@@ -605,8 +577,6 @@ def dbatchenum(name: str, step: int, *sequences: Sequence, usemax=True):
 
     Yields
     ------
-    name : str
-        name of counter used for prefix.
     batch_slice
         slice object that starts at current counter and stops at the next value
         with step size 1.
@@ -619,37 +589,43 @@ def dbatchenum(name: str, step: int, *sequences: Sequence, usemax=True):
     >>> import numpy as np
     >>> x = np.random.rand(1000, 3, 3)
     >>> y = np.empty((1000, 3), dtype = complex)
-    >>> for ss, xx in batchenum('ss', 10, x):
+    >>> for ss, xx in dbatchenum('ss', 10, x):
     >>>     y[ss] = np.linalg.eigvals(xx)
     """
-    seqs = ZipSequences(*sequences, usemax=usemax)
-    for slc in dbatch(name, 0, len(seqs), step):
-        yield (slc,) + tuplify(seqs[slc])
+    return DisplayBatchEnum(name, step, *sequences, usemax=usemax, **kwds)
 
 
 # pylint: disable=invalid-name
 # =============================================================================
 # Reversed iterator factories
 # =============================================================================
+rzenumerate = zenumerate.rev
+rbatch = batch.rev
+rbatched = batched.rev
+rbatchenum = batchenum.rev
+
 rdcount = dcount.rev
 rdbatch = dbatch.rev
 rdenumerate = denumerate.rev
 rdzip = dzip.rev
-rzenumerate = zenumerate.rev
-
+rdbatched = dbatched.rev
+rdbatchenum = dbatchenum.rev
 # ============================================================================
 # Non-displaying iterator functions
 # ============================================================================
 undcount = _it.without_disp(erange)
 undbatch = _it.without_disp(batch)
 undenumerate = _it.without_disp(zenumerate)
-undzip = _it.without_disp(zip)
+undzip = _it.without_disp(ZipSequences)
+undbatched = _it.without_disp(batched)
+undbatchenum = _it.without_disp(batchenum)
 
 unrdcount = undcount.rev
 unrdbatch = undbatch.rev
 unrdenumerate = undenumerate.rev
 unrdzip = undzip.rev
-
+unrdbatched = undbatched.rev
+unrdbatchenum = undbatchenum.rev
 # =============================================================================
 # Slice iterator factories
 # =============================================================================

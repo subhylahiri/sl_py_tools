@@ -158,6 +158,8 @@ class ExtendedRange(RangeCollectionMixin):
         super().__init__()
         self.start, self.stop, self.step = _ib.extract_slice(args, kwds)
         self.start, self.stop, self.step = range_args_def(self)
+        if self.step == 0:
+            raise ValueError("step cannot be 0.")
         if _isinf(self):
             self._iter = itertools.count(self.start, self.step)
         else:
@@ -171,7 +173,7 @@ class ExtendedRange(RangeCollectionMixin):
             return self._iter.index(value)
         return super().index(value)
 
-    def __iter__(self) -> ExtendedRange:
+    def __iter__(self) -> Union[range, itertools.count]:
         return iter(self._iter)
 
     def __next__(self) -> int:
