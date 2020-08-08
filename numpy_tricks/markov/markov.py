@@ -6,11 +6,11 @@ import numpy as np
 import numpy_linalg as la
 
 from .. import logic as lgc
-from ._helpers import stochastify_c, stochastify_d, num_param
+from ._helpers import stochastify_c, stochastify_d, num_param, stochastify_pd
 from .params import params_to_mat
 
 RNG: np.random.Generator = np.random.default_rng()
-assert any((True, stochastify_c, stochastify_d))
+assert any((True, stochastify_c))
 # =============================================================================
 
 
@@ -52,6 +52,34 @@ def rand_trans(nst: int, npl: int = 1, sparsity: float = 1.,
         ind = RNG.random(params.shape)
         params[ind > sparsity] = 0.
     return params_to_mat(params, **kwds)
+
+
+def rand_trans_d(nst: int, npl: int = 1, sparsity: float = 1.,
+                 **kwds) -> la.lnarray:
+    """
+    Make a random transition matrix (discrete time).
+
+    Parameters
+    ----------
+    n : int
+        total number of states
+    npl : int
+        number of matrices
+    sparsity : float, optional
+        sparsity, by default 1
+
+    Returns
+    -------
+    mat : la.lnarray
+        transition matrix
+    """
+    if any(kwds.get(opt, False) for opt in ('uniform', 'serial', 'ring')):
+        trans = rand_trans(nst, npl, sparsity, **kwds)
+        stochastify_pd(trans)
+        return trans
+    trans = RNG.random((npl, nst, nst)).squeeze()
+    stochastify_d(trans)
+    return trans
 
 
 def calc_peq(rates: np.ndarray,
