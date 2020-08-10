@@ -13,25 +13,20 @@ import typing as _ty
 
 from . import arg_tricks as _ag
 
-Var = _ty.TypeVar('Var')
-Val = _ty.TypeVar('Val')
-InstanceOrIterable = _ty.Union[Var, _ty.Iterable[Var]]
-InstanceOrSeq = _ty.Union[Var, _ty.Sequence[Var]]
-InstanceOrSet = _ty.Union[Var, _ty.Set[Var]]
-Dictable = _ty.Union[_ty.Mapping[Var, Val], _ty.Iterable[_ty.Tuple[Var, Val]]]
-
 # =============================================================================
 # Function parameter/return helpers
 # =============================================================================
 EXCLUDIFY = (str, dict, cn.UserDict)
 
 
-def _is_iter(arg: _ty.Any) -> bool:
+def _is_iter(arg: _ty.Any, exclude: Excludable = ()) -> bool:
     """Is it a non-exluded iterable?"""
-    return isinstance(arg, cn.abc.Iterable) and not isinstance(arg, EXCLUDIFY)
+    return (isinstance(arg, cn.abc.Iterable)
+            and not isinstance(arg, EXCLUDIFY + exclude))
 
 
-def tuplify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.Tuple[Var, ...]:
+def tuplify(arg: InstanceOrIter[Var], num: int = 1, exclude: Excludable = ()
+            ) -> _ty.Tuple[Var, ...]:
     """Make argument a tuple.
 
     If it is an iterable (except `str`, `dict`), it is converted to a `tuple`.
@@ -39,25 +34,105 @@ def tuplify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.Tuple[Var, ...]:
 
     Parameters
     ----------
-    arg
+    arg : Var or Iterable[Var]
         Thing to be turned / put into a `tuple`.
     num : int, optional
         Number of times to put `arg` in `tuple`, default: 1. Not used for
         conversion of iterables.
+    exclude : Tuple[Type, ...], optional
+        Additional iterable types to exclude from conversion, by default `()`.
+
+    Returns
+    -------
+    tuplified : Tuple[Var, ...]
+        Tuple containing `arg`.
     """
-    return tuple(arg) if _is_iter(arg) else (arg,) * num
+    return tuple(arg) if _is_iter(arg, exclude) else (arg,) * num
 
 
-def untuplify(arg: _ty.Sequence[Var]) -> InstanceOrSeq[Var]:
-    """Unpack tuple before returning.
+def listify(arg: InstanceOrIter[Var], num: int = 1, exclude: Excludable = ()
+            ) -> _ty.List[Var]:
+    """Make argument a list.
 
-    If `tuple` has a single element, return that. If empty, return `None`.
-    Otherwise return the `tuple`.
+    If it is an iterable (except `str`, `dict`), it is converted to a `list`.
+    Otherwise, it is placed in a `list`.
 
     Parameters
     ----------
-    arg
-        `tuple` to be unpacked.
+    arg : Var or Iterable[Var]
+        Thing to be turned / put into a `list`.
+    num : int, optional
+        Number of times to put `arg` in `list`, default: 1. Not used for
+        conversion of iterables.
+    exclude : Tuple[Type, ...], optional
+        Additional iterable types to exclude from conversion, by default `()`.
+
+    Returns
+    -------
+    listified : List[Var, ...]
+        List containing `arg`.
+    """
+    return list(arg) if _is_iter(arg, exclude) else [arg] * num
+
+
+def setify(arg: InstanceOrIter[Var], exclude: Excludable = ()) -> _ty.Set[Var]:
+    """Make argument a set.
+
+    If it is an iterable (except `str`, `dict`), it is converted to a `set`.
+    Otherwise, it is placed in a `set`.
+
+    Parameters
+    ----------
+    arg : Var or Iterable[Var]
+        Thing to be turned / put into a `set`.
+    exclude : Tuple[Type, ...], optional
+        Additional iterable types to exclude from conversion, by default `()`.
+
+    Returns
+    -------
+    setified : Set[Var, ...]
+        Set containing `arg`.
+    """
+    return set(arg) if _is_iter(arg, exclude) else {arg}
+
+
+def repeatify(arg: InstanceOrIter[Var], times: _ty.Optional[int] = None,
+              exclude: Excludable = ()) -> _ty.Iterable[Var]:
+    """Repeat argument if not iterable
+
+    Parameters
+    ----------
+    arg : Var or Iterable[Var]
+        Argument to repeat
+    times : int, optional
+        Maximum number of times to repeat, by default `None`.
+    exclude : Tuple[Type, ...], optional
+        Additional iterable types to exclude from conversion, by default `()`.
+
+    Returns
+    -------
+    repeated : Iterable[Var]
+        Iterable version of `arg`.
+    """
+    opt = _ag.default_non_eval(times, tuple, ())
+    return arg if _is_iter(arg, exclude) else _it.repeat(arg, *opt)
+
+
+def unseqify(arg: _ty.Sequence[Var]) -> _ty.Optional[InstanceOrSeq[Var]]:
+    """Unpack sequence before returning, if not longer than 1.
+
+    If a sequence has a single element, return that. If empty, return `None`.
+    Otherwise return the sequence.
+
+    Parameters
+    ----------
+    arg : Sequence[Var]
+        Sequence to be unpacked.
+
+    Returns
+    -------
+    val : Sequence[Var] or Var or None
+        The sequence or its contents (if there are not more than one).
     """
     if len(arg) == 0:
         return None
@@ -66,47 +141,21 @@ def untuplify(arg: _ty.Sequence[Var]) -> InstanceOrSeq[Var]:
     return arg
 
 
-def listify(arg: InstanceOrIterable[Var], num: int = 1) -> _ty.List[Var]:
-    """Make argument a list.
-
-    If it is an iterable (except `str`, `dict`), it is converted to a `list`.
-    Otherwise, it is placed in a `list`.
-
-    Parameters
-    ----------
-    arg
-        Thing to be turned / put into a `list`.
-    num : int, optional
-        Number of times to put `arg` in `list`, default: 1. Not used for
-        conversion of iterables.
-    """
-    return list(arg) if _is_iter(arg) else [arg] * num
-
-
-def setify(arg: InstanceOrIterable[Var]) -> _ty.Set[Var]:
-    """Make argument a set.
-
-    If it is an iterable (except `str`, `dict`), it is converted to a `set`.
-    Otherwise, it is placed in a `set`.
-
-    Parameters
-    ----------
-    arg
-        Thing to be turned / put into a `set`.
-    """
-    return set(arg) if _is_iter(arg) else {arg}
-
-
-def unsetify(arg: _ty.Set[Var]) -> InstanceOrSet[Var]:
-    """Unpack set before returning.
+def unsetify(arg: _ty.Set[Var]) -> _ty.Optional[InstanceOrSet[Var]]:
+    """Unpack set before returning, if not longer than 1.
 
     If `set` has a single element, return that. If empty, return `None`.
     Otherwise return the `set`.
 
     Parameters
     ----------
-    arg
+    arg : Set[Var]
         `set` to be unpacked.
+
+    Returns
+    -------
+    val : Set[Var] or Var or None
+        The set or its contents (if there are not more than one).
     """
     if len(arg) == 0:
         return None
@@ -115,28 +164,7 @@ def unsetify(arg: _ty.Set[Var]) -> InstanceOrSet[Var]:
     return arg
 
 
-def repeatify(arg: InstanceOrIterable[Var], *opt, **kwds) -> _ty.Iterable[Var]:
-    """Repeat argument if not iterable
-
-    Parameters
-    ----------
-    arg : InstanceOrIterable[Var]
-        Argument to repeat
-
-    Returns
-    -------
-    repeated : Iterable[Var]
-        Iterable version of `arg`.
-    """
-    return arg if _is_iter(arg) else _it.repeat(arg, *opt, **kwds)
-
-
-unlistify = untuplify
-unlistify.__name__ = 'unlistify'
-unlistify.__doc__ = untuplify.__doc__.replace('tuple', 'list')
-
-
-def seq_get(seq: _ty.Sequence[Val], ind: int,
+def seq_get(seq: _ty.Sequence[Val], ind: _ty.Union[int, slice],
             default: _ty.Optional[Val] = None) -> Val:
     """Get an element from a sequence, or default if index is out of range
 
@@ -144,7 +172,7 @@ def seq_get(seq: _ty.Sequence[Val], ind: int,
     ----------
     seq : Sequence[Val]
         The sequence from which we get the element.
-    ind : int
+    ind : int or slice
         The index of the element we want from `seq`.
     default : Optional[Val], optional
         Value to return if `ind` is out of range for `seq`, by default `None`.
@@ -182,6 +210,10 @@ class ZipSequences(cn.abc.Sequence):
     usemax : bool, keyword only, default=False
         If True, we continue until all sequences are exhausted. If False, we
         stop when we reach the end of the shortest sequence.
+
+    If sequences are not of equal length, the reversed iterator will not yield
+    the same tuples as the original iterator. Each sequence is reversed as is,
+    without omitting end-values or adding fill-values.
     """
     _seqs: _ty.Tuple[_ty.Sequence, ...]
     _max: bool
@@ -196,13 +228,17 @@ class ZipSequences(cn.abc.Sequence):
         return min(len(obj) for obj in self._seqs)
 
     def __iter__(self):
+        if self._max:
+            return iter(_it.zip_longest(*self._seqs))
         return iter(zip(*self._seqs))
 
     def __getitem__(self, index: _ty.Union[int, slice]):
-        return untuplify(tuple(obj[index] for obj in self._seqs))
+        if self._max:
+            return unseqify(tuple(seq_get(obj, index) for obj in self._seqs))
+        return unseqify(tuple(obj[index] for obj in self._seqs))
 
     def __reversed__(self) -> ZipSequences:
-        return ZipSequences(*(reversed(obj) for obj in self._seqs),
+        return ZipSequences(*(obj[::-1] for obj in self._seqs),
                             usemax=self._max)
 
     def __repr__(self) -> str:
@@ -231,7 +267,7 @@ class Interval(cn.abc.Container):
     inclusive: _ty.List[bool]
 
     def __init__(self, start: _num.Real, stop: _num.Real,
-                 inclusive: InstanceOrIterable[bool] = (True, False)):
+                 inclusive: InstanceOrIter[bool] = (True, False)):
         if start > stop:
             raise ValueError(f"start={start} > stop={stop}")
         self.start = start
@@ -681,3 +717,17 @@ class BijectiveMap(cn.ChainMap):
     def bwd(self) -> PairedDict:
         """The reverse mapping"""
         return self.maps[1]
+
+
+# =============================================================================
+# Hints, aliases
+# =============================================================================
+untuplify = unseqify
+unlistify = unseqify
+Var = _ty.TypeVar('Var')
+Val = _ty.TypeVar('Val')
+InstanceOrIter = _ty.Union[Var, _ty.Iterable[Var]]
+InstanceOrSeq = _ty.Union[Var, _ty.Sequence[Var]]
+InstanceOrSet = _ty.Union[Var, _ty.Set[Var]]
+Dictable = _ty.Union[_ty.Mapping[Var, Val], _ty.Iterable[_ty.Tuple[Var, Val]]]
+Excludable = _ty.Tuple[_ty.Type[_ty.Iterable], ...]
