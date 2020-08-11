@@ -195,13 +195,20 @@ def map_join(func: _ty.Callable[[Var], _ty.Iterable[Val]],
     return list(_it.chain.from_iterable(map(func, iterable)))
 
 
+def _rev_seq(seq: _ty.Reversible) -> _ty.Reversible:
+    """reverse a sequence, leaving it a sequence if possible"""
+    if isinstance(seq, cn.abc.Sequence):
+        return seq[::-1]
+    return reversed(seq)
+
+
 # =============================================================================
 # Classes
 # =============================================================================
 
 
 class ZipSequences(cn.abc.Sequence):
-    """Like zip, but sized, indexable and reversible
+    """Like zip, but sized, indexable and reversible (if arguments are).
 
     Parameters
     ----------
@@ -214,6 +221,9 @@ class ZipSequences(cn.abc.Sequence):
     If sequences are not of equal length, the reversed iterator will not yield
     the same tuples as the original iterator. Each sequence is reversed as is,
     without omitting end-values or adding fill-values.
+
+    Indexing with an integer returns a (tuple of) sequence content(s).
+    Indexing with a slice returns a (tuple of) sub-sequence(s).
     """
     _seqs: _ty.Tuple[_ty.Sequence, ...]
     _max: bool
@@ -238,7 +248,7 @@ class ZipSequences(cn.abc.Sequence):
         return unseqify(tuple(obj[index] for obj in self._seqs))
 
     def __reversed__(self) -> ZipSequences:
-        return ZipSequences(*(obj[::-1] for obj in self._seqs),
+        return ZipSequences(*(_rev_seq(obj) for obj in self._seqs),
                             usemax=self._max)
 
     def __repr__(self) -> str:
@@ -247,7 +257,6 @@ class ZipSequences(cn.abc.Sequence):
     def __str__(self) -> str:
         seqs = ','.join(type(s).__name__ for s in self._seqs)
         return type(self).__name__ + f'({seqs})'
-
 
 
 class Interval(cn.abc.Container):

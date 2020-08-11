@@ -197,6 +197,23 @@ class ExtendedRange(RangeCollectionMixin):
     def __repr__(self) -> str:
         return "erange" + range_repr(self)
 
+    def __getitem__(self, ind: Union[_ig.Eint, slice]
+                    ) -> Union[_ig.Eint, ExtendedRange]:
+        if isinstance(ind, _ig.Eint):
+            val = _nth_value(self, ind)
+            if val is None:
+                raise IndexError(f'{ind} out of range when len={len(self)}')
+            return val
+        start, stop, step = range_args(ind)
+        step = _ag.default(step, 1)
+        if step < 0:
+            return self.__reversed__()[start:stop:-step]
+        start, stop, step = range_args_def(ind)
+        nstart, nstop = _nth_value(self, start), _nth_value(self, stop)
+        nstart, nstop = _ag.defaults((nstart, nstop), (self.start, self.stop))
+        nstep = step * self.step
+        return type(self)(nstart, nstop, nstep)
+
 
 erange = ExtendedRange
 sr_ = _ib.SliceToIter(erange)
@@ -226,7 +243,7 @@ def range_args_def(the_range: RangeIsh) -> RangeArgs:
     Returns
     -------
     start : int or None
-        Start of range, with default 0.
+        Start of range, with default 0/inf for positive/negative step.
     stop : int or None
         Past end of range, with default sign(step) * inf.
     step : int
@@ -236,7 +253,7 @@ def range_args_def(the_range: RangeIsh) -> RangeArgs:
     step = _ag.default(step, 1)
     if step == 0:
         raise ValueError('range step cannot be zero')
-    start = _ag.default(start, 0)
+    start = _ag.default(start, 0 if step > 0 else _ig.inf)
     stop = _ag.default(stop, _ig.inf * step)
     if (stop - start) * step < 0:
         stop = start
@@ -357,6 +374,15 @@ def range_div(left: RangeOrNum, right: Number, step: bool = True) -> erange:
 # =============================================================================
 # Utilities
 # =============================================================================
+
+
+def _nth_value(rng: RangeIsh, ind: _ig.Eint) -> _ig.Eint:
+    """Get n'th value from iterating over range"""
+    start, stop, step = range_args_def(rng)
+    val = (start if ind >= 0 else stop) + ind * step
+    if (val - start) * step < 0 or (stop - val) * step <= 0:
+        return None
+    return val
 
 # -----------------------------------------------------------------------------
 # Tests
