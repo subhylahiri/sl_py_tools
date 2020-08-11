@@ -89,7 +89,7 @@ class _DisplayState():
     def begin(self, identifier: str, *args, **kwds):
         """Setup for debugging
         """
-        self.name = self.name.format(identifier)
+        self.name = self.name.format(identifier *args, **kwds)
         self.nactive += 1
         self.nest_level = self.nactive
         self.check()
@@ -107,7 +107,7 @@ class _DisplayState():
     def end(self, *args, **kwds):
         """Clean up debugging state
         """
-        self.check()
+        self.check(*args, **kwds)
         self.nactive -= 1
 
 
@@ -410,7 +410,7 @@ def delay_warnings(collect=True, print_after=True):
         when the context manager exits. Has no effect if `collect` is False.
     """
     logging.captureWarnings(True)
-    warn_log_stream = None
+    warn_log_stream, warnlogger, warn_handler = None, None, None
     if collect:
         warn_log_stream = io.StringIO()
         warn_handler = logging.StreamHandler(warn_log_stream)

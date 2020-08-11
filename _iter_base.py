@@ -138,12 +138,17 @@ def without_disp(it_func: Callable[..., Iterable]) -> Callable[..., Iterable]:
     Returns
     -------
     no_disp_it_func : Callable
-        wrapper for `it_func` that eats the name argument and passes the rest.
+        wrapper for `it_func`. It eats the `name` argument and passes the rest.
+        It also eats keywords `(offset, disp_step, addto, usemax)`.
     """
     @wraps(it_func)
     @and_reverse
     def no_disp_it_func(*args, **kwds):
         _, no_disp_args = extract_name(args, kwds)
+        kwds.pop('offset', None)
+        kwds.pop('disp_step', None)
+        kwds.pop('addto', None)
+        kwds.pop('usemax', None)
         return it_func(*no_disp_args, **kwds)
 
     return no_disp_it_func
