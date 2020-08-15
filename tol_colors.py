@@ -330,6 +330,9 @@ def tol_cset(colorset=None):
                           'light_cyan mint pear olive pale_grey black')
         the_cset = cset('#77AADD', '#EE8866', '#EEDD88', '#FFAABB', '#99DDFF',
                         '#44BB99', '#BBCC33', '#AAAA00', '#DDDDDD', '#000000')
+    else:
+        raise ValueError(f'Requested colorset, {colorset}, not defined, '
+                         f'known colorsets are {namelist}.')
     return the_cset
 
 

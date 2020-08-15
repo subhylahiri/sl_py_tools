@@ -23,11 +23,19 @@ def rc_fonts(family: str = 'serif'):
     mpl.rcParams['text.latex.preamble'] = "\\usepackage{amsmath,amssymb}"
 
 
-def rc_colours(cset: str = 'bright', cmap: str = 'rainbow_PuRd'):
+def rc_colours(cset: str = 'bright', cmap: str = 'YlOrBr',
+               reg: _ty.Tuple[str, ...] = ()):
     """Global line colour options.
     """
     prop_cycle = mpl.cycler(color=list(tol.tol_cset(cset)))
     mpl.rcParams['axes.prop_cycle'] = prop_cycle
+    for cmp in reg:
+        if cmp in tol.tol_cmap():
+            mpl.cm.register_cmap(cmp, tol.tol_cmap(cmp))
+        elif cmp in tol.tol_cset():
+            mpl.cm.register_cmap(cmp, tol.tol_cset(cmp))
+        else:
+            raise ValueError(f"Unknown colourmap {cmp}")
     mpl.cm.register_cmap(cmap, tol.tol_cmap(cmap))
     mpl.rcParams['image.cmap'] = cmap
 
@@ -176,12 +184,18 @@ def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
         Remove legend box?
     legendfont : bool, keyword only
         Change legend font size?
+    tickfont : bool, keyword only
+        Change tick-label font size?
+    tight : bool, keyword only
+        Apply tight_layout to figure?
     all : bool, keyword only
         Choice for any of the above that is unspecified, default: True
     titlefontsize : number, str, default: `fontsize`
         Font size for title.
     legendfontsize : number, str, default: `fontsize`
         Font size for legend entries.
+    tickfontsize : number, str, default: `fontsize // 2`
+        Font size for tick-labels.
     """
     allopts = kwds.pop('all', True)
     if axs is None:
@@ -198,6 +212,9 @@ def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
         titlefontsize = kwds.pop('titlefontsize', fontsize)
         axs.title.set_fontsize(titlefontsize)
         axs.title.set_fontfamily(fontfamily)
+    if kwds.pop('tickfont', allopts):
+        tickfontsize = kwds.pop('tickfontsize', fontsize // 2)
+        axs.tick_params(labelsize=tickfontsize)
     if axs.legend_ is None:
         kwds.pop('legendbox', allopts)
         kwds.pop('legendfont', allopts)
@@ -208,8 +225,10 @@ def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
         if kwds.pop('legendfont', allopts):
             legendfontsize = kwds.pop('legendfontsize', fontsize)
             adjust_legend_font(axs.legend_, size=legendfontsize)
+    tight = kwds.pop('tight', allopts)
     axs.set(**kwds)
-    axs.figure.tight_layout()
+    if tight:
+        axs.figure.tight_layout()
 
 
 def adjust_legend_font(leg: mpl.legend.Legend, **kwds):
@@ -292,6 +311,7 @@ def centre_spines(axs: _ty.Optional[plt.Axes] = None,
     add_axes_arrows(axs, *arrow)
 
     # On both the x and y axes...
+    lab = []
     for axis, centre in zip([axs.xaxis, axs.yaxis], [centrex, centrey]):
         # Turn ticks
         axis.set_ticks_position('both')
@@ -299,11 +319,12 @@ def centre_spines(axs: _ty.Optional[plt.Axes] = None,
         # Hide the ticklabels at <centrex, centrey>
         formatter = CentredFormatter(centre)
         axis.set_major_formatter(formatter)
+        lab.append(formatter.format_data(centre))
 
     # Add offset ticklabels at <centrex, centrey> using annotation
     # (Should probably make these update when the plot is redrawn...)
     centre_tick = kwds.pop('centre_tick', 'both').lower()  # {both,x,y,none}
-    xlab, ylab = map(formatter.format_data, [centrex, centrey])
+    xlab, ylab = lab
     centre_labs = {'none': "", 'x': f"{xlab}", 'y': f"{ylab}",
                    'both': f"{xlab},{ylab}", 'paren': f"({xlab},{ylab})"}
     centre_label = centre_labs.get(centre_tick, "")
