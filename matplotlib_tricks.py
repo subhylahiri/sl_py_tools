@@ -157,7 +157,8 @@ def set_new_axlim(axs: plt.Axes,
         axs.set_xlim(lim)
 
 
-def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
+def clean_axes(axs: plt.Axes, fontsize: _ty.Union[int, str] = 20,
+               fontfamily: str = "sans-serif", **kwds):
     """Make axes look prettier
 
     All non-font size kewwords default to `True`.
@@ -197,38 +198,60 @@ def clean_axes(axs: plt.Axes, fontsize=20, fontfamily="sans-serif", **kwds):
     tickfontsize : number, str, default: `fontsize // 2`
         Font size for tick-labels.
     """
-    allopts = kwds.pop('all', True)
+    clean_kws = clean_axes_keys(kwds, fontsize)
     if axs is None:
         axs = plt.gca()
-    if kwds.pop('box', allopts):
+    if clean_kws['box']:
         axs.spines['top'].set_visible(False)
         axs.spines['right'].set_visible(False)
-    if kwds.pop('axisfont', allopts):
+    if clean_kws['axisfont']:
         axs.get_xaxis().get_label().set_fontsize(fontsize)
         axs.get_yaxis().get_label().set_fontsize(fontsize)
         axs.get_xaxis().get_label().set_fontfamily(fontfamily)
         axs.get_yaxis().get_label().set_fontfamily(fontfamily)
-    if kwds.pop('titlefont', allopts):
-        titlefontsize = kwds.pop('titlefontsize', fontsize)
-        axs.title.set_fontsize(titlefontsize)
+    if clean_kws['titlefont']:
+        axs.title.set_fontsize(clean_kws['titlefontsize'])
         axs.title.set_fontfamily(fontfamily)
-    if kwds.pop('tickfont', allopts):
-        tickfontsize = kwds.pop('tickfontsize', fontsize // 2)
-        axs.tick_params(labelsize=tickfontsize)
-    if axs.legend_ is None:
-        kwds.pop('legendbox', allopts)
-        kwds.pop('legendfont', allopts)
-        kwds.pop('legendfontsize', fontsize)
-    else:
-        if kwds.pop('legendbox', allopts):
+    if clean_kws['tickfont']:
+        axs.tick_params(labelsize=clean_kws['tickfontsize'])
+    if axs.legend_ is not None:
+        if clean_kws['legendbox']:
             axs.legend_.set_frame_on(False)
-        if kwds.pop('legendfont', allopts):
-            legendfontsize = kwds.pop('legendfontsize', fontsize)
-            adjust_legend_font(axs.legend_, size=legendfontsize)
-    tight = kwds.pop('tight', allopts)
+        if clean_kws['legendfont']:
+            adjust_legend_font(axs.legend_, size=clean_kws['legendfontsize'])
     axs.set(**kwds)
-    if tight:
+    if clean_kws['tight']:
         axs.figure.tight_layout()
+
+
+def clean_axes_keys(kwargs: _ty.Dict[str, _ty.Any],
+                    fontsize: _ty.Union[int, str] = 20
+                    ) -> _ty.Dict[str, _ty.Union[bool, int]]:
+    """Extract keywords applicable to clean_axes
+
+    Parameters
+    ----------
+    kwargs : Dict[str, _ty.Any]
+        Dictionary of keyword options. Those applicable to `clean_axes` will
+        be popped.
+
+    Returns
+    -------
+    clean_kws: Dict[str, Union[bool, int]]
+        Dictionary of keyword options used by `clean_axes`
+    """
+    clean_kws = {'titlefontsize': kwargs.pop('titlefontsize', fontsize),
+                 'legendfontsize': kwargs.pop('legendfontsize', fontsize)}
+    if isinstance(fontsize, int):
+        clean_kws['tickfontsize'] = kwargs.pop('tickfontsize', fontsize // 2)
+    else:
+        clean_kws['tickfontsize'] = kwargs.pop('tickfontsize', fontsize)
+
+    allopts = kwargs.pop('all', True)
+    for key in ('box', 'axisfont', 'titlefont', 'tickfont', 'legendbox',
+                'legendfont', 'tight'):
+        clean_kws[key] = kwargs.pop(key, allopts)
+    return clean_kws
 
 
 def adjust_legend_font(leg: mpl.legend.Legend, **kwds):
