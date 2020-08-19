@@ -136,7 +136,7 @@ def take_slice(array: np.ndarray, the_slice: slice, axis: int = None, **kwds):
     return np.take(array, slice_to_inds(the_slice, size), axis=axis, **kwds)
 
 
-def flattish(arr: np.ndarray, start: int = 0, stop: int = None) -> np.ndarray:
+def ravelaxes(arr: np.ndarray, start: int = 0, stop: int = None) -> np.ndarray:
     """Partial flattening.
 
     Flattens those axes in the range `[start:stop)`. If `start == stop` it will

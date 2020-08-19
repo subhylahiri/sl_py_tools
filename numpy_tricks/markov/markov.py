@@ -17,7 +17,7 @@ assert any((True, stochastify_c))
 def isstochastic_c(mat: la.lnarray, thresh: float = 1e-5) -> bool:
     """Are row sums zero?
     """
-    nonneg = mat.flattish(-2) >= -thresh
+    nonneg = mat.ravelaxes(-2) >= -thresh
     nonneg[..., ::mat.shape[-1]+1] = True
     return nonneg.all() and (np.fabs(mat.sum(axis=-1)) < thresh).all()
 

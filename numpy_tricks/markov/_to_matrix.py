@@ -285,7 +285,7 @@ def std_cascade_params_to_mat(params: np.ndarray, num_st: int,
     full = params**expn
     full[..., denom] /= (1 - params)
     # (...,2(n-1)) -> (...,2(n-1),...)
-    full = full.flattish(-2).moveaxis(-1, axis)
+    full = full.ravelaxes(-2).moveaxis(-1, axis)
     return cascade_params_to_mat(full, drn=drn, axis=axis, daxis=daxis)
 
 

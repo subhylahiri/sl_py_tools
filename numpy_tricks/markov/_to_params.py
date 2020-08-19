@@ -302,7 +302,7 @@ def std_cascade_mat_to_params(mat: ArrayType,
     axis = min(axs % mat.ndim for axs in axes)
     npt = mat.shape[axis] // 2
     # (...,2,n-1)
-    rates = rates.moveaxis(axis, -1).foldaxis(-1, (-1, 2*npt - 1))
+    rates = rates.moveaxis(axis, -1).unravelaxis(-1, (-1, 2*npt - 1))
     numer, denom = np.arange(1, npt), np.arange(npt, 2*npt - 1)
     if not grad:
         # (...,2,n-2) -> (...,2)
