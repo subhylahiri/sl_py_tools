@@ -380,6 +380,11 @@ def add_axes_arrows(axs: _ty.Optional[mpl.axes.Axes] = None,
         axs.spines['bottom'].set_path_effects([EndArrow()])
 
 
+# =============================================================================
+# Lines
+# =============================================================================
+
+
 def plot_equality(axs: mpl.axes.Axes,
                   line: _ty.Optional[mpl.lines.Line2D] = None,
                   npt=2, **kwds):
@@ -395,6 +400,10 @@ def plot_equality(axs: mpl.axes.Axes,
         number of points to use for equality line
     **kwds
         Passed to `plt.plot`.
+
+    See Also
+    --------
+    matplotlib.axes.Axes.axline([0, 0], [1, 1])
     """
     xlim = axs.get_xlim()
     ylim = axs.get_ylim()
@@ -409,6 +418,46 @@ def plot_equality(axs: mpl.axes.Axes,
         line.set_ydata(eq_vals)
         line.update(kwds)
     return line
+
+
+def stepify_data(boundaries: np.ndarray, values: np.ndarray,
+                 axis: _ty.Union[int, _ty.Sequence[int]] = -1
+                 ) -> _ty.Tuple[np.ndarray, np.ndarray]:
+    """Create data for a step plot
+
+    Parameters
+    ----------
+    boundaries : np.ndarray (N+1,)
+        Edges of flat regions in step plot.
+    values : np.ndarray (N,)
+        Heights of flat regions in step plot.
+    axis : int or Sequence[int], optional
+        Which axis the data sets lie along, applies to both `boundaries` and
+        `values` if a single number is given, by default -1
+
+    Returns
+    -------
+    xdata, ydata : [np.ndarray, np.ndarray], (2N,), (2N,)
+        Data for `plt.plot` to produce a step plot.
+
+    Raises
+    ------
+    ValueError
+         if `boundaries.shape[axis[0]] != values.shape[axis[1]] + 1`.
+    """
+    axis = _cn.tuplify(axis, 2)
+    if boundaries.shape[axis[0]] != values.shape[axis[1]] + 1:
+        raise ValueError(f"Length of `boundaries` along axis {axis[0]} should"
+                         + f"1 more than `values` along axis {axis[1]},\n"
+                         + f"but {boundaries.shape[axis[0]]} != "
+                         + f"{values.shape[axis[1]]} + 1.")
+    edges = np.moveaxis(boundaries, axis[0], -1)
+    heights = np.moveaxis(values, axis[1], -1)
+    xdata = np.stack((edges[..., :-1], edges[..., 1:]), axis=-1)
+    ydata = np.stack((heights, heights), axis=-1)
+    xdata = np.moveaxis(xdata.reshape(xdata.shape[:-2] + (-1,)), -1, axis[0])
+    ydata = np.moveaxis(ydata.reshape(ydata.shape[:-2] + (-1,)), -1, axis[1])
+    return xdata, ydata
 
 
 # =============================================================================
