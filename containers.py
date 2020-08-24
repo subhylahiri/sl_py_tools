@@ -195,6 +195,82 @@ def map_join(func: _ty.Callable[[Var], _ty.Iterable[Val]],
     return list(_it.chain.from_iterable(map(func, iterable)))
 
 
+def unique_nosort(seq: _ty.Iterable[_ty.Hashable]) -> _ty.List[_ty.Hashable]:
+    """Make a list of unique members, in the order of first appearance
+
+    Parameters
+    ----------
+    seq : Iterable[Hashable]
+        Sequence of items with repetition
+
+    Returns
+    -------
+    uniqued : List[Hashable]
+        List of items with repetitions removed
+    """
+    return list(dict.fromkeys(seq))
+
+
+@_cx.contextmanager
+def appended(seq: _ty.List[Val], *extra: Val) -> _ty.List[Val]:
+    """Context manager where list has additional items
+
+    Parameters
+    ----------
+    seq : List[Val]
+        Base List
+    *extra : Val
+        Appended to `seq` in context, then removed after
+
+    Yields
+    -------
+    extended : List[Val]
+        `seq` with extra items appended.
+
+    Notes
+    -----
+    It decides which elements to remove after the context based on length.
+    If any elements are inserted into/removed from the original elements,
+    this will be messed up.
+    """
+    before = len(seq)
+    try:
+        seq.extend(extra)
+        yield seq
+    finally:
+        del seq[before:]
+
+
+@_cx.contextmanager
+def extended(seq: _ty.List[Val], extra: _ty.Iterable[Val]) -> _ty.List[Val]:
+    """Context manager where list has additional items
+
+    Parameters
+    ----------
+    seq : List[Val]
+        Base List
+    extra : Iterable[Val]
+        Appended to `seq` in context, then removed after
+
+    Yields
+    -------
+    extended : List[Val]
+        `seq` with extra items appended.
+
+    Notes
+    -----
+    It decides which elements to remove after the context based on length.
+    If any elements are inserted into/removed from the original elements,
+    this will be messed up.
+    """
+    before = len(seq)
+    try:
+        seq.extend(extra)
+        yield seq
+    finally:
+        del seq[before:]
+
+
 def _rev_seq(seq: _ty.Reversible) -> _ty.Reversible:
     """reverse a sequence, leaving it a sequence if possible"""
     if isinstance(seq, cn.abc.Sequence):
@@ -208,7 +284,7 @@ def _rev_seq(seq: _ty.Reversible) -> _ty.Reversible:
 
 
 class ZipSequences(cn.abc.Sequence):
-    """Like zip, but sized, indexable and reversible (if arguments are).
+    """Like zip, but sized, subscriptable and reversible (if arguments are).
 
     Parameters
     ----------
@@ -218,9 +294,19 @@ class ZipSequences(cn.abc.Sequence):
         If True, we continue until all sequences are exhausted. If False, we
         stop when we reach the end of the shortest sequence.
 
+    Raises
+    ------
+    TypeError
+        When calling `len` if any memeber is is not `Sized`.
+        When calling `reverse` if any memeber is is not `Reversible`.
+        When subscripting if any memeber is is not subscriptable.
+
+    Notes
+    -----
     If sequences are not of equal length, the reversed iterator will not yield
     the same tuples as the original iterator. Each sequence is reversed as is,
-    without omitting end-values or adding fill-values.
+    without omitting end-values or adding fill-values. Similar considerations
+    apply to negative indices.
 
     Indexing with an integer returns a (tuple of) sequence content(s).
     Indexing with a slice returns a (tuple of) sub-sequence(s).
@@ -228,7 +314,7 @@ class ZipSequences(cn.abc.Sequence):
     _seqs: _ty.Tuple[_ty.Sequence, ...]
     _max: bool
 
-    def __init__(self, *sequences: _ty.Sequence, usemax: bool = False):
+    def __init__(self, *sequences: _ty.Sequence, usemax: bool = False) -> None:
         self._seqs = sequences
         self._max = usemax
 
@@ -237,7 +323,7 @@ class ZipSequences(cn.abc.Sequence):
             return max(len(obj) for obj in self._seqs)
         return min(len(obj) for obj in self._seqs)
 
-    def __iter__(self):
+    def __iter__(self) -> _ty.Union[zip, _it.zip_longest]:
         if self._max:
             return iter(_it.zip_longest(*self._seqs))
         return iter(zip(*self._seqs))
@@ -401,55 +487,86 @@ class ShapeTuple(tuple):
 # =============================================================================
 
 
-def update_new(to_update: dict, update_from: Dictable):
+def update_new(to_update: dict, update_from: Dictable = (), **kwds) -> None:
     """Update new keys only
 
     If `key` in `update_from` but not `to_update`, set `to_update[key] =
-    update_from[key]`.
+    update_from[key]`. Further keywords overrule items in `update_from`.
     """
     if isinstance(update_from, cn.abc.Mapping):
-        for k in update_from.keys():
+        for k in update_from:
             to_update.setdefault(k, update_from[k])
     else:
         for k, val in update_from:
-            if k not in to_update.keys():
+            if k not in to_update:
                 to_update[k] = val
+    for k, val in kwds.items():
+        to_update.setdefault(k, val)
 
 
-def update_existing(to_update: dict, update_from: Dictable):
+def update_existing(to_update: dict, update_from: Dictable = (), **kwds) -> None:
     """Update existing keys only
 
     If `key` in `update_from` and `to_update`, set `to_update[key] =
-    update_from[key]`.
+    update_from[key]`. Further keywords overrule items in `update_from`.
     """
     if isinstance(update_from, cn.abc.Mapping):
-        for k in to_update.keys():
+        for k in to_update:
             to_update[k] = update_from.get(k, to_update[k])
     else:
         for k, val in update_from:
-            if k in to_update.keys():
+            if k in to_update:
                 to_update[k] = val
+    for k in to_update:
+        to_update[k] = kwds.get(k, to_update[k])
 
 
-def pop_existing(to_update: dict, pop_from: dict):
+def pop_existing(to_update: dict, pop_from: dict) -> None:
     """Pop to update existing keys only
 
     If `k` in `pop_from` and `to_update`, set `to_update[k] = pop_from[k]`
     and `del pop_from[k]`.
     """
-    for k in to_update.keys():
+    for k in to_update:
         to_update[k] = pop_from.pop(k, to_update[k])
 
 
-def pop_new(to_update: dict, pop_from: dict):
+def pop_new(to_update: dict, pop_from: dict) -> None:
     """Pop to update new keys only
 
     If `k` in `pop_from` but not `to_update`, set `to_update[k] = pop_from[k]`
     and `del pop_from[k]`.
     """
-    for k in pop_from.keys():
-        if k not in to_update.keys():
+    for k in pop_from:
+        if k not in to_update:
             to_update[k] = pop_from.pop(k)
+
+
+@_cx.contextmanager
+def updated(base: _ty.Dict[Var, Val], extra: Dictable[Var, Val], **kwds
+            ) ->  _ty.Dict[Var, Val]:
+    """Update a dictionary in a context, then restore
+
+    Parameters
+    ----------
+    base : Dict[Var, Val]
+        Orgiginal dictionary
+    extra : Dict[Var, Val]
+        Dictionary to update `base` with.
+    Further keywords are included in the update.
+
+    Returns
+    -------
+    modified : Dict[Var, Val]
+        `base` updated with `extra`.
+    """
+    original = base.copy()
+    try:
+        base.update(extra, **kwds)
+        yield base
+    finally:
+        base.clear()
+        base.update(original)
 
 
 def _inv_dict_iter(to_invert: dict) -> _ty.Iterator:

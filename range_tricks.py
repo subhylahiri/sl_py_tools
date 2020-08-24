@@ -174,7 +174,7 @@ class ExtendedRange(RangeCollectionMixin):
         return super().index(value)
 
     def __iter__(self) -> Union[range, itertools.count]:
-        return iter(self._iter)
+        yield from self._iter
 
     def __next__(self) -> int:
         return next(self._iter)
@@ -197,7 +197,7 @@ class ExtendedRange(RangeCollectionMixin):
     def __repr__(self) -> str:
         return "erange" + range_repr(self)
 
-    def __getitem__(self, ind: Union[_ig.Eint, slice]
+    def __getitem__(self, ind: Union[_ig.Eint, RangeIsh]
                     ) -> Union[_ig.Eint, ExtendedRange]:
         if isinstance(ind, _ig.Eint):
             val = _nth_value(self, ind)
