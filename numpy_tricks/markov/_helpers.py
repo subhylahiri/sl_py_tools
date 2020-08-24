@@ -266,10 +266,10 @@ def bcast_axes(fun: _ty.Callable[..., ArrayType], arr: ArrayType, *args,
                drn: IntOrSeq = 0, drn_axis: IntOrSeq = 0,
                fun_axis: OrSeqOf[Axies] = -1, **kwds) -> ArrayType:
     """broadcast over axes"""
-    outarr = np.asanyarray(arr)
     to_mat = kwds.get('to_mat', False)
-    fun_axis, drn_axis = _sort_axes(fun_axis, drn_axis, to_mat, arr.ndim)
     fkey = 'axis' if to_mat else 'axes'
+    outarr = np.asanyarray(arr)
+    fun_axis, drn_axis = _sort_axes(outarr.ndim, fun_axis, drn_axis, to_mat)
     for daxis, faxis in zip(drn_axis, fun_axis):
         kwds[fkey] = faxis
         outarr = fun(outarr, *args, drn=drn, daxis=daxis, **kwds)

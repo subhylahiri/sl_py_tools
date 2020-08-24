@@ -29,7 +29,7 @@ def isstochastic_d(mat: la.lnarray, thresh: float = 1e-5) -> bool:
 
 
 def rand_trans(nst: int, npl: int = 1, sparsity: float = 1.,
-               **kwds) -> la.lnarray:
+               rng: np.random.Generator = RNG, **kwds) -> la.lnarray:
     """
     Make a random transition matrix (continuous time).
 
@@ -47,15 +47,15 @@ def rand_trans(nst: int, npl: int = 1, sparsity: float = 1.,
     mat : la.lnarray
         transition matrix
     """
-    params = RNG.random((npl, num_param(nst, **kwds)))
+    params = rng.random((npl, num_param(nst, **kwds)))
     if sparsity < 1.:
-        ind = RNG.random(params.shape)
+        ind = rng.random(params.shape)
         params[ind > sparsity] = 0.
     return params_to_mat(params, **kwds)
 
 
 def rand_trans_d(nst: int, npl: int = 1, sparsity: float = 1.,
-                 **kwds) -> la.lnarray:
+                 rng: np.random.Generator = RNG, **kwds) -> la.lnarray:
     """
     Make a random transition matrix (discrete time).
 
@@ -74,10 +74,10 @@ def rand_trans_d(nst: int, npl: int = 1, sparsity: float = 1.,
         transition matrix
     """
     if any(kwds.get(opt, False) for opt in ('uniform', 'serial', 'ring')):
-        trans = rand_trans(nst, npl, sparsity, **kwds)
+        trans = rand_trans(nst, npl, sparsity, rng, **kwds)
         stochastify_pd(trans)
         return trans
-    trans = RNG.random((npl, nst, nst)).squeeze()
+    trans = rng.random((npl, nst, nst)).squeeze()
     stochastify_d(trans)
     return trans
 
@@ -204,7 +204,7 @@ def sim_markov_d(jump: la.lnarray, peq: Optional[np.ndarray] = None,
         peq = calc_peq_d(jump)[0]
 
     state_inds = la.arange(len(peq))
-    states_from = la.array([RNG.choice(state_inds, size=num_jump-1, p=p)
+    states_from = la.array([rng.choice(state_inds, size=num_jump-1, p=p)
                             for p in jump])
     states = la.empty(num_jump)
     states[0] = rng.choice(state_inds, p=peq)
