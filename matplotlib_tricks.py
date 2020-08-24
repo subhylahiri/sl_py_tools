@@ -122,7 +122,7 @@ def calc_axlim(data, err=None, log=False, buffer=0.05):
 
 
 def set_new_axlim(axs: plt.Axes,
-                  data: np.ndarray, err: _ty.Optional[np.ndarray] = None,
+                  data: np.ndarray, err: _ty.Optional[np.ndarray] = None, *,
                   yaxis: bool = True, reset: bool = False, log: bool = False,
                   buffer: float = 0.05):
     """Calculate axes limits that will show all data, including existing
@@ -135,13 +135,13 @@ def set_new_axlim(axs: plt.Axes,
         array of numbers plotted along the axis
     err : None or np.ndarray (n) or (2,n), optional
         error bars for data, default: None
-    yaxis : bool, optional
+    yaxis : bool, optional keyword
         are we modifying the y axis? default: True
-    reset : bool, optional
+    reset : bool, optional keyword
         do we ignore the existing axis limits? default: False
-    log : bool, optional
+    log : bool, optional keyword
         is it a log scale? default: False
-    buffer : float, optional
+    buffer : float, optional keyword
         fractional padding around data
     """
     lim = calc_axlim(data, err, log, buffer)
@@ -169,9 +169,9 @@ def clean_axes(axs: plt.Axes, fontsize: _ty.Union[int, str] = 20,
     axs : plt.Axes
         Axes object to modify
     fontsize : number, str, default: 20
-        Font size for axes labels & title.
+        Font size for axes labels, ticks & title.
     fontfamily : str, default: sans-serif
-        Font family for axes labels & title.
+        Font family for axes labels, ticks & title.
 
     Keyword only
     ------------
@@ -191,12 +191,18 @@ def clean_axes(axs: plt.Axes, fontsize: _ty.Union[int, str] = 20,
         Apply tight_layout to figure?
     all : bool, keyword only
         Choice for any of the above that is unspecified, default: True
-    titlefontsize : number, str, default: `fontsize`
-        Font size for title.
-    legendfontsize : number, str, default: `fontsize`
-        Font size for legend entries.
-    tickfontsize : number, str, default: `fontsize // 2`
-        Font size for tick-labels.
+    titlefontsize : number, str
+        Font size for title, default: `fontsize * titlefontscale`.
+    legendfontsize : number, str
+        Font size for legend entries, default: `fontsize * legendfontscale`.
+    tickfontsize : number, str
+        Font size for tick-labels, default: `fontsize * tickfontscale`.
+    titlefontscale : number
+        Multiplier of `fontsize` (if numeric) for title, default: 1.2.
+    legendfontsize : number
+        Multiplier of `fontsize` (if numeric) for legend entries, default: 1.
+    tickfontsize : number
+        Multiplier of `fontsize` (if numeric) for tick-labels, default: 0.694.
     """
     clean_kws = clean_axes_keys(kwds, fontsize)
     if axs is None:
@@ -204,21 +210,24 @@ def clean_axes(axs: plt.Axes, fontsize: _ty.Union[int, str] = 20,
     if clean_kws['box']:
         axs.spines['top'].set_visible(False)
         axs.spines['right'].set_visible(False)
+    if clean_kws['titlefont']:
+        axs.title.set_fontsize(clean_kws['titlefontsize'])
+        axs.title.set_fontfamily(fontfamily)
     if clean_kws['axisfont']:
         axs.get_xaxis().get_label().set_fontsize(fontsize)
         axs.get_yaxis().get_label().set_fontsize(fontsize)
         axs.get_xaxis().get_label().set_fontfamily(fontfamily)
         axs.get_yaxis().get_label().set_fontfamily(fontfamily)
-    if clean_kws['titlefont']:
-        axs.title.set_fontsize(clean_kws['titlefontsize'])
-        axs.title.set_fontfamily(fontfamily)
     if clean_kws['tickfont']:
         axs.tick_params(labelsize=clean_kws['tickfontsize'])
+        for tkl in axs.get_xticklabels() + axs.get_yticklabels():
+            tkl.set_fontfamily(fontfamily)
     if axs.legend_ is not None:
         if clean_kws['legendbox']:
             axs.legend_.set_frame_on(False)
         if clean_kws['legendfont']:
-            adjust_legend_font(axs.legend_, size=clean_kws['legendfontsize'])
+            adjust_legend_font(axs.legend_, size=clean_kws['legendfontsize'],
+                               family=fontfamily)
     axs.set(**kwds)
     if clean_kws['tight']:
         axs.figure.tight_layout()
@@ -240,11 +249,17 @@ def clean_axes_keys(kwargs: _ty.Dict[str, _ty.Any],
     clean_kws: Dict[str, Union[bool, int]]
         Dictionary of keyword options used by `clean_axes`
     """
-    clean_kws = {'titlefontsize': kwargs.pop('titlefontsize', fontsize),
-                 'legendfontsize': kwargs.pop('legendfontsize', fontsize)}
+    clean_kws = {}
     if isinstance(fontsize, int):
-        clean_kws['tickfontsize'] = kwargs.pop('tickfontsize', fontsize // 2)
+        clean_kws['titlefontsize'] = kwargs.pop(
+            'titlefontsize', fontsize * kwargs.pop('titlefontscale', 1.2))
+        clean_kws['legendfontsize'] = kwargs.pop(
+            'legendfontsize', fontsize * kwargs.pop('legendfontscale', 1))
+        clean_kws['tickfontsize'] = kwargs.pop(
+            'tickfontsize', fontsize * kwargs.pop('tickfontscale', 0.694))
     else:
+        clean_kws['titlefontsize'] = kwargs.pop('titlefontsize', fontsize)
+        clean_kws['legendfontsize'] = kwargs.pop('legendfontsize', fontsize)
         clean_kws['tickfontsize'] = kwargs.pop('tickfontsize', fontsize)
 
     allopts = kwargs.pop('all', True)
@@ -347,9 +362,8 @@ def centre_spines(axs: _ty.Optional[plt.Axes] = None,
     # Add offset ticklabels at <centrex, centrey> using annotation
     # (Should probably make these update when the plot is redrawn...)
     centre_tick = kwds.pop('centre_tick', 'both').lower()  # {both,x,y,none}
-    xlab, ylab = lab
-    centre_labs = {'none': "", 'x': f"{xlab}", 'y': f"{ylab}",
-                   'both': f"{xlab},{ylab}", 'paren': f"({xlab},{ylab})"}
+    centre_labs = {'none': "", 'x': f"{lab[0]}", 'y': f"{lab[1]}",
+                   'both': ",".join(lab), 'paren': f"({lab[0]},{lab[1]})"}
     centre_label = centre_labs.get(centre_tick, "")
     if centre_label:
         axs.annotate(centre_label, (centrex, centrey), xytext=(-4, -4),
@@ -573,11 +587,9 @@ class EndArrow(mpf.AbstractPathEffect):
         gc0.copy_properties(gc)
         self._update_gc(gc0, self._gc_args)
 
-        if self.facecolor is None:
-            color = rgbFace
-        else:
-            color = self.facecolor
+        if self.facecolor is not None:
+            rgbFace = self.facecolor
 
-        renderer.draw_path(gc0, self.arrowpath, trans, color)
+        renderer.draw_path(gc0, self.arrowpath, trans, rgbFace)
         renderer.draw_path(gc, tpath, affine, rgbFace)
         gc0.restore()
