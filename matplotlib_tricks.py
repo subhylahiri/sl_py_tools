@@ -250,13 +250,13 @@ def clean_axes_keys(kwargs: _ty.Dict[str, _ty.Any],
         Dictionary of keyword options used by `clean_axes`
     """
     clean_kws = {}
-    if isinstance(fontsize, int):
+    if isinstance(fontsize, (int, float)):
         clean_kws['titlefontsize'] = kwargs.pop(
-            'titlefontsize', fontsize * kwargs.pop('titlefontscale', 1.2))
+            'titlefontsize', round(fontsize * kwargs.pop('titlefontscale', 1.2)))
         clean_kws['legendfontsize'] = kwargs.pop(
-            'legendfontsize', fontsize * kwargs.pop('legendfontscale', 1))
+            'legendfontsize', round(fontsize * kwargs.pop('legendfontscale', 1)))
         clean_kws['tickfontsize'] = kwargs.pop(
-            'tickfontsize', fontsize * kwargs.pop('tickfontscale', 0.694))
+            'tickfontsize', round(fontsize * kwargs.pop('tickfontscale', .694)))
     else:
         clean_kws['titlefontsize'] = kwargs.pop('titlefontsize', fontsize)
         clean_kws['legendfontsize'] = kwargs.pop('legendfontsize', fontsize)

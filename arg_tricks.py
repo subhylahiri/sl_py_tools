@@ -5,6 +5,7 @@ import typing as _ty
 
 Some = _ty.TypeVar('Some')
 Other = _ty.TypeVar('Other')
+# =============================================================================
 
 
 def default(optional: _ty.Optional[Some], default_value: Some) -> Some:
@@ -157,8 +158,7 @@ def args_to_kwargs(args: _ty.Tuple[Some],
         for key, val in zip(names, args):
             kwargs.setdefault(key, val)
     else:
-        for key, val in zip(names, args):
-            kwargs[key] = val
+        kwargs.update(zip(names, args))
     return args[len(names):]
 
 # =============================================================================
@@ -181,5 +181,60 @@ class Export:
     complaining that `'import1' imported but unused`, etc.
     """
 
-    def __class_getitem__(cls, *args):
+    def __class_getitem__(cls, *args) -> None:
         assert any((True, cls) + args)
+
+
+# =============================================================================
+# Class and instance attributes
+# =============================================================================
+
+
+def _dir_dict(obj: _ty.Any) -> _ty.Dict[str, None]:
+    """Get the unsorted dictionary keys of a class/instance (like dir())
+    """
+    my_dir = {}
+    for base in getattr(obj, '__bases__', ()):
+        my_dir.update(_dir_dict(base))
+    # could use cls.__dir__() or dir(cls)
+    my_dir.update((k, None) for k in obj.__dict__)
+    return my_dir
+
+
+def dir_nosort(obj: _ty.Any) -> _ty.List[str]:
+    """Get the unsorted directory of a class/instance (like dir())
+    """
+    return list(_dir_dict(obj))
+
+
+def inst_attrs(obj: _ty.Any) -> _ty.List[str]:
+    """List of names of instance attributes that are not class attributes
+
+    Parameters
+    ----------
+    obj : Any
+        The instance whose attributes we want
+
+    Returns
+    -------
+    attrs : List[str]
+        Instance attribute names
+    """
+    return list(set(dir(obj)) - set(dir(type(obj))))
+
+
+def inst_attrs_nosort(obj: _ty.Any) -> _ty.List[str]:
+    """List of names of instance attributes that are not class attributes
+
+    Parameters
+    ----------
+    obj : Any
+        The instance whose attributes we want
+
+    Returns
+    -------
+    attrs : List[str]
+        Instance attribute names
+    """
+    inst, clss = dir_nosort(obj), dir_nosort(type(obj))
+    return [attr for attr in inst if attr not in clss]
