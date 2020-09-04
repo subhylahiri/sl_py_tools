@@ -11,10 +11,10 @@ from sl_py_tools.iter_tricks import dcount, denumerate, dzip, zenumerate
 from sl_py_tools.iter_tricks import batch, dbatch, rdenumerate, rdzip
 from sl_py_tools.display_tricks import DisplayTemporary, dcontext, dexpr
 from sl_py_tools.numpy_tricks.iter import dndindex
-
-# ==============================================================================
-# %% Code running functions
-# ==============================================================================
+# pylint: disable=all
+# =============================================================================
+# Code running functions
+# =============================================================================
 
 
 def test_dndindex():

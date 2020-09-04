@@ -17,10 +17,10 @@ from functools import wraps
 from numbers import Number
 from operator import add, mul, floordiv
 
-from .display_tricks import _DisplayState as DisplayState
+# from .display_tricks import _DisplayState as DisplayState
 from .display_tricks import DisplayTemporary
 from .arg_tricks import default
-from .containers import tuplify
+from .containers import tuplify, rev_seq
 
 # =============================================================================
 # %* Utility functions
@@ -365,29 +365,6 @@ def max_len(*iterables) -> int:
 
 
 # =============================================================================
-# Client class for DisplayCount
-# =============================================================================
-
-
-class DisplayCntState(DisplayState):
-    """Internal state of a DisplayCount, etc."""
-    prefix: Union[str, DisplayTemporary]
-
-    def __init__(self, prev_state: Optional[DisplayState] = None):
-        """Construct internal state"""
-        super().__init__(prev_state)
-        self.prefix = ''
-
-    def show(self):
-        """Display prefix"""
-        self.prefix = DisplayTemporary.show(self.prefix)
-
-    def hide(self):
-        """Delete prefix"""
-        self.prefix.end()
-
-
-# =============================================================================
 # Mixins for defining displaying iterators
 # =============================================================================
 
@@ -401,14 +378,15 @@ class DisplayMixin(DisplayTemporary):
     counter: Optional[int]
     offset: int
     formatter: str
-    _state: DisplayCntState
+    prefix: Union[str, DisplayTemporary]
 
     def __init__(self, **kwds):
         """Construct non-iterator machinery"""
+        self.offset = kwds.pop('offset', 0)
         super().__init__(**kwds)
-        self._state = DisplayCntState(self._state)
         self.counter = None
         self.formatter = '{:d}'
+        self.prefix = ''
 
     @abstractmethod
     def __next__(self):
@@ -420,7 +398,12 @@ class DisplayMixin(DisplayTemporary):
 
     def begin(self, msg: str = ''):
         """Display initial counter with prefix."""
-        self._state.show()
+        if isinstance(self.prefix, str):
+            self.prefix = DisplayTemporary.show(self.prefix)
+        else:
+            raise RuntimeError(
+                '''DisplayMixin.begin() was called a second time.
+                It should only be called once.''') from None
         super().begin(self.format(self.counter) + msg)
 
     def update(self, msg: str = ''):
@@ -431,7 +414,7 @@ class DisplayMixin(DisplayTemporary):
     def end(self):
         """Erase previous counter and prefix."""
         super().end()
-        self._state.hide()
+        self.prefix.end()
 
     def format(self, *ctrs: int) -> str:
         """String for display of counter, e.g.' 7/12,'."""
@@ -479,7 +462,12 @@ class AddDisplayToIterables:
         name, self._iterables = extract_name(args, kwds)
         addto = kwds.pop('addto', 0)
         self._max = kwds.pop('usemax', False)
-        self.display = self.displayer(name, addto, addto + len(self), **kwds)
+        # self._iterables = ZipSequences(*iterables, usemax=self._max)
+        stop = len(self)
+        if stop is None:
+            self.display = self.displayer(name, addto, stop, **kwds)
+        else:
+            self.display = self.displayer(name, addto, addto + stop, **kwds)
 
     def __reversed__(self):
         """Prepare to display final counter with prefix.
@@ -491,7 +479,7 @@ class AddDisplayToIterables:
         except AttributeError as exc:
             raise AttributeError('The displayer is not reversible.') from exc
         try:
-            self._iterables = tuple(reversed(seq) for seq in self._iterables)
+            self._iterables = tuple(rev_seq(seq) for seq in self._iterables)
         except AttributeError as exc:
             raise AttributeError('Some iterables are not reversible.') from exc
         return self
@@ -521,7 +509,8 @@ class AddDisplayToIterables:
 
     def end(self):
         """Erase previous counter and prefix."""
-        self.display.end()
+        if self.__len__() is None:
+            self.display.end()
 
 
 # =============================================================================

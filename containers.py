@@ -271,8 +271,20 @@ def extended(seq: _ty.List[Val], extra: _ty.Iterable[Val]) -> _ty.List[Val]:
         del seq[before:]
 
 
-def _rev_seq(seq: _ty.Reversible) -> _ty.Reversible:
-    """reverse a sequence, leaving it a sequence if possible"""
+def rev_seq(seq: _ty.Reversible) -> _ty.Reversible:
+    """reverse a sequence, leaving it a sequence if possible
+
+    Parameters
+    ----------
+    seq : _ty.Reversible
+        Either a sequence or a reversible iterator
+
+    Returns
+    -------
+    rseq : _ty.Reversible
+        If `seq` is a sequence, this is the sequence in reversed order,
+        otherwise it is a reversed iterator over `seq`.
+    """
     if isinstance(seq, cn.abc.Sequence):
         return seq[::-1]
     return reversed(seq)
@@ -334,7 +346,7 @@ class ZipSequences(cn.abc.Sequence):
         return unseqify(tuple(obj[index] for obj in self._seqs))
 
     def __reversed__(self) -> ZipSequences:
-        return ZipSequences(*(_rev_seq(obj) for obj in self._seqs),
+        return ZipSequences(*(rev_seq(obj) for obj in self._seqs),
                             usemax=self._max)
 
     def __repr__(self) -> str:

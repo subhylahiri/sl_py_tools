@@ -55,6 +55,7 @@ Examples
 >>>     smthng = do_something(param1, param2)
 >>>     return smthng
 """
+from __future__ import annotations
 import io
 import logging
 import sys
@@ -77,7 +78,7 @@ class _DisplayState():
     # used for debug
     nactive: ClassVar[int] = 0
 
-    def __init__(self, prev_state: Optional['_DisplayState'] = None):
+    def __init__(self, prev_state: Optional[_DisplayState] = None):
         """Construct internal state"""
         self.nest_level = None
         self.numchar = 0
@@ -89,7 +90,7 @@ class _DisplayState():
     def begin(self, identifier: str, *args, **kwds):
         """Setup for debugging
         """
-        self.name = self.name.format(identifier *args, **kwds)
+        self.name = self.name.format(identifier, *args, **kwds)
         self.nactive += 1
         self.nest_level = self.nactive
         self.check()
@@ -174,7 +175,9 @@ class DisplayTemporary():
             message to display
         """
         if self._state.numchar:
-            raise AttributeError('begin() called more than once.')
+            raise RuntimeError(
+                '''DisplayTemporary.begin() was called a second time.
+                It should only be called once.''')
         self._print(' ' + msg)
         self._state.numchar = len(msg) + 1
         if self.debug:
@@ -192,11 +195,15 @@ class DisplayTemporary():
         self._print(' ' + msg)
         self._state.numchar = len(msg) + 1
         if self.debug:
-            self._state.check()
+            self._state.check(self._check())
 
     def end(self):
         """Erase message.
         """
+        if not self._state.numchar:
+            raise RuntimeError(
+                '''DisplayTemporary.end() was called a second time.
+                It should only be called once.''')
         self._erase(self._state.numchar)
         self._state.numchar = 0
         if self.debug:
@@ -226,14 +233,22 @@ class DisplayTemporary():
         # self._print('\b' * num)
 
     def _erase(self, num: int = 1):
-        """Go back num characters
+        """Go back num characters, overwriting
         """
         self._bksp(num)
         self._print(' ' * num)
         self._bksp(num)
 
+    def _check(self, msg: str = '') -> str:
+        """Ensure that DisplayTemporaries are properly used
+
+        Can be overloaded in subclasses
+        """
+        # raise error if msg isnon-empty
+        return msg if self.debug else ''
+
     @classmethod
-    def show(cls, msg: str) -> 'DisplayTemporary':
+    def show(cls, msg: str) -> DisplayTemporary:
         """Show message and return class instance.
         Parameters
         ----------

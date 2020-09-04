@@ -56,7 +56,7 @@ class DisplayNDIndex(_it.DisplayMixin):
         self.offset = 1
         super().__init__(**kwds)
         if name:
-            self._state.prefix += name + ':'
+            self.prefix += name + ':'
         self.shape = shape
         self.ndim = len(shape)
         self._it = np.ndindex(*shape)

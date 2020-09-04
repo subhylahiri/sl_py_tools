@@ -119,15 +119,15 @@ class DisplayCount(_it.DisplayMixin, _RangeCollectionMixin, _ContainerMixin):
         name, sliceargs = _it.extract_name(args, kwargs)
         self.start, self.stop, self.step = _it.extract_slice(sliceargs, kwargs)
         # offset for display of counter, default: 1 if start==0, 0 otherwise
-        self.offset = kwargs.pop('offset', int(self.start == 0))
         self.disp_step = kwargs.pop('disp_step', 1)
+        kwargs.setdefault('offset', int(self.start == 0))
 
         super().__init__(**kwargs)
 
         if name:
-            self._state.prefix += name + ':'
+            self.prefix += name + ':'
         if self.step < 0:
-            self._state.prefix += '-'
+            self.prefix += '-'
 
         if self.stop:
             self.stop = self.start + self.step * len(self)
@@ -147,7 +147,7 @@ class DisplayCount(_it.DisplayMixin, _RangeCollectionMixin, _ContainerMixin):
         """
         _raise_if_no_stop(self)
         args = self.stop - self.step, self.start - self.step, -self.step
-        name = self._state.prefix
+        name = self.prefix
         if self.step > 0:
             name += '-'
         else:
@@ -164,7 +164,7 @@ class DisplayCount(_it.DisplayMixin, _RangeCollectionMixin, _ContainerMixin):
         self.end()
         raise StopIteration()
 
-    def _check_ctr(self, msg: str = '') -> str:
+    def _check(self, msg: str = '') -> str:
         """Ensure that DisplayCount's are properly used"""
         # raise error if ctr is outside range
         if self.counter not in self:
@@ -176,8 +176,6 @@ class DisplayCount(_it.DisplayMixin, _RangeCollectionMixin, _ContainerMixin):
         """Erase previous counter and display new one."""
         if self.count_steps() % self.disp_step == 0:
             super().update(msg)
-        if self.debug:
-            self._state.check(self._check_ctr())
 
     def count_steps(self) -> int:
         """How many steps have been taken?
@@ -382,7 +380,7 @@ class DisplayZip(_it.AddDisplayToIterables, displayer=DisplayCount):
             next(self.display)
             output = next(self._iterator)
         except StopIteration:
-            self.end()
+            self.end()  # not needed
             raise
         else:
             return output
