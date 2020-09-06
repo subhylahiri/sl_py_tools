@@ -11,7 +11,7 @@ from sl_py_tools.iter_tricks import dcount, denumerate, dzip, zenumerate
 from sl_py_tools.iter_tricks import batch, dbatch, rdenumerate, rdzip
 from sl_py_tools.display_tricks import DisplayTemporary, dcontext, dexpr
 from sl_py_tools.numpy_tricks.iter import dndindex
-# pylint: disable=all
+from sl_py_tools.iter_disp import _batch_format
 # =============================================================================
 # Code running functions
 # =============================================================================
@@ -43,6 +43,14 @@ def test_zip():
             time.sleep(.2)
         time.sleep(.2)
     print('done')
+
+
+def test_down():
+    for i in dcount('i', 5, -1, -1):
+        time.sleep(2)
+    print('done')
+    dct = dcount('i', 5, 0, -1)
+    print(dct.formatter.template)
 
 
 @dcontext('decorating denumerate')
@@ -142,6 +150,7 @@ if __name__ == "__main__":
     test_batch()
     test_dbatch()
     dexpr('dndindex in lambda', test_dndindex)
+    # test_down()
 
     #    DisplayTemporary.file.close()
     DisplayTemporary.file = None

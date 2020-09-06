@@ -70,46 +70,46 @@ assert sys.version_info[:2] >= (3, 6)
 # =============================================================================
 
 
-class _DisplayState():
-    """Internal state of a DisplayTemporary"""
-    numchar: int
-    nest_level: Optional[int]
-    name: str
-    # used for debug
-    nactive: ClassVar[int] = 0
+# class _DisplayState():
+#     """Internal state of a DisplayTemporary"""
+#     numchar: int
+#     name: str
+#     # used for debug
+#     nest_level: Optional[int]
+#     nactive: ClassVar[int] = 0
 
-    def __init__(self, prev_state: Optional[_DisplayState] = None):
-        """Construct internal state"""
-        self.nest_level = None
-        self.numchar = 0
-        self.name = "Display({})"
-        if prev_state is not None:
-            self.numchar = prev_state.numchar
-            self.nest_level = prev_state.nest_level
+#     def __init__(self, prev_state: Optional[_DisplayState] = None):
+#         """Construct internal state"""
+#         self.nest_level = None
+#         self.numchar = 0
+#         self.name = "Display({})"
+#         if prev_state is not None:
+#             self.numchar = prev_state.numchar
+#             self.nest_level = prev_state.nest_level
 
-    def begin(self, identifier: str, *args, **kwds):
-        """Setup for debugging
-        """
-        self.name = self.name.format(identifier, *args, **kwds)
-        self.nactive += 1
-        self.nest_level = self.nactive
-        self.check()
+#     def begin(self, identifier: str, *args, **kwds):
+#         """Setup for debugging
+#         """
+#         self.name = self.name.format(identifier, *args, **kwds)
+#         self.nactive += 1
+#         self.nest_level = self.nactive
+#         self.check()
 
-    def check(self, msg=''):
-        """Ensure that DisplayTemporaries used in correct order.
-        """
-        # raise error if ctr_dsp's are nested incorrectly
-        if self.nest_level != self.nactive:
-            msg += self.name
-            msg += f": used at {self.nactive}, nested at {self.nest_level}. "
-        if msg:
-            raise IndexError(msg)
+#     def check(self, msg=''):
+#         """Ensure that DisplayTemporaries used in correct order.
+#         """
+#         # raise error if ctr_dsp's are nested incorrectly
+#         if self.nest_level != self.nactive:
+#             msg += self.name
+#             msg += f": used at {self.nactive}, nested at {self.nest_level}. "
+#         if msg:
+#             raise IndexError(msg)
 
-    def end(self, *args, **kwds):
-        """Clean up debugging state
-        """
-        self.check(*args, **kwds)
-        self.nactive -= 1
+#     def end(self, *args, **kwds):
+#         """Clean up debugging state
+#         """
+#         self.check(*args, **kwds)
+#         self.nactive -= 1
 
 
 class DisplayTemporary():
@@ -149,7 +149,11 @@ class DisplayTemporary():
     >>> execute_fn(param1, param2)
     >>> dtmp.end()
     """
-    _state: _DisplayState
+    numchar: int
+    name: str
+    # used for debug
+    nest_level: Optional[int]
+    nactive: ClassVar[int] = 0
 
     # set output to False to suppress display
     output: ClassVar[bool] = True
@@ -158,12 +162,14 @@ class DisplayTemporary():
     # set debug to True to check that displays are properly nested
     debug: ClassVar[bool] = False
 
-    def __init__(self, **kwds):
-        self._state = _DisplayState(**kwds)
+    def __init__(self):
+        self.nest_level = None
+        self.numchar = 0
+        self.name = type(self).__name__ + "({})"
 
     def __del__(self):
         """Clean up, if necessary, upon deletion."""
-        if self._state.numchar:
+        if self.numchar:
             self.end()
 
     def begin(self, msg: str = ''):
@@ -174,14 +180,17 @@ class DisplayTemporary():
         msg : str
             message to display
         """
-        if self._state.numchar:
+        if self.numchar:
             raise RuntimeError(
                 '''DisplayTemporary.begin() was called a second time.
                 It should only be called once.''')
         self._print(' ' + msg)
-        self._state.numchar = len(msg) + 1
+        self.numchar = len(msg) + 1
         if self.debug:
-            self._state.begin(msg)
+            self.name = self.name.format(msg)
+            self.nactive += 1
+            self.nest_level = self.nactive
+            self._check()
 
     def update(self, msg: str = ''):
         """Erase previous message and display new message.
@@ -191,23 +200,24 @@ class DisplayTemporary():
         msg : str
             message to display
         """
-        self._bksp(self._state.numchar)
+        self._bksp(self.numchar)
         self._print(' ' + msg)
-        self._state.numchar = len(msg) + 1
+        self.numchar = len(msg) + 1
         if self.debug:
-            self._state.check(self._check())
+            self._check()
 
     def end(self):
         """Erase message.
         """
-        if not self._state.numchar:
+        if not self.numchar:
             raise RuntimeError(
                 '''DisplayTemporary.end() was called a second time.
                 It should only be called once.''')
-        self._erase(self._state.numchar)
-        self._state.numchar = 0
+        self._erase(self.numchar)
+        self.numchar = 0
         if self.debug:
-            self._state.end()
+            self._check()
+            self.nactive -= 1
 
     def _print(self, text: str):
         """Print with customisations: same line and immediate output
@@ -245,10 +255,14 @@ class DisplayTemporary():
         Can be overloaded in subclasses
         """
         # raise error if msg isnon-empty
-        return msg if self.debug else ''
+        if self.nest_level != self.nactive:
+            msg += self.name
+            msg += f": used at {self.nactive}, nested at {self.nest_level}. "
+        if msg:
+            raise IndexError(msg)
 
     @classmethod
-    def show(cls, msg: str) -> DisplayTemporary:
+    def show(cls, msg: str, *args, **kwds) -> DisplayTemporary:
         """Show message and return class instance.
         Parameters
         ----------
@@ -261,7 +275,7 @@ class DisplayTemporary():
             instance of `DisplayTemporary`. Call `disp_temp.end()` or
             `del disp_temp` to erase displayed message.
         """
-        disp_temp = cls()
+        disp_temp = cls(*args, **kwds)
         disp_temp.begin(msg)
         return disp_temp
 
@@ -269,6 +283,29 @@ class DisplayTemporary():
 # Crappy way of checking if we're running in a qtconsole.
 # if 'spyder' in sys.modules:
 #     DisplayTemporary.output = False
+
+# =============================================================================
+# %* Callable version
+# =============================================================================
+
+
+class FormattedTempDisplay(DisplayTemporary):
+    """Display a temporary formatted message
+    """
+    template: str
+
+    def __init__(self, template: str) -> None:
+        self.template = template
+        super().__init__()
+
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
+        """Format and print arguments"""
+        msg = self.template.format(*args, **kwds)
+        if self.numchar:
+            self.update(msg)
+        else:
+            self.begin(msg)
+
 
 # =============================================================================
 # %* Functions

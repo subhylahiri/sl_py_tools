@@ -53,15 +53,15 @@ class DisplayNDIndex(_it.DisplayMixin):
         name, shape = _it.extract_name(args, kwds)
         if isinstance(shape[0], tuple):
             shape = shape[0]
-        self.offset = 1
-        super().__init__(**kwds)
+        kwds.setdefault('offset', 1)
         if name:
-            self.prefix += name + ':'
+            kwds.setdefault('prefix', name + ':')
         self.shape = shape
         self.ndim = len(shape)
         self._it = np.ndindex(*shape)
-        frmt = ', '.join([_it.counter_format(n) for n in shape])
-        self.formatter = '(' + frmt + '),'
+        frmt = ' '.join([_it.counter_format(n) for n in shape])
+        kwds.setdefault('formatter', '(' + frmt.rstrip(',') + '),')
+        super().__init__(**kwds)
 
     def __iter__(self):
         self._it = iter(self._it)
@@ -78,10 +78,6 @@ class DisplayNDIndex(_it.DisplayMixin):
             raise
         else:
             return self.counter
-
-    def format(self, *ctrs: int) -> str:
-        """String for display of counter, e.g.' 7/12,'."""
-        return super().format(*ctrs[0])
 
 
 class _DispNDIterBase(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
@@ -114,7 +110,7 @@ class _DispNDIterBase(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
     numpy.nditer
     """
 
-    def __init_subclass__(cls):
+    def __init_subclass__(cls, **kwds):
         pass
 
     def __len__(self):

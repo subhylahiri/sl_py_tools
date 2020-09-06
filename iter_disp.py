@@ -1,21 +1,53 @@
 """Displaying iterator classes
 """
 from __future__ import annotations
+import re
 
-from itertools import chain
 import sys
-from typing import ContextManager, Iterable, Iterator, Optional, Sequence, Tuple
+from itertools import chain
+from numbers import Number
+from typing import (ContextManager, Iterable, Iterator, Optional, Sequence,
+                    Tuple)
 
 from . import _iter_base as _it
+from .containers import ZipSequences, tuplify
+from .range_tricks import RangeIsh as _RangeIsh
 from .range_tricks import RangeCollectionMixin as _RangeCollectionMixin
 from .slice_tricks import ContainerMixin as _ContainerMixin
-from .containers import ZipSequences, tuplify
+
+# =============================================================================
+_BATCH_FIND = re.compile(r'(\{:>?\d*d\})')
+_BATCH_REP = r"\1-\1"
 
 
 def _raise_if_no_stop(obj):
     """raise ValueError if obj.stop is None"""
     if obj.stop is None:
         raise ValueError("Need a value for stop")
+
+
+def _batch_format(num: Optional[int]) -> str:
+    """Format string for counters that run up to num
+
+    Produces '2-4/10', etc.
+    """
+    return _BATCH_FIND.sub(_BATCH_REP, _it.counter_format(num))
+
+
+def _max_val(obj: _RangeIsh, offset: int = 0) -> Optional[int]:
+    """Maximum value of RangeIsh"""
+    start, stop, step = _it.st_args(obj)
+    if step > 0:
+        return None if stop is None else stop - step + offset
+    return None if start is None else start + offset
+
+
+def _min_val(obj: _RangeIsh, offset: int = 0) -> Optional[int]:
+    """Minimum value of RangeIsh"""
+    start, stop, step = _it.st_args(obj)
+    if step > 0:
+        return None if start is None else start + offset
+    return None if stop is None else stop - step + offset
 
 
 # =============================================================================
@@ -118,21 +150,23 @@ class DisplayCount(_it.DisplayMixin, _RangeCollectionMixin, _ContainerMixin):
     def __init__(self, *args: _it.DSliceArg, **kwargs):
         name, sliceargs = _it.extract_name(args, kwargs)
         self.start, self.stop, self.step = _it.extract_slice(sliceargs, kwargs)
-        # offset for display of counter, default: 1 if start==0, 0 otherwise
         self.disp_step = kwargs.pop('disp_step', 1)
-        kwargs.setdefault('offset', int(self.start == 0))
+        # offset for display of counter, default: 1 if start==0, 0 otherwise
+        kwargs.setdefault('offset', int(_min_val(self) == 0))
+
+        prefix = ''
+        if name:
+            prefix += name + ':'
+        if self.step < 0:
+            prefix += '-'
+        kwargs.setdefault('prefix', prefix)
+
+        if None not in {self.stop, self.start}:
+            self.stop = self.start + self.step * len(self)
+        maxv = _max_val(self, kwargs.get('offset', 0))
+        kwargs.setdefault('formatter', _it.counter_format(maxv))
 
         super().__init__(**kwargs)
-
-        if name:
-            self.prefix += name + ':'
-        if self.step < 0:
-            self.prefix += '-'
-
-        if self.stop:
-            self.stop = self.start + self.step * len(self)
-            self.formatter = _it.counter_format(self.stop)
-        self.formatter += ','
 
     def __iter__(self) -> DisplayCount:
         """Display initial counter with prefix."""
@@ -147,12 +181,14 @@ class DisplayCount(_it.DisplayMixin, _RangeCollectionMixin, _ContainerMixin):
         """
         _raise_if_no_stop(self)
         args = self.stop - self.step, self.start - self.step, -self.step
-        name = self.prefix
-        if self.step > 0:
-            name += '-'
-        else:
-            name.rstrip('-')
-        kwds = {'offset': self.offset, 'disp_step': self.disp_step}
+        # name = self.prefix.template
+        # if self.step > 0:
+        #     name += '-'
+        # else:
+        #     name.rstrip('-')
+        name = self.prefix.template.rstrip(':-')
+        kwds = {'offset': self.offset, 'disp_step': self.disp_step,
+                'formatter': self.formatter}
         return type(self)(name, *args, **kwds)
 
     def __next__(self) -> int:
@@ -168,19 +204,22 @@ class DisplayCount(_it.DisplayMixin, _RangeCollectionMixin, _ContainerMixin):
         """Ensure that DisplayCount's are properly used"""
         # raise error if ctr is outside range
         if self.counter not in self:
-            msg += f'{self._state.name}: has value {self.counter} '
-            msg += f'when range is ({self.start}:{self.stop}:{self.step}).'
-        return msg
+            msg += type(self).__name__
+            msg += f'({self.prefix.template}): has value {self.counter} '
+            msg += f'when range is [{self.start}:{self.stop}:{self.step}].'
+        super()._check(msg)
 
-    def update(self, msg: str = ''):
+    def update(self):  # , msg: str = ''):
         """Erase previous counter and display new one."""
         if self.count_steps() % self.disp_step == 0:
-            super().update(msg)
+            super().update()
 
     def count_steps(self) -> int:
         """How many steps have been taken?
         """
-        return self.index(self.counter)
+        if isinstance(self.counter, Number):
+            return self.index(self.counter)
+        return self.index(self.counter[0])
 
 
 class DisplayBatch(DisplayCount):
@@ -232,19 +271,8 @@ class DisplayBatch(DisplayCount):
 
     def __init__(self, *args: _it.DSliceArg, **kwargs):
         super().__init__(*args, **kwargs)
-
-        if self.stop is None:
-            self.formatter = '{:d}-{:d}'
-        else:
-            frmt = _it.counter_format(self.stop)
-            self.formatter = frmt[:frmt.find('/')] + '-' + frmt
-        self.formatter += ','
+        self.formatter.template = _batch_format(self.stop)
         self._slice_step = self.step // abs(self.step)
-
-    def format(self, *ctrs: int) -> str:
-        """String for display of counter, e.g.' 7/12,'."""
-        return super().format(*chain.from_iterable((n, n + abs(self.step) - 1)
-                                                   for n in ctrs))
 
     def __next__(self) -> slice:
         """Increment counter, erase previous counter and display new one."""
@@ -256,6 +284,14 @@ class DisplayBatch(DisplayCount):
         obj.start += self.step - self._slice_step
         obj.stop += self.step - self._slice_step
         return obj
+
+    def update(self):
+        """Erase previous counter and display new one."""
+        if self.count_steps() % self.disp_step == 0:
+            ctrs = [(n, n + abs(self.step) - 1) for n in tuplify(self.counter)]
+            ctrs, self.counter = self.counter, tuple(chain.from_iterable(ctrs))
+            super().update()
+            self.counter = ctrs
 
 
 class DisplayEnumerate(_it.AddDisplayToIterables, displayer=DisplayCount):

@@ -12,13 +12,13 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from collections.abc import Sized
-from typing import Optional, Union, Tuple, Iterable, Dict, Callable, TypeVar
+from typing import ClassVar, Optional, Union, Tuple, Iterable, Dict, Callable, TypeVar
 from functools import wraps
 from numbers import Number
 from operator import add, mul, floordiv
 
 # from .display_tricks import _DisplayState as DisplayState
-from .display_tricks import DisplayTemporary
+from .display_tricks import FormattedTempDisplay
 from .arg_tricks import default
 from .containers import tuplify, rev_seq
 
@@ -90,19 +90,24 @@ def extract_slice(args: SliceArgs, kwargs: SliceKeys) -> SliceArgs:
     start = kwargs.pop('start', inds.start)
     stop = kwargs.pop('stop', inds.stop)
     step = kwargs.pop('step', inds.step)
-    start = default(start, 0)
     step = default(step, 1)
+    if step > 0:
+        start = default(start, 0)
+    else:
+        stop = default(stop, -1)
     return start, stop, step
 
 
-def counter_format(num: int) -> str:
+def counter_format(num: Optional[int]) -> str:
     """Format string for counters that run up to num
 
     Produces ' 4/10', etc.
     """
+    if num is None:
+        return '{:d},'
     num_dig = str(len(str(num)))
-    formatter = '{:>' + num_dig + 'd}/'
-    formatter += formatter.format(num)[:-1]
+    formatter = '{:>' + num_dig + 'd}'
+    formatter += f'/{formatter.format(num)},'
     return formatter
 
 
@@ -206,6 +211,187 @@ class SliceToIter:
         argspost = args[self.argnum+1:]
         argsslc = self.slicefun(args[self.argnum])
         return self.iterfun(*argspre, *argsslc, *argspost)
+
+
+def min_len(*iterables) -> int:
+    """Length of shortest sequence.
+    """
+    return min((len(seq) for seq in
+                filter(lambda x: isinstance(x, Sized), iterables)),
+               default=None)
+
+
+def max_len(*iterables) -> int:
+    """Length of shortest sequence.
+    """
+    return max((len(seq) for seq in
+                filter(lambda x: isinstance(x, Sized), iterables)),
+               default=None)
+
+
+# =============================================================================
+# Mixins for defining displaying iterators
+# =============================================================================
+
+
+class DisplayMixin:
+    """Mixin providing non-iterator machinery for DisplayCount etc.
+
+    This is an ABC. Only implements `begin`, `disp`, `end` and private stuff.
+    Subclasses must implement `iter` and `next`. They must set ``counter``.
+    """
+    counter: Optional[int]
+    offset: int
+    formatter: FormattedTempDisplay
+    prefix: FormattedTempDisplay
+    # set debug to True to check that displays are properly nested
+    debug: ClassVar[bool] = False
+
+    def __init__(self, **kwds):
+        """Construct non-iterator machinery"""
+        self.counter = None
+        self.offset = kwds.pop('offset', 0)
+        self.prefix = kwds.pop('prefix', '')
+        if isinstance(self.prefix, str):
+            self.prefix = FormattedTempDisplay(self.prefix)
+        self.formatter = kwds.pop('formatter', '{:d},')
+        if isinstance(self.formatter, str):
+            self.formatter = FormattedTempDisplay(self.formatter)
+
+    @abstractmethod
+    def __next__(self):
+        pass
+
+    @abstractmethod
+    def __iter__(self):
+        pass
+
+    def begin(self):  # , msg: str = ''):
+        """Display initial counter with prefix."""
+        if self.prefix.numchar:
+            raise RuntimeError(
+                '''DisplayMixin.begin() was called a second time.
+                It should only be called once.''') from None
+        self.prefix()
+        self.update()
+        if self.debug:
+            self._check()
+
+    def update(self):  # , msg: str = ''):
+        """Erase previous counter and display new one."""
+        self.formatter(*(n + self.offset for n in tuplify(self.counter)))
+        if self.debug:
+            self._check()
+
+    def end(self):
+        """Erase previous counter and prefix."""
+        # super().end()
+        self.formatter.end()
+        self.prefix.end()
+        if self.debug:
+            self._check()
+
+    def _check(self, msg: str = '') -> str:
+        """Ensure that DisplayTemporaries are properly used
+
+        Can be overloaded in subclasses
+        """
+        # raise error if msg is non-empty
+        if msg and self.debug:
+            raise IndexError(msg)
+
+
+class AddDisplayToIterables:
+    """Wraps iterator to display progress.
+
+    This is an ABC. Only implements `begin`, `update` and `end` methods, as
+    well as `__init__`, `__reversed__` and `__len__`. Subclasses must implement
+    `__iter__` and `__next__`.
+
+    Specify ``displayer`` in keyword arguments of subclass definition to
+    customise display. There is no default, but ``iter_tricks.DisplayCount`` is
+    suggested. It must implement the ``DisplayMixin`` interface with
+    constructor signature ``displayer(name, len(self), **kwds)``, with `self`
+    an instance of the subclass being defined.
+
+    Subclasses of subclasses will also have to specify a ``displayer`` unless
+    an intermediate subclass redefines `__init_subclass__`.
+
+    Parameters
+    ----------
+    name: str
+        Name to be used for display. See `extract_name`.
+    iterable1, ...
+        The iterables being wrapped.
+    usemax : bool, keyword only, default=False
+        If True, we continue until all sequences are exhausted. If False, we
+        stop when we reach the end of the shortest sequence.
+    **kwds
+        Keywords other than `name` are passed to the ``displayer`` constructor.
+    """
+    _iterables: Tuple[Iterable, ...]
+    display: DisplayMixin
+    _max: bool
+
+    def __init_subclass__(cls, displayer, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.displayer = displayer
+
+    def __init__(self, *args: DZipArg, **kwds):
+        """Construct the displayer"""
+        name, self._iterables = extract_name(args, kwds)
+        addto = kwds.pop('addto', 0)
+        self._max = kwds.pop('usemax', False)
+        # self._iterables = ZipSequences(*iterables, usemax=self._max)
+        stop = len(self)
+        if stop is None:
+            self.display = self.displayer(name, addto, stop, **kwds)
+        else:
+            self.display = self.displayer(name, addto, addto + stop, **kwds)
+
+    def __reversed__(self):
+        """Prepare to display final counter with prefix.
+
+        Assumes `self.display` and all iterables have `__reversed__` methods.
+        """
+        try:
+            self.display = reversed(self.display)
+        except AttributeError as exc:
+            raise AttributeError('The displayer is not reversible.') from exc
+        try:
+            self._iterables = tuple(rev_seq(seq) for seq in self._iterables)
+        except AttributeError as exc:
+            raise AttributeError('Some iterables are not reversible.') from exc
+        return self
+
+    @abstractmethod
+    def __next__(self):
+        pass
+
+    @abstractmethod
+    def __iter__(self):
+        pass
+
+    def __len__(self):
+        """Length of shortest sequence.
+        """
+        if self._max:
+            return max_len(*self._iterables)
+        return min_len(*self._iterables)
+
+    def begin(self, *args, **kwds):
+        """Display initial counter with prefix."""
+        self.display.begin(*args, **kwds)
+
+    def update(self, *args, **kwds):
+        """Erase previous counter and display new one."""
+        self.display.update(*args, **kwds)
+
+    def end(self):
+        """Erase previous counter and prefix."""
+        # if self.__len__() is None:
+        if self.display.formatter.numchar:
+            self.display.end()
 
 
 # -----------------------------------------------------------------------------
@@ -346,171 +532,6 @@ def arg_sub(cin: ConvIn, cout: ConvOut, one: SorNum, two: SorNum) -> SomeType:
         return arg_add(cin, cout, one, arg_mul(cin, cout, two, -1, True))
     except ValueError:
         return arg_add(cin, cout, one, arg_mul(cin, cout, two, -1, False))
-
-
-def min_len(*iterables) -> int:
-    """Length of shortest sequence.
-    """
-    return min((len(seq) for seq in
-                filter(lambda x: isinstance(x, Sized), iterables)),
-               default=None)
-
-
-def max_len(*iterables) -> int:
-    """Length of shortest sequence.
-    """
-    return max((len(seq) for seq in
-                filter(lambda x: isinstance(x, Sized), iterables)),
-               default=None)
-
-
-# =============================================================================
-# Mixins for defining displaying iterators
-# =============================================================================
-
-
-class DisplayMixin(DisplayTemporary):
-    """Mixin providing non-iterator machinery for DisplayCount etc.
-
-    This is an ABC. Only implements `begin`, `disp`, `end` and private stuff.
-    Subclasses must implement `iter` and `next`. They must set ``counter``.
-    """
-    counter: Optional[int]
-    offset: int
-    formatter: str
-    prefix: Union[str, DisplayTemporary]
-
-    def __init__(self, **kwds):
-        """Construct non-iterator machinery"""
-        self.offset = kwds.pop('offset', 0)
-        super().__init__(**kwds)
-        self.counter = None
-        self.formatter = '{:d}'
-        self.prefix = ''
-
-    @abstractmethod
-    def __next__(self):
-        pass
-
-    @abstractmethod
-    def __iter__(self):
-        pass
-
-    def begin(self, msg: str = ''):
-        """Display initial counter with prefix."""
-        if isinstance(self.prefix, str):
-            self.prefix = DisplayTemporary.show(self.prefix)
-        else:
-            raise RuntimeError(
-                '''DisplayMixin.begin() was called a second time.
-                It should only be called once.''') from None
-        super().begin(self.format(self.counter) + msg)
-
-    def update(self, msg: str = ''):
-        """Erase previous counter and display new one."""
-        dsp = self.format(self.counter)
-        super().update(dsp + msg)
-
-    def end(self):
-        """Erase previous counter and prefix."""
-        super().end()
-        self.prefix.end()
-
-    def format(self, *ctrs: int) -> str:
-        """String for display of counter, e.g.' 7/12,'."""
-        return self.formatter.format(*(n + self.offset for n in ctrs))
-
-
-class AddDisplayToIterables:
-    """Wraps iterator to display progress.
-
-    This is an ABC. Only implements `begin`, `update` and `end` methods, as
-    well as `__init__`, `__reversed__` and `__len__`. Subclasses must implement
-    `__iter__` and `__next__`.
-
-    Specify ``displayer`` in keyword arguments of subclass definition to
-    customise display. There is no default, but ``iter_tricks.DisplayCount`` is
-    suggested. It must implement the ``DisplayMixin`` interface with
-    constructor signature ``displayer(name, len(self), **kwds)``, with `self`
-    an instance of the subclass being defined.
-
-    Subclasses of subclasses will also have to specify a ``displayer`` unless
-    an intermediate subclass redefines `__init_subclass__`.
-
-    Parameters
-    ----------
-    name: str
-        Name to be used for display. See `extract_name`.
-    iterable1, ...
-        The iterables being wrapped.
-    usemax : bool, keyword only, default=False
-        If True, we continue until all sequences are exhausted. If False, we
-        stop when we reach the end of the shortest sequence.
-    **kwds
-        Keywords other than `name` are passed to the ``displayer`` constructor.
-    """
-    _iterables: Tuple[Iterable, ...]
-    display: DisplayMixin
-    _max: bool
-
-    def __init_subclass__(cls, displayer, **kwargs):
-        super().__init_subclass__(**kwargs)
-        cls.displayer = displayer
-
-    def __init__(self, *args: DZipArg, **kwds):
-        """Construct the displayer"""
-        name, self._iterables = extract_name(args, kwds)
-        addto = kwds.pop('addto', 0)
-        self._max = kwds.pop('usemax', False)
-        # self._iterables = ZipSequences(*iterables, usemax=self._max)
-        stop = len(self)
-        if stop is None:
-            self.display = self.displayer(name, addto, stop, **kwds)
-        else:
-            self.display = self.displayer(name, addto, addto + stop, **kwds)
-
-    def __reversed__(self):
-        """Prepare to display final counter with prefix.
-
-        Assumes `self.display` and all iterables have `__reversed__` methods.
-        """
-        try:
-            self.display = reversed(self.display)
-        except AttributeError as exc:
-            raise AttributeError('The displayer is not reversible.') from exc
-        try:
-            self._iterables = tuple(rev_seq(seq) for seq in self._iterables)
-        except AttributeError as exc:
-            raise AttributeError('Some iterables are not reversible.') from exc
-        return self
-
-    @abstractmethod
-    def __next__(self):
-        pass
-
-    @abstractmethod
-    def __iter__(self):
-        pass
-
-    def __len__(self):
-        """Length of shortest sequence.
-        """
-        if self._max:
-            return max_len(*self._iterables)
-        return min_len(*self._iterables)
-
-    def begin(self, *args, **kwds):
-        """Display initial counter with prefix."""
-        self.display.begin(*args, **kwds)
-
-    def update(self, *args, **kwds):
-        """Erase previous counter and display new one."""
-        self.display.update(*args, **kwds)
-
-    def end(self):
-        """Erase previous counter and prefix."""
-        if self.__len__() is None:
-            self.display.end()
 
 
 # =============================================================================

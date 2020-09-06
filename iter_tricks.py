@@ -111,17 +111,19 @@ Examples
 """
 # current_module = __import__(__name__)
 __all__ = [
-    'b_', 'dc_', 'db_', 'rdc_', 'rdb_', 'udc_', 'udb_', 'urdc_', 'urdb_',
-    'ZipSequences', 'Batch', 'Batched', 'BatchEnum',
-    'DisplayCount', 'DisplayBatch', 'DisplayEnumerate', 'DisplayZip',
-    'DisplayBatched', 'DisplayBatchEnum', 'zenumerate', 'batch', 'batched',
-    'batchenum', 'rzenumerate', 'rbatch', 'rbatched', 'rbatchenum',
-    'dbatch', 'dcount', 'denumerate', 'dzip', 'dbatched', 'dbatchenum',
-    'rdcount', 'rdbatch', 'rdenumerate', 'rdzip', 'rdbatched', 'rdbatchenum',
-    'undcount', 'undbatch', 'undenumerate', 'undzip', 'undbatched',
-    'undbatchenum', 'unrdcount', 'unrdbatch', 'unrdenumerate', 'unrdzip',
-    'unrdbatched', 'unrdbatchenum', 'delay_warnings', 'erange', 'sr_',
-    'range_to_slice', 'slice_to_range', 'SliceRange', 'srange',
+    'SliceRange', 'ZipSequences', 'Batch', 'Batched', 'BatchEnum',
+    'DisplayCount', 'DisplayEnumerate', 'DisplayZip', 'DisplayBatch',
+    'DisplayBatched', 'DisplayBatchEnum',
+    'zenumerate', 'batch', 'batched', 'batchenum',
+    'rzenumerate', 'rbatch', 'rbatched', 'rbatchenum',
+    'dcount', 'denumerate', 'dzip', 'dbatch', 'dbatched', 'dbatchenum',
+    'rdcount', 'rdenumerate', 'rdzip', 'rdbatch', 'rdbatched', 'rdbatchenum',
+    'undcount', 'undenumerate', 'undzip', 'undbatch', 'undbatched',
+    'undbatchenum',
+    'unrdcount', 'unrdenumerate', 'unrdzip', 'unrdbatch', 'unrdbatched',
+    'unrdbatchenum',
+    'delay_warnings', 'erange', 'range_to_slice', 'slice_to_range', 'srange',
+    'b_', 'dc_', 'db_', 'rdc_', 'rdb_', 'udc_', 'udb_', 'urdc_', 'urdb_', 'sr_'
     ]
 import sys
 from typing import Sequence
@@ -132,8 +134,8 @@ from .display_tricks import delay_warnings
 from .iter_disp import (DisplayBatch, DisplayCount, DisplayEnumerate,
                         DisplayZip, DisplayBatched, DisplayBatchEnum)
 from .range_tricks import erange, sr_
-from .slice_tricks import (Batch, SliceRange, range_to_slice, slice_to_range,
-                           srange, Batched, BatchEnum)
+from .slice_tricks import (Batch, Batched, BatchEnum, SliceRange,
+                           range_to_slice, slice_to_range, srange)
 
 # from .arg_tricks import Export as _Export
 
@@ -305,14 +307,14 @@ def dcount(*args: _it.DSliceArg, **kwargs) -> DisplayCount:
 
     Parameters
     ----------
-    name : str or None, optional
-        name of counter used for prefix.
-    start : int or None, optional, default=0
-        initial counter value (inclusive).
-    stop : int or None, optional, default=None
-        value of counter at, or above which, the loop terminates (exclusive).
-    step : int or None, optional, default=1
-        increment of counter after each loop.
+    name : str|None, optional
+        name of counter used for prefix, default=''.
+    start : int|None, optional
+        initial counter value (inclusive), default=0.
+    stop : int|None, optional
+        value of counter where the loop terminates (exclusive), default=`None`.
+    step : int|None, optional
+        increment of counter after each loop, default=0.
 
     `start`, `stop` and `step` behave like `slice` indices when omitted.
     To specify `start/step` without setting `stop`, set `stop` to `None`.
@@ -361,7 +363,7 @@ def dcount(*args: _it.DSliceArg, **kwargs) -> DisplayCount:
 
 
 @_it.and_reverse
-def denumerate(*args: _it.DZipArg, **kwds) -> DisplayEnumerate:
+def denumerate(*name_and_iters: _it.DZipArg, **kwds) -> DisplayEnumerate:
     """Like `zenumerate`, but using a `DisplayCount`.
 
     Reads maximum counter value from min length of Sized `sequences`.
@@ -411,14 +413,14 @@ def denumerate(*args: _it.DZipArg, **kwds) -> DisplayEnumerate:
     DisplayZip, DisplayCount,
     enumerate, zip
     """
-    return DisplayEnumerate(*args, **kwds)
+    return DisplayEnumerate(*name_and_iters, **kwds)
 
 
 @_it.and_reverse
-def dzip(*args: _it.DZipArg, **kwds) -> DisplayZip:
+def dzip(*name_and_iters: _it.DZipArg, **kwds) -> DisplayZip:
     """Like `enumerate` + `zip`, but using a `DisplayCount`.
 
-    Reads maximum counter value from min length of Sized `sequences`.
+    Reads max/minimum counter value from min length of Sized `sequences`.
     Prints loop counter (plus 1), updates in place, and deletes at end.
     Returns (loop counter, sequence members) in each loop iteration.
     Nested loops display on one line and update correctly if the inner
@@ -443,7 +445,7 @@ def dzip(*args: _it.DZipArg, **kwds) -> DisplayZip:
     Returns
     -------
     disp_zip : DisplayZip
-        An iterator that displays counter value & returns `sequences` entries
+        An iterator that displays counter value & returns `sequences` entries.
 
     Examples
     --------
@@ -463,7 +465,7 @@ def dzip(*args: _it.DZipArg, **kwds) -> DisplayZip:
     DisplayEnumerate, DisplayCount
     zip, enumerate
     """
-    return DisplayZip(*args, **kwds)
+    return DisplayZip(*name_and_iters, **kwds)
 
 
 @_it.and_reverse
@@ -485,12 +487,12 @@ def dbatch(*args: _it.DSliceArg, **kwargs) -> DisplayBatch:
     ----------
     name : Optional[str]
         name of counter used for prefix.
-    start : int or None, optional, default=0
-        initial counter value (inclusive).
-    stop : int or None, optional, default=None
-        value of counter at, or above which, the loop terminates (exclusive).
-    step : int or None, optional, default=1
-        increment of counter after each loop.
+    start : int or None, optional
+        initial counter value (inclusive), default=0.
+    stop : int or None, optional
+        value of counter where the loop terminates (exclusive), default=None.
+    step : int or None, optional
+        increment of counter after each loop, default=1.
 
     `start`, `stop` and `step` behave like `slice` indices when omitted.
     To specify `start/step` without setting `stop`, set `stop` to `None`.
@@ -503,8 +505,10 @@ def dbatch(*args: _it.DSliceArg, **kwargs) -> DisplayBatch:
     disp_counter : DisplayBatch
         An iterator that displays counter & returns:
 
-        batch_slice:
-            `slice` object that starts at current counter and stops at next.
+    Yields
+    ------
+    batch_slice : slice
+        `slice` object that starts at current counter and stops at next.
 
     Example
     -------
@@ -533,9 +537,9 @@ def dbatched(name: str, step: int, *sequences: Sequence, usemax=True, **kwds
         increment of counter after each loop.
     sequence1, sequence2, ...
         sequences to iterate over
-    usemax : bool, keyword only, default=True
+    usemax : bool, optional keyword
         If True, we continue until all sequences are exhausted. If False, we
-        stop when we reach the end of the shortest sequence.
+        stop when we reach the end of the shortest sequence. Default=`True`.
 
     Yields
     ------
@@ -571,18 +575,18 @@ def dbatchenum(name: str, step: int, *sequences: Sequence, usemax=True, **kwds
         increment of counter after each loop.
     sequence1, sequence2, ...
         sequences to iterate over
-    usemax : bool, keyword only, default=True
-        If True, we continue until all sequences are exhausted. If False, we
-        stop when we reach the end of the shortest sequence.
+    usemax : bool, optional keyword
+        If `True`, we continue until all sequences are exhausted. If `False`,
+        we stop when we reach the end of the shortest sequence. Default=`True`.
 
     Yields
     ------
-    batch_slice
+    batch_slice : slice
         slice object that starts at current counter and stops at the next value
         with step size 1.
     sequence1[s], sequence2[s], ...
         slice(s) of the sequence(s) that starts at current counter and stops at
-        the next value with step size 1correspond to `batch_slice`.
+        the next value with step size 1, corresponding to `batch_slice`.
 
     Example
     -------
