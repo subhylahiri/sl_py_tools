@@ -181,11 +181,6 @@ class DisplayCount(_it.DisplayMixin, _RangeCollectionMixin, _ContainerMixin):
         """
         _raise_if_no_stop(self)
         args = self.stop - self.step, self.start - self.step, -self.step
-        # name = self.prefix.template
-        # if self.step > 0:
-        #     name += '-'
-        # else:
-        #     name.rstrip('-')
         name = self.prefix.template.rstrip(':-')
         kwds = {'offset': self.offset, 'disp_step': self.disp_step,
                 'formatter': self.formatter}

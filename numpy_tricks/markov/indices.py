@@ -1,6 +1,8 @@
 """Generate indices for parameters of Markov processes
 """
 from __future__ import annotations
+from typing import Callable, Tuple
+import typing as _ty
 
 import numpy as np
 
@@ -180,7 +182,93 @@ def param_inds(nst: int, serial: bool = False, ring: bool = False,
 
     Returns
     -------
-    mat : ndarray (k,k), k in (n(n-1), 2(n-1), 2n, 2)
+    inds : ndarray (k,), k in (n(n-1), 2(n-1), 2n, 2)
         Indices of independent elements. For the order, see docs for `*_inds`.
     """
     return ind_fun(serial, ring, uniform)(nst, drn)
+
+
+def _unravel_ind_fun(func: IndFun) -> SubFun:
+    """Convert a function that returns ravelled indices to one that returns
+    unravelled indices.
+
+    Parameters
+    ----------
+    func : Callable[[int, int], np.ndarray]
+        Function that returns ravelled indices
+
+    Returns
+    -------
+    new_func : Callable[[int, int], Tuple[np.ndarray, np.ndarray]]
+        Function that returns unravelled indices
+    """
+    def new_func(nst: int, drn: int = 0) -> Tuple[np.ndarray, np.ndarray]:
+        """Row and column indices of transitions
+
+        Parameters
+        ----------
+        nst : int
+            Number of states, `2n`.
+        drn: int, optional, default: 0
+            If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
+
+        Returns
+        -------
+        rows : ndarray
+            Vector of row indices of off-diagonal elements.
+        cols : ndarray
+            Vector of column indices of off-diagonal elements.
+        For the order, see docs for `*_inds`.
+        """
+        inds = func(nst, drn)
+        return np.unravel_index(inds, (nst, nst))
+    return new_func
+
+
+def sub_fun(serial: bool, ring: bool, uniform: bool = False) -> SubFun:
+    """which index function to use
+    """
+    return _unravel_ind_fun(ind_fun(serial, ring, uniform))
+
+
+def param_subs(nst: int, serial: bool = False, ring: bool = False,
+               uniform=False, drn: int = 0) -> Tuple[np.ndarray, np.ndarray]:
+    """Row and column indices of independent parameters of transition matrix.
+
+    Parameters
+    ----------
+    nst : int
+        Number of states.
+    serial : bool, optional, default: False
+        Is the rate vector meant for `serial_params_to_mat` or
+        `gen_params_to_mat`?
+    ring : bool, optional, default: False
+        Is the rate vector meant for `ring_params_to_mat` or
+        `gen_params_to_mat`?
+    uniform : bool, optional, default: False
+        Is the rate vector meant for `ring_params_to_mat` or
+        `uni_ring_params_to_mat`?
+    drn: int, optional, default: 0
+        If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
+
+    Returns
+    -------
+        rows : ndarray
+            Vector of row indices of off-diagonal elements.
+        cols : ndarray
+            Vector of column indices of off-diagonal elements.
+        For the order, see docs for `*_inds`.
+    """
+    return sub_fun(serial, ring, uniform)(nst, drn)
+
+
+# =============================================================================
+# Aliases
+# =============================================================================
+offdiag_subs = _unravel_ind_fun(offdiag_inds)
+offdiag_split_subs = _unravel_ind_fun(offdiag_split_inds)
+ring_subs = _unravel_ind_fun(ring_inds)
+serial_subs = _unravel_ind_fun(serial_inds)
+cascade_subs = _unravel_ind_fun(cascade_inds)
+Subs = _ty.Tuple[np.ndarray, np.ndarray]
+SubFun = _ty.Callable[[int, int], Subs]
