@@ -12,15 +12,15 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from collections.abc import Sized
-from typing import ClassVar, Optional, Union, Tuple, Iterable, Dict, Callable, TypeVar
 from functools import wraps
 from numbers import Number
-from operator import add, mul, floordiv
+from operator import add, floordiv, mul
+from typing import (Callable, ClassVar, Dict, Iterable, Optional, Tuple,
+                    TypeVar, Union)
 
-# from .display_tricks import _DisplayState as DisplayState
-from .display_tricks import FormattedTempDisplay
 from .arg_tricks import default
-from .containers import tuplify, rev_seq
+from .containers import rev_seq, tuplify
+from .display_tricks import FormattedTempDisplay
 
 # =============================================================================
 # %* Utility functions
@@ -481,57 +481,98 @@ def _range_ops(opr: NumOp, case_steps: Tuple[bool, ...],
     return conv_out(*wrap_op(*args, opr, case_steps))
 
 
-def arg_mul(cin: ConvIn, cout: ConvOut, one: SorNum, two: SorNum,
-            step: bool = True) -> SomeType:
-    """multiply range by a number.
+def arg_ops(cin: ConvIn, cout: ConvOut) ->Tuple[Callable[[SorNum, SorNum], SomeType], ...]:
+    """Create arithmetic operations for `RangeIsh/SliceIsh` objects.
 
     Parameters
     ----------
-    one, two : RangeIsh or Number
-        Arguments to multiply
-    step : bool
-        Also multiply step?
+    cin : Callable[RangeIsh -> SliceArgs]
+        Convert `RangeIsh/SliceIsh` object to `start, stop, step`.
+    cout : Callable[[SliceArg, SliceArg, SliceArg] -> SomeType]
+        Convert `start, stop, step` to `RangeIsh/SliceIsh` object.
+
+    Returns
+    -------
+    adder: Callable[[SorNum, SorNum], SomeType]
+        Operator that performs addition.
+    subtractor: Callable[[SorNum, SorNum], SomeType]
+        Operator that performs subtraction.
+    multiplier: Callable[[SorNum, SorNum], SomeType]
+        Operator that performs multiplication.
+    divider: Callable[[SomeType, Number], SomeType]
+        Operator that performs division.
     """
-    return _range_ops(mul, (None, step, step), cin, cout, one, two)
 
+    def adder(left: SorNum, right: SorNum) -> slice:
+        """Add slices / ranges / numbers.
 
-def arg_div(cin: ConvIn, cout: ConvOut, one: SorNum, two: Number,
-            step: bool = True) -> SomeType:
-    """divide range by a number.
+        Parameters
+        ----------
+        left, right : RangeIsh|SliceIsh|Number
+            Arguments to add.
 
-    Parameters
-    ----------
-    one, two : RangeIsh or Number
-        Arguments to divide
-    step : bool
-        Also divide step?
-    """
-    return _range_ops(floordiv, (None, step, None), cin, cout, one, two)
+        Raises
+        ------
+        ValueError
+            If `step`s are incompatible.
+        """
+        return _range_ops(add, (False, False, False), cin, cout, left, right)
 
+    def subtractor(left: SorNum, right: SorNum) -> slice:
+        """Subtract slices / ranges / numbers.
 
-def arg_add(cin: ConvIn, cout: ConvOut, one: SorNum, two: SorNum) -> SomeType:
-    """add ranges / numbers.
+        Parameters
+        ----------
+        left, right : RangeIsh|SliceIsh|Number
+            Arguments to subtract.
 
-    Parameters
-    ----------
-    one, two : RangeIsh or Number
-        Arguments to add
-    """
-    return _range_ops(add, (False, False, False), cin, cout, one, two)
+        Raises
+        ------
+        ValueError
+            If `step`s are incompatible
+        """
+        try:
+            return adder(left, multiplier(right, -1, True))
+        except ValueError:
+            return adder(left, multiplier(right, -1, False))
 
+    def multiplier(left: SorNum, right: SorNum, step: bool = True) -> slice:
+        """Multiply slice / range by a number.
 
-def arg_sub(cin: ConvIn, cout: ConvOut, one: SorNum, two: SorNum) -> SomeType:
-    """subtract ranges / numbers.
+        Parameters
+        ----------
+        left, right : RangeIsh|SliceIsh|Number
+            Arguments to multiply. Cannot both be `SliceIsh`.
+        step : bool
+            Also multiply step?
 
-    Parameters
-    ----------
-    one, two : RangeIsh or Number
-        Arguments to subtract
-    """
-    try:
-        return arg_add(cin, cout, one, arg_mul(cin, cout, two, -1, True))
-    except ValueError:
-        return arg_add(cin, cout, one, arg_mul(cin, cout, two, -1, False))
+        Raises
+        ------
+        TypeError
+            If neither `left` nor `right is a number.`
+        """
+        return _range_ops(mul, (None, step, step), cin, cout, left, right)
+
+    def divider(left: SomeType, right: Number, step: bool = True) -> slice:
+        """divide slice / range by a number.
+
+        Parameters
+        ----------
+        left : RangeIsh|SliceIsh
+            Argument to divide.
+        right : Number
+            Argument to divide by.
+        step : bool
+            Also divide step?
+
+        Raises
+        ------
+        TypeError
+            If `right` is not a number.
+        """
+        return _range_ops(floordiv, (None, step, None), cin, cout, left, right)
+
+    return adder, subtractor, multiplier, divider
 
 
 # =============================================================================

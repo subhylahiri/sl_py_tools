@@ -607,6 +607,7 @@ def disjoint_slice(slc1: SliceLike, slc2: SliceLike) -> bool:
 # Slice arithmetic
 # =============================================================================
 SliceOrNum = Union[SliceIsh, Number]
+slice_add, slice_sub, slice_mul, slice_div = _ib.arg_ops(slice_args, slice)
 
 
 def intersect(slc1: SliceLike, slc2: SliceLike) -> slice:
@@ -618,75 +619,6 @@ def intersect(slc1: SliceLike, slc2: SliceLike) -> slice:
         return None
     return _rectify(slice(overlap, _min(slc1.stop, slc2.stop), step))
 
-
-def slice_add(left: SliceOrNum, right: SliceOrNum) -> slice:
-    """Add slices / numbers.
-
-    Parameters
-    ----------
-    left, right : SliceIsh or Number
-        Arguments to add.
-
-    Raises
-    ------
-    ValueError
-     If `step`s are incompatible.
-    """
-    return _ib.arg_add(slice_args, slice, left, right)
-
-
-def slice_sub(left: SliceOrNum, right: SliceOrNum) -> slice:
-    """Subtract slices / numbers.
-
-    Parameters
-    ----------
-    left, right : RangeIsh or Number
-        Arguments to subtract.
-
-    Raises
-    ------
-    ValueError
-     If `step`s are incompatible
-    """
-    return _ib.arg_sub(slice_args, slice, left, right)
-
-
-def slice_mul(left: SliceOrNum, right: SliceOrNum, step: bool = True) -> slice:
-    """Multiply slice by a number.
-
-    Parameters
-    ----------
-    left, right : SliceIsh or Number
-        Arguments to multiply. Cannot both be `SliceIsh`.
-    step : bool
-        Also multiply step?
-
-    Raises
-    ------
-    TypeError
-        If neither `left` nor `right is a number.`
-    """
-    return _ib.arg_mul(slice_args, slice, left, right, step)
-
-
-def slice_div(left: SliceIsh, right: Number, step: bool = True) -> slice:
-    """divide slice by a number.
-
-    Parameters
-    ----------
-    left : SliceIsh or Number
-        Argument to divide.
-    right : Number
-        Argument to divide by.
-    step : bool
-        Also divide step?
-
-    Raises
-    ------
-    TypeError
-        If `right` is not a number.
-    """
-    return _ib.arg_div(slice_args, slice, left, right, step)
 
 # =============================================================================
 # Utilities
@@ -819,7 +751,7 @@ def _stop_bound(start: int, stop: int, step: int) -> int:
 
 
 def _slice_sup(the_slice: SliceIsh) -> SliceArg:
-    """Smallest value one step after slice, or None
+    """Smallest value one step larger than slice, or None
 
     Assume standardised:
         `start,stop` can only be `None` if _unbounded.
@@ -867,7 +799,7 @@ def _slice_min(the_slice: SliceIsh) -> SliceArg:
 
 
 def _slice_inf(the_slice: SliceIsh) -> SliceArg:
-    """Lower bound on Largest value one step before slice
+    """Lower bound on Largest value one step smaller than slice
 
     Assume standardised:
         `start,stop` can only be `None` if _unbounded.

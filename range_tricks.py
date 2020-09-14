@@ -300,76 +300,7 @@ def disjoint_range(rng1: RangeLike, rng2: RangeLike) -> bool:
 # Range arithmetic
 # =============================================================================
 RangeOrNum = Union[RangeIsh, Number]
-
-
-def range_add(left: RangeOrNum, right: RangeOrNum) -> erange:
-    """Add ranges / numbers.
-
-    Parameters
-    ----------
-    left, right : RangeIsh or Number
-        Arguments to add.
-
-    Raises
-    ------
-    ValueError
-     If `step`s are incompatible.
-    """
-    return _ib.arg_add(range_args, erange, left, right)
-
-
-def range_sub(left: RangeOrNum, right: RangeOrNum) -> erange:
-    """Subtract ranges / numbers.
-
-    Parameters
-    ----------
-    left, right : RangeIsh or Number
-        Arguments to subtract.any(iterable)
-
-    Raises
-    ------
-    ValueError
-     If `step`s are incompatible
-    """
-    return _ib.arg_sub(range_args, erange, left, right)
-
-
-def range_mul(arg1: RangeOrNum, arg2: RangeOrNum, step: bool = True) -> erange:
-    """Multiply range by a number.
-
-    Parameters
-    ----------
-    left, right : RangeIsh or Number
-        Arguments to multiply. Cannot both be `RangeIsh`.
-    step : bool
-        Also multiply step?
-
-    Raises
-    ------
-    TypeError
-        If neither `left` nor `right is a number.`
-    """
-    return _ib.arg_mul(range_args, erange, arg1, arg2, step)
-
-
-def range_div(left: RangeOrNum, right: Number, step: bool = True) -> erange:
-    """Divide range by a number.
-
-    Parameters
-    ----------
-    left : RangeIsh or Number
-        Argument to divide.
-    right : Number
-        Argument to divide by.
-    step : bool
-        Also divide step?
-
-    Raises
-    ------
-    TypeError
-        If `right` is not a number.
-    """
-    return _ib.arg_div(range_args, erange, left, right, step)
+range_add, range_sub, range_mul, range_div = _ib.arg_ops(range_args, erange)
 
 # =============================================================================
 # Utilities
