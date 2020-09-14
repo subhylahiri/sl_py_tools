@@ -318,6 +318,29 @@ def bcast_update(updater: _ty.Callable[..., None],
         updater(arrays, drn, fun_axes, drn_axes, *args, **kwds)
 
 
+def bcast_drn_inds(ifun: IndFun, nst: int, drns: _ty.Sequence[int]) -> np.ndarray:
+    """Indices for an array of transition matrices, with different directions.
+
+    Parameters
+    ----------
+    ifun : IndFun
+        Function that computes ravelled indices for a single transition matrix
+    nst : int
+        Number of states, `M`.
+    drns : Sequence[int] (P,)
+        Direction for each transition matrix.
+
+    Returns
+    -------
+    inds : np.ndarray
+        Ravelled indices for a (P, M, M) array of transition matrices.
+    """
+    inds = []
+    for k, drn in enumerate(drns):
+        inds.append(ifun(nst, drn) + k * nst**2)
+    return np.concatenate(inds)
+
+
 # =============================================================================
 # Parameters to matrices
 # =============================================================================
