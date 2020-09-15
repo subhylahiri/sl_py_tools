@@ -1,18 +1,19 @@
 """Generate indices for parameters of Markov processes
 """
 from __future__ import annotations
+
 import typing as _ty
 
 import numpy as np
 
-from ._helpers import IndFun, bcast_drn_inds
+from ._helpers import IndFun, IntOrSeq, bcast_drn_inds
 
 # =============================================================================
 # Indices of parameters
 # =============================================================================
 
 
-def offdiag_inds(nst: int, drn: int = 0) -> np.ndarray:
+def offdiag_inds(nst: int, drn: IntOrSeq = 0) -> np.ndarray:
     """Indices of independent parameters of transition matrix.
 
     Parameters
@@ -45,7 +46,7 @@ def offdiag_inds(nst: int, drn: int = 0) -> np.ndarray:
     return np.delete(k, k_1st)
 
 
-def offdiag_split_inds(nst: int, drn: int = 0) -> np.ndarray:
+def offdiag_split_inds(nst: int, drn: IntOrSeq = 0) -> np.ndarray:
     """Indices of independent parameters of transition matrix.
 
     Parameters
@@ -71,7 +72,7 @@ def offdiag_split_inds(nst: int, drn: int = 0) -> np.ndarray:
     return np.hstack((offdiag_inds(nst, 1), offdiag_inds(nst, -1)))
 
 
-def ring_inds(nst: int, drn: int = 0) -> np.ndarray:
+def ring_inds(nst: int, drn: IntOrSeq = 0) -> np.ndarray:
     """Ravel indices of non-zero elements of ring transition matrix.
 
     Parameters
@@ -99,7 +100,7 @@ def ring_inds(nst: int, drn: int = 0) -> np.ndarray:
     return np.hstack((pos, neg))
 
 
-def serial_inds(nst: int, drn: int = 0) -> np.ndarray:
+def serial_inds(nst: int, drn: IntOrSeq = 0) -> np.ndarray:
     """Ravel indices of non-zero elements of serial transition matrix.
 
     Parameters
@@ -127,7 +128,7 @@ def serial_inds(nst: int, drn: int = 0) -> np.ndarray:
     return np.hstack((pos, neg))
 
 
-def cascade_inds(nst: int, drn: int = 0) -> np.ndarray:
+def cascade_inds(nst: int, drn: IntOrSeq = 0) -> np.ndarray:
     """Indices of transitions for the cascade model
 
     Parameters
@@ -186,7 +187,7 @@ def ind_fun(serial: bool, ring: bool, uniform: bool = False) -> IndFun:
 
 
 def param_inds(nst: int, serial: bool = False, ring: bool = False,
-               uniform: bool = False, drn: int = 0) -> np.ndarray:
+               uniform: bool = False, drn: IntOrSeq = 0) -> np.ndarray:
     """Ravel indices of independent parameters of transition matrix.
 
     Parameters
@@ -224,7 +225,7 @@ def _unravel_ind_fun(func: IndFun) -> SubFun:
     new_func : Callable[[int, int], Tuple[np.ndarray, np.ndarray]]
         Function that returns unravelled indices
     """
-    def new_func(nst: int, drn: int = 0) -> Subs:
+    def new_func(nst: int, drn: IntOrSeq = 0) -> Subs:
         """Row and column indices of transitions
 
         Parameters
@@ -282,7 +283,7 @@ def sub_fun(serial: bool, ring: bool, uniform: bool = False) -> SubFun:
 
 
 def param_subs(nst: int, serial: bool = False, ring: bool = False,
-               uniform: bool = False, drn: int = 0) -> Subs:
+               uniform: bool = False, drn: IntOrSeq = 0) -> Subs:
     """Row and column indices of independent parameters of transition matrix.
 
     Parameters
@@ -317,5 +318,5 @@ offdiag_split_subs = _unravel_ind_fun(offdiag_split_inds)
 ring_subs = _unravel_ind_fun(ring_inds)
 serial_subs = _unravel_ind_fun(serial_inds)
 cascade_subs = _unravel_ind_fun(cascade_inds)
-Subs = _ty.Tuple[np.ndarray, np.ndarray]
+Subs = _ty.Tuple[np.ndarray, ...]
 SubFun = _ty.Callable[[int, int], Subs]
