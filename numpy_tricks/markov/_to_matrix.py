@@ -10,13 +10,14 @@ from . import _helpers as _mh
 from . import indices as _in
 from ._helpers import IntOrSeq
 from ._helpers import array as Array
+from ._helpers import IntOrSeq, ArrayType
 # =============================================================================
 # Parameters to matrices
 # =============================================================================
 
 
-def gen_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
-                      axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
+def gen_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
+                      axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> ArrayType:
     """Transition matrix from independent parameters.
 
     Parameters
@@ -44,8 +45,9 @@ def gen_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
     return _mh.params_to_mat(params, _in.offdiag_inds, drn, axis, daxis)
 
 
-def uni_gen_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
-                          axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
+def uni_gen_params_to_mat(params: ArrayType, num_st: int, drn: IntOrSeq = 0,
+                          axis: IntOrSeq = -1, daxis: IntOrSeq = 0
+                          ) -> ArrayType:
     """Uniform transition matrix from independent parameters.
 
     Parameters
@@ -80,8 +82,8 @@ def uni_gen_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
     return _mh.params_to_mat(params, _in.offdiag_split_inds, drn, axis, daxis)
 
 
-def ring_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
-                       axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
+def ring_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
+                       axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> ArrayType:
     """Ring transition matrix from independent parameters.
 
     Parameters
@@ -111,8 +113,9 @@ def ring_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
                              ring=True)
 
 
-def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
-                           axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
+def uni_ring_params_to_mat(params: ArrayType, num_st: int, drn: IntOrSeq = 0,
+                           axis: IntOrSeq = -1, daxis: IntOrSeq = 0
+                           ) -> ArrayType:
     """Ring transition matrix from independent parameters.
 
     Parameters
@@ -145,8 +148,9 @@ def uni_ring_params_to_mat(params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
     return ring_params_to_mat(ring_params, drn, axis, daxis)
 
 
-def serial_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
-                         axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
+def serial_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
+                         axis: IntOrSeq = -1, daxis: IntOrSeq = 0
+                         ) -> ArrayType:
     """Serial transition matrix from independent parameters.
 
     Parameters
@@ -177,8 +181,8 @@ def serial_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
 
 
 def uni_serial_params_to_mat(
-        params: np.ndarray, num_st: int, drn: IntOrSeq = 0,
-        axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
+        params: ArrayType, num_st: int, drn: IntOrSeq = 0,
+        axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> ArrayType:
     """Uniform serial transition matrix from independent parameters.
 
     Parameters
@@ -211,8 +215,9 @@ def uni_serial_params_to_mat(
     return serial_params_to_mat(ser_params, drn, axis, daxis)
 
 
-def cascade_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
-                          axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> Array:
+def cascade_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
+                          axis: IntOrSeq = -1, daxis: IntOrSeq = 0
+                          ) -> ArrayType:
     """Transition matrix with cascade topology from non-zero transition rates.
 
     Parameters
@@ -243,9 +248,9 @@ def cascade_params_to_mat(params: np.ndarray, drn: IntOrSeq = 0,
                              serial=True)
 
 
-def std_cascade_params_to_mat(params: np.ndarray, num_st: int,
+def std_cascade_params_to_mat(params: ArrayType, num_st: int,
                               drn: IntOrSeq = 0, axis: IntOrSeq = -1,
-                              daxis: IntOrSeq = 0) -> Array:
+                              daxis: IntOrSeq = 0) -> ArrayType:
     """Cascade transition matrix narr transition rates.drn    Parameters
     ----------
     params : ndarray (2,)
@@ -289,10 +294,10 @@ def std_cascade_params_to_mat(params: np.ndarray, num_st: int,
     return cascade_params_to_mat(full, drn=drn, axis=axis, daxis=daxis)
 
 
-def params_to_mat(params: np.ndarray, *, serial: bool = False,
+def params_to_mat(params: ArrayType, *, serial: bool = False,
                   ring: bool = False, uniform: bool = False, nst: int = 2,
                   drn: IntOrSeq = 0, axis: IntOrSeq = -1, daxis: IntOrSeq = 0
-                  ) -> Array:
+                  ) -> ArrayType:
     """Transition matrix from independent parameters.
 
     Parameters
@@ -336,7 +341,7 @@ def params_to_mat(params: np.ndarray, *, serial: bool = False,
                              drn, axis, daxis, **opts)
 
 
-def matify(params_or_mat: np.ndarray, *args, **kwds) -> Array:
+def matify(params_or_mat: ArrayType, *args, **kwds) -> ArrayType:
     """Transition matrix from independent parameters, if not already so.
 
     Parameters

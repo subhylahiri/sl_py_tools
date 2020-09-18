@@ -8,12 +8,6 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from numpy_linalg import lnarray as array
-from numpy_linalg import zeros
-
-# from numpy import ndarray as array
-# from numpy import zeros
-
 
 def diff_like(fun: _ty.Callable[[ArrayType, ArrayType], ArrayType],
               arr: ArrayType, step: int = 1, axis: int = -1) -> ArrayType:
@@ -296,7 +290,7 @@ def bcast_update(updater: _ty.Callable[..., None],
                  drn: IntOrSeq,
                  fun_axes: _ty.Tuple[AxesOrSeq, ...],
                  drn_axes: _ty.Tuple[IntOrSeq, ...],
-                 *args, **kwds):
+                 **kwds) -> None:
     """Update arrays with other arrays.
 
     Returns
@@ -307,27 +301,28 @@ def bcast_update(updater: _ty.Callable[..., None],
     num = len(arrays)
     if not isinstance(drn_axes[0], int):
         for axes in zip(*fun_axes, *drn_axes):
-            bcast_update(updater, arrays, drn, axes[:num], axes[num:], *args,
-                         **kwds)
+            bcast_update(updater, arrays, drn, axes[:num], axes[num:], **kwds)
     elif not isinstance(drn, int):
         narr = [np.moveaxis(arr, dax, 0) for arr, dax in zip(arrays, drn_axes)]
         for arrd in zip(*narr, drn):
             bcast_update(updater, arrd[:-1], arrd[-1], fun_axes, (0,) * num,
-                         *args, **kwds)
+                         **kwds)
     else:
-        updater(arrays, drn, fun_axes, drn_axes, *args, **kwds)
+        kwds.update(zip(('maxes', 'paxis', 'mdaxis', 'pdaxis'),
+                        fun_axes + drn_axes), drn=drn)
+        updater(*arrays, **kwds)
 
 
-def bcast_drn_inds(ifun: IndFun, nst: int, drns: _ty.Sequence[int]) -> np.ndarray:
+def bcast_inds(ifn: IndFun, nst: int, drn: _ty.Sequence[int]) -> np.ndarray:
     """Indices for an array of transition matrices, with different directions.
 
     Parameters
     ----------
-    ifun : IndFun
+    ifn : IndFun
         Function that computes ravelled indices for a single transition matrix
     nst : int
         Number of states, `M`.
-    drns : Sequence[int] (P,)
+    drn : Sequence[int] (P,)
         Direction for each transition matrix.
 
     Returns
@@ -335,9 +330,7 @@ def bcast_drn_inds(ifun: IndFun, nst: int, drns: _ty.Sequence[int]) -> np.ndarra
     inds : np.ndarray
         Ravelled indices for a (P, M, M) array of transition matrices.
     """
-    inds = []
-    for k, drn in enumerate(drns):
-        inds.append(ifun(nst, drn) + k * nst**2)
+    inds = [ifn(nst, dirn) + k * nst**2 for k, dirn in enumerate(drn)]
     return np.concatenate(inds)
 
 
@@ -346,8 +339,8 @@ def bcast_drn_inds(ifun: IndFun, nst: int, drns: _ty.Sequence[int]) -> np.ndarra
 # =============================================================================
 
 
-def params_to_mat(params: np.ndarray, fun: IndFun, drn: IntOrSeq,
-                  axis: IntOrSeq, daxis: IntOrSeq, **kwds) -> array:
+def params_to_mat(params: ArrayType, fun: IndFun, drn: IntOrSeq,
+                  axis: IntOrSeq, daxis: IntOrSeq, **kwds) -> ArrayType:
     """Helper function for *_params_to_mat
 
     Parameters
@@ -384,7 +377,7 @@ def params_to_mat(params: np.ndarray, fun: IndFun, drn: IntOrSeq,
     axis = _posify(params.ndim, axis)
     params = np.moveaxis(params, axis, -1)
     shape = params.shape[:-1]
-    mat = zeros(shape + (nst**2,))
+    mat = np.zeros(shape + (nst**2,)).view(type(params))
     mat[..., fun(nst, drn)] = params
     mat = mat.reshape(shape + (nst, nst))
     stochastify(mat)

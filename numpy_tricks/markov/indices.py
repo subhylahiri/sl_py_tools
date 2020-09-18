@@ -6,7 +6,7 @@ import typing as _ty
 
 import numpy as np
 
-from ._helpers import IndFun, IntOrSeq, bcast_drn_inds
+from ._helpers import IndFun, IntOrSeq, bcast_inds
 
 # =============================================================================
 # Indices of parameters
@@ -30,7 +30,7 @@ def offdiag_inds(nst: int, drn: IntOrSeq = 0) -> np.ndarray:
         mat_01, mat_02, ..., mat_0n-1, mat10, mat_12, ..., mat_n-1,n-2.
     """
     if not isinstance(drn, int):
-        return bcast_drn_inds(offdiag_inds, nst, drn)
+        return bcast_inds(offdiag_inds, nst, drn)
     if drn > 0:
         return np.ravel_multi_index(np.triu_indices(nst, 1), (nst, nst))
     if drn < 0:
@@ -66,7 +66,7 @@ def offdiag_split_inds(nst: int, drn: IntOrSeq = 0) -> np.ndarray:
         mat_10, mat_20, mat_21, ..., mat_n-2n-3, mat_n-10, ... mat_n-1n-2.
     """
     if not isinstance(drn, int):
-        return bcast_drn_inds(offdiag_split_inds, nst, drn)
+        return bcast_inds(offdiag_split_inds, nst, drn)
     if drn:
         return offdiag_inds(nst, drn)
     return np.hstack((offdiag_inds(nst, 1), offdiag_inds(nst, -1)))
@@ -90,7 +90,7 @@ def ring_inds(nst: int, drn: IntOrSeq = 0) -> np.ndarray:
         mat_0,n-1, mat_10, mat_21, ..., mat_n-1,n-2.
     """
     if not isinstance(drn, int):
-        return bcast_drn_inds(ring_inds, nst, drn)
+        return bcast_inds(ring_inds, nst, drn)
     pos = np.r_[1:nst**2:nst+1, nst*(nst-1)]
     if drn > 0:
         return pos
@@ -118,7 +118,7 @@ def serial_inds(nst: int, drn: IntOrSeq = 0) -> np.ndarray:
         mat_10, mat_21, ..., mat_n-1,n-2.
     """
     if not isinstance(drn, int):
-        return bcast_drn_inds(serial_inds, nst, drn)
+        return bcast_inds(serial_inds, nst, drn)
     pos = np.arange(1, nst**2, nst+1)
     if drn > 0:
         return pos
@@ -148,7 +148,7 @@ def cascade_inds(nst: int, drn: IntOrSeq = 0) -> np.ndarray:
         mat_n-1,n-2, ..., mat_21, mat_10.
     """
     if not isinstance(drn, int):
-        return bcast_drn_inds(cascade_inds, nst, drn)
+        return bcast_inds(cascade_inds, nst, drn)
     npt = nst // 2
     pos = np.r_[npt:nst*npt:nst, nst*npt + npt + 1:nst**2:nst + 1]
     if drn > 0:
@@ -239,14 +239,14 @@ def _unravel_ind_fun(func: IndFun) -> SubFun:
 
         Returns
         -------
-        mats : ndarray
+        [mats : ndarray
             Which transition matrix, in a `(P,M,M)` array of matrices?
-            Not returned if `drn` is an `int`.
+            Not returned if `drn` is an `int`.]
         rows : ndarray
             Vector of row indices of off-diagonal elements.
         cols : ndarray
             Vector of column indices of off-diagonal elements.
-        For the order, see docs for `*_inds`.
+        For the order of elements, see docs for `*_inds`.
         """
         if isinstance(drn, int):
             inds = func(nst, drn)

@@ -139,7 +139,8 @@ def mat_type_dict(params: Sized, states: Sized, **kwds) -> Tuple[bool, ...]:
 
 def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
                       maxes: AxesOrSeq = (-2, -1), paxis: IntOrSeq = -1,
-                      mdaxis: IntOrSeq = 0, pdaxis: IntOrSeq = 0, **kwds):
+                      mdaxis: IntOrSeq = 0, pdaxis: IntOrSeq = 0,
+                      **kwds) -> None:
     """Change independent parameters of transition matrix.
 
     Parameters
@@ -152,16 +153,13 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
     Keyword only
     ------------
     serial : bool, optional, default: False
-        Is the rate vector meant for `serial_params_to_mat` or
-        `gen_params_to_mat`?
+        Is the rate vector meant for a model with the serial topology?
     ring : bool, optional, default: False
-        Is the rate vector meant for `ring_params_to_mat` or
-        `gen_params_to_mat`?
+        Is the rate vector meant for a model with the ring topology?
+    uniform : bool, optional, default: False
+        Do the nonzero transition rates (in one direction) have the same value?
     drn: int, optional, default: 0
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
-    uniform : bool, optional, default: False
-        Is the rate vector meant for `ring_params_to_mat` or
-        `uni_ring_params_to_mat`?
     grad : bool, optional, default: True
         Is the output for a gradient (True) or a transition matrix (False).
         If True, return sum of each group of equal transitions.
@@ -185,7 +183,7 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
     param_inds, mat_to_params
     """
     if not isinstance(drn, int) or not isinstance(paxis, int):
-        _mh.bcast_update(_mat_update, (mat, params), drn, (maxes, paxis),
+        _mh.bcast_update(mat_update_params, (mat, params), drn, (maxes, paxis),
                          (mdaxis, pdaxis), **kwds)
     else:
         nst = mat.shape[maxes[0]]
@@ -203,10 +201,10 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
             mat[...] = np.moveaxis(nmat, (-2, -1), maxes)
 
 
-def _mat_update(arrays: Tuple[np.ndarray, np.ndarray], drn: int,
-                fun_axes: Tuple[Axes, int], drn_axes: Tuple[int, int],
-                **kwds):
-    """call back wrapper for mat_update_params in bcast_update"""
-    kwds.update(zip(('maxes', 'paxis', 'mdaxis', 'pdaxis'),
-                    fun_axes + drn_axes), drn=drn)
-    mat_update_params(*arrays, **kwds)
+# def _mat_update(arrays: Tuple[np.ndarray, np.ndarray], drn: int,
+#                 fun_axes: Tuple[Axes, int], drn_axes: Tuple[int, int],
+#                 **kwds) -> None:
+#     """call back wrapper for mat_update_params in bcast_update"""
+#     kwds.update(zip(('maxes', 'paxis', 'mdaxis', 'pdaxis'),
+#                     fun_axes + drn_axes), drn=drn)
+#     mat_update_params(*arrays, **kwds)
