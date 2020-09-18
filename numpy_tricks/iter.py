@@ -4,14 +4,14 @@ Iterating over multidimensional ndarrays
 """
 from typing import Optional, Tuple
 import numpy as np
-from .. import _iter_base as _it
+import sl_py_tools._iter_base as _ib
 
 # =============================================================================
-# %%* Classes
+# Classes
 # =============================================================================
 
 
-class DisplayNDIndex(_it.DisplayMixin):
+class DisplayNDIndex(_ib.DisplayMixin):
     """Numpy ndindex with progress display
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -49,8 +49,8 @@ class DisplayNDIndex(_it.DisplayMixin):
     ndim: int
     _it: np.ndindex
 
-    def __init__(self, *args: _it.DSliceArgs, **kwds: _it.DSliceKeys):
-        name, shape = _it.extract_name(args, kwds)
+    def __init__(self, *args: _ib.DSliceArgs, **kwds: _ib.DSliceKeys):
+        name, shape = _ib.extract_name(args, kwds)
         if isinstance(shape[0], tuple):
             shape = shape[0]
         kwds.setdefault('offset', 1)
@@ -59,7 +59,7 @@ class DisplayNDIndex(_it.DisplayMixin):
         self.shape = shape
         self.ndim = len(shape)
         self._it = np.ndindex(*shape)
-        frmt = ' '.join([_it.counter_format(n) for n in shape])
+        frmt = ' '.join([_ib.counter_format(n) for n in shape])
         kwds.setdefault('formatter', '(' + frmt.rstrip(',') + '),')
         super().__init__(**kwds)
 
@@ -80,7 +80,7 @@ class DisplayNDIndex(_it.DisplayMixin):
             return self.counter
 
 
-class _DispNDIterBase(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
+class _DispNDIterBase(_ib.AddDisplayToIterables, displayer=DisplayNDIndex):
     """Base class for numpy nditer with display
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -110,7 +110,7 @@ class _DispNDIterBase(_it.AddDisplayToIterables, displayer=DisplayNDIndex):
     numpy.nditer
     """
 
-    def __init_subclass__(cls, **kwds):
+    def __init_subclass__(cls, **kwds):  # pylint: disable=arguments-differ
         pass
 
     def __len__(self):
@@ -172,8 +172,8 @@ class DisplayNDIter(_DispNDIterBase):
     numpy.nditer
     """
 
-    def __init__(self, *args: _it.DArgs, **kwds: _it.DKeys):
-        name, args = _it.extract_name(args, kwds)
+    def __init__(self, *args: _ib.DArgs, **kwds: _ib.DKeys):
+        name, args = _ib.extract_name(args, kwds)
         my_iter = np.nditer(*args, **kwds)
         super().__init__(name, my_iter)
 
@@ -211,18 +211,18 @@ class DisplayNDEnumerate(_DispNDIterBase):
     numpy.ndenumerate
     """
 
-    def __init__(self, *args: _it.DArgs, **kwds: _it.DKeys):
-        name, args = _it.extract_name(args, kwds)
+    def __init__(self, *args: _ib.DArgs, **kwds: _ib.DKeys):
+        name, args = _ib.extract_name(args, kwds)
         my_iter = np.ndenumerate(*args, **kwds)
         super().__init__(name, my_iter)
 
 
 # =============================================================================
-# %%* Functions
+# Functions
 # =============================================================================
 
 
-def dndindex(*args: _it.DSliceArgs, **kwds: _it.DSliceKeys) -> DisplayNDIndex:
+def dndindex(*args: _ib.DSliceArgs, **kwds: _ib.DSliceKeys) -> DisplayNDIndex:
     """Numpy ndindex with progress display
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -258,7 +258,7 @@ def dndindex(*args: _it.DSliceArgs, **kwds: _it.DSliceKeys) -> DisplayNDIndex:
     return DisplayNDIndex(*args, **kwds)
 
 
-def dnditer(*args: _it.DArgs, **kwds: _it.DKeys) -> DisplayNDIter:
+def dnditer(*args: _ib.DArgs, **kwds: _ib.DKeys) -> DisplayNDIter:
     """Numpy nditer with display
 
     Prints loop counter (plus 1), updates in place, and deletes at end.
@@ -293,7 +293,7 @@ def dnditer(*args: _it.DArgs, **kwds: _it.DKeys) -> DisplayNDIter:
     return DisplayNDIter(*args, **kwds)
 
 
-def dndenumerate(*args: _it.DArgs, **kwds: _it.DKeys) -> DisplayNDEnumerate:
+def dndenumerate(*args: _ib.DArgs, **kwds: _ib.DKeys) -> DisplayNDEnumerate:
     """Numpy ndenumerate with display
 
     Prints loop counter (plus 1), updates in place, and deletes at end.

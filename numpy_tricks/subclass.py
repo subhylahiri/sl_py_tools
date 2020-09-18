@@ -40,6 +40,14 @@ class MyClass(numpy.lib.mixins.NDArrayOperatorsMixin):
         return sc.array_function_help(self, HANDLED_FNS, func, types, args, kwds)
 ```
 """
+from __future__ import annotations
+
+import itertools
+import typing
+from typing import Any, Callable, Dict, Iterable, Tuple, Type, TypeVar
+
+import numpy as np
+
 __all__ = [
     'array_ufunc_help_attr', 'array_ufunc_help_view', 'array_ufunc_help',
     'array_function_help', 'make_implements_decorator',
@@ -50,11 +58,6 @@ __all__ = [
     'restore_via_attr', 'restore_via_init', 'restore_via_view'
 ]
 
-import itertools
-import typing
-from typing import Dict, Tuple, Callable, Type, TypeVar, Any, Iterable
-import numpy as np
-
 # ======================================================================
 # Ufunc Inputs
 # ======================================================================
@@ -62,7 +65,7 @@ import numpy as np
 
 def conv_loop_input(converter: Converter[Custom],
                     obj_typ: Type[Custom],
-                    args: ArraysOr[Custom]) -> (OutTuple, BoolList):
+                    args: ArraysOr[Custom]) -> Tuple[OutTuple, BoolList]:
     """Process inputs in an __array_ufunc__ method of a custom class.
 
     Parameters
@@ -96,7 +99,7 @@ def conv_loop_input(converter: Converter[Custom],
 def conv_loop_in_out(converter: Converter[Custom],
                      obj_typ: Type[Custom],
                      kwargs: ArgDict,
-                     num_out: int) -> (OutTuple, BoolList):
+                     num_out: int) -> Tuple[OutTuple, BoolList]:
     """Process the out keyword in an __array_ufunc__ method.
 
     Parameters
@@ -122,12 +125,12 @@ def conv_loop_in_out(converter: Converter[Custom],
         out_args, conv_out = conv_loop_input(converter, obj_typ, outputs)
         kwargs['out'] = tuple(out_args)
     else:
-        outputs = (None,) * num_out
+        outputs, conv_out = (None,) * num_out, [False] * num_out
     return outputs, conv_out
 
 
 def _conv_loop_in(converter: Converter[Custom], obj_typ: Type[Custom],
-                  *args) -> (OutTuple, BoolList):
+                  *args) -> Tuple[OutTuple, BoolList]:
     """Call one of conv_loop_input or conv_loop_in_out"""
     if len(args) == 1:
         return conv_loop_input(converter, obj_typ, *args)
@@ -159,7 +162,7 @@ def prepare_via_attr(attr: str) -> Converter[Custom]:
     return converter
 
 
-def conv_loop_in_view(obj_typ: Type, *args) -> (OutTuple, BoolList):
+def conv_loop_in_view(obj_typ: Type, *args) -> Tuple[OutTuple, BoolList]:
     """Process inputs in an __array_ufunc__ method using view method.
 
     Parameters
@@ -183,7 +186,8 @@ def conv_loop_in_view(obj_typ: Type, *args) -> (OutTuple, BoolList):
     return _conv_loop_in(prepare_via_view(), obj_typ, *args)
 
 
-def conv_loop_in_attr(attr: str, obj_typ: Type, *args) -> (OutTuple, BoolList):
+def conv_loop_in_attr(attr: str, obj_typ: Type, *args) -> Tuple[OutTuple,
+                                                                BoolList]:
     """Process inputs in an __array_ufunc__ method using an attribute.
 
     Parameters

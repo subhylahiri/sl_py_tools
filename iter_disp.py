@@ -9,7 +9,7 @@ from numbers import Number
 from typing import (ContextManager, Iterable, Iterator, Optional, Sequence,
                     Tuple)
 
-from . import _iter_base as _it
+import sl_py_tools._iter_base as _it
 from .containers import ZipSequences, tuplify
 from .range_tricks import RangeIsh as _RangeIsh
 from .range_tricks import RangeCollectionMixin as _RangeCollectionMixin

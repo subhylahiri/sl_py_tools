@@ -10,10 +10,10 @@ from operator import floordiv
 from typing import Optional
 
 # import gmpy2
-from . import number_like as _nl
+import sl_py_tools.number_like as _nl
 from .arg_tricks import Export
 
-Export[floor, floordiv]
+_EXPORTED = Export[floor, floordiv]
 
 
 def ceil_divide(numerator: Number, denominator: Number) -> int:

@@ -8,8 +8,8 @@ from functools import wraps
 from itertools import chain
 from typing import Callable, ClassVar, List, Tuple
 
-from . import integer_tricks as ig
-from . import number_like as nl
+import sl_py_tools.integer_tricks as ig
+import sl_py_tools.number_like as nl
 from .containers import tuplify
 from .integer_tricks import Eint, eint, inf, nan
 
@@ -325,13 +325,16 @@ class Mod(_Cnv, _Ops):
 
     @property
     def real(self) -> Mod:
+        """real part = self"""
         return +self
 
     @property
     def imag(self) -> Mod:
+        """imaginary part = 0"""
         return Mod((0, self.modulus))
 
     def conjugate(self) -> Mod:
+        """conjugate = self"""
         return +self
 
 

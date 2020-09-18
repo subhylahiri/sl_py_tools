@@ -133,7 +133,7 @@ def defaults(optionals: _ty.Iterable[_ty.Optional[Some]],
 
 def args_to_kwargs(args: _ty.Tuple[Some],
                    kwargs: _ty.Dict[str, Some],
-                   names: _ty.Collection[str],
+                   names: _ty.Iterable[str],
                    kw_rank: bool = False) -> _ty.Tuple[Some]:
     """Convert positional arguments to keyword arguments
 

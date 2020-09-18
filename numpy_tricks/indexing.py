@@ -11,11 +11,13 @@ Tools for messing with array shapes
 """
 
 import numpy as np
-from ..containers import ShapeTuple, same_shape, identical_shape, broadcastable
-from ..slice_tricks import slice_str, slice_to_range, SliceRange, srange
-from ..slice_tricks import in_slice, is_subslice, disjoint_slice
-from ..arg_tricks import default, default_non_eval, Export, args_to_kwargs
-from . import subclass as sc
+
+import sl_py_tools.numpy_tricks.subclass as sc
+
+from ..arg_tricks import Export, args_to_kwargs, default, default_non_eval
+from ..containers import ShapeTuple, broadcastable, identical_shape, same_shape
+from ..slice_tricks import (SliceRange, disjoint_slice, in_slice, is_subslice,
+                            slice_str, slice_to_range, srange)
 
 _EXPORTED = Export[same_shape, identical_shape, broadcastable, ShapeTuple]
 _EXPORTED = Export[slice_to_range, SliceRange, srange, slice_str]
@@ -272,8 +274,9 @@ class BroadcastType:
         return sc.array_function_help(self, BCAST_FNS, func, types, args, kwds)
 
 
-def _like_kwds(obj: BroadcastType, kwds):
+def _like_kwds(obj: BroadcastType, args, kwds):
     """Prepare kwds for ????_like function"""
+    args_to_kwargs(args, kwds, ['dtype', 'order', 'subok', 'shape'])
     kwds.pop('subok')
     kwds.setdefault('shape', obj.shape)
     kwds.setdefault('dtype', obj.dtype)
@@ -287,12 +290,11 @@ def empty_like(obj: BroadcastType, *args, **kwds) -> np.ndarray:
     --------
     `np.empty`, `np.empty_like`
     """
-    args_to_kwargs(args, kwds, ['dtype', 'order', 'subok', 'shape'])
-    _like_kwds(obj, kwds)
+    _like_kwds(obj, args, kwds)
     return np.empty(**kwds)
 
 
-@implements(np.empty_like)
+@implements(np.ones_like)
 def ones_like(obj: BroadcastType, *args, **kwds) -> np.ndarray:
     """Return array of ones of appropriate `shape` and `dtype`
 
@@ -300,12 +302,11 @@ def ones_like(obj: BroadcastType, *args, **kwds) -> np.ndarray:
     --------
     `np.ones`, `np.ones_like`
     """
-    args_to_kwargs(args, kwds, ['dtype', 'order', 'subok', 'shape'])
-    _like_kwds(obj, kwds)
+    _like_kwds(obj, args, kwds)
     return np.ones(**kwds)
 
 
-@implements(np.empty_like)
+@implements(np.zeros_like)
 def zeros_like(obj: BroadcastType, *args, **kwds) -> np.ndarray:
     """Return array of zeros of appropriate `shape` and `dtype`
 
@@ -313,11 +314,10 @@ def zeros_like(obj: BroadcastType, *args, **kwds) -> np.ndarray:
     --------
     `np.zeros`, `np.zeros_like`
     """
-    args_to_kwargs(args, kwds, ['dtype', 'order', 'subok', 'shape'])
-    _like_kwds(obj, kwds)
+    _like_kwds(obj, args, kwds)
     return np.zeros(**kwds)
 
-@implements(np.empty_like)
+@implements(np.full_like)
 def full_like(obj: BroadcastType, fill_value, *args, **kwds) -> np.ndarray:
     """Return array with constant value of appropriate `shape` and `dtype`
 
@@ -326,6 +326,5 @@ def full_like(obj: BroadcastType, fill_value, *args, **kwds) -> np.ndarray:
     `np.full`, `np.full_like`
     """
     kwds['fill_value'] = fill_value
-    args_to_kwargs(args, kwds, ['dtype', 'order', 'subok', 'shape'])
-    _like_kwds(obj, kwds)
+    _like_kwds(obj, args, kwds)
     return np.full(**kwds)

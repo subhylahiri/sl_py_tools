@@ -56,6 +56,7 @@ Examples
 >>>     return smthng
 """
 from __future__ import annotations
+
 import io
 import logging
 import sys
@@ -63,7 +64,6 @@ from contextlib import contextmanager
 from typing import Any, Callable, ClassVar, Dict, Optional, Union
 
 assert sys.version_info[:2] >= (3, 6)
-
 
 # =============================================================================
 # %* Class

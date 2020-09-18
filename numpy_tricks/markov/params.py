@@ -22,8 +22,8 @@ from typing import Tuple
 
 import numpy as np
 
-from . import _helpers as _mh
-from . import indices as _in
+import sl_py_tools.numpy_tricks.markov._helpers as _mh
+import sl_py_tools.numpy_tricks.markov.indices as _in
 from ._helpers import (ArrayType, Axes, AxesOrSeq, IntOrSeq, Sized,
                        mat_type_siz, num_param, num_state)
 from ._to_matrix import (cascade_params_to_mat, gen_params_to_mat, matify,

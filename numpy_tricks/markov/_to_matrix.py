@@ -6,10 +6,8 @@ import numpy as np
 
 import numpy_linalg as la
 
-from . import _helpers as _mh
-from . import indices as _in
-from ._helpers import IntOrSeq
-from ._helpers import array as Array
+import sl_py_tools.numpy_tricks.markov._helpers as _mh
+import sl_py_tools.numpy_tricks.markov.indices as _in
 from ._helpers import IntOrSeq, ArrayType
 # =============================================================================
 # Parameters to matrices

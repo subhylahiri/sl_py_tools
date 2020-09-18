@@ -8,9 +8,9 @@ import matplotlib.patheffects as mpf
 import matplotlib.pyplot as plt
 import numpy as np
 
-from . import arg_tricks as _ag
-from . import containers as _cn
-from . import tol_colors as tol
+import sl_py_tools.arg_tricks as _ag
+import sl_py_tools.containers as _cn
+import sl_py_tools.tol_colors as tol
 
 
 def rc_fonts(family: str = 'serif'):

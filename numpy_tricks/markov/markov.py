@@ -7,7 +7,7 @@ import numpy as np
 
 import numpy_linalg as la
 
-from .. import logic as lgc
+import sl_py_tools.numpy_tricks.logic as lgc
 from ._helpers import num_param, stochastify_c, stochastify_d, stochastify_pd
 from .params import params_to_mat
 

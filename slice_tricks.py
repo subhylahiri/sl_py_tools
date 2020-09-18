@@ -7,9 +7,9 @@ from abc import abstractmethod
 from numbers import Number
 from typing import Callable, Optional, Sequence, Tuple, Union
 
-from . import _iter_base as _ib
-from . import integer_tricks as _ig
-from . import range_tricks as _rt
+import sl_py_tools._iter_base as _ib
+import sl_py_tools.integer_tricks as _ig
+import sl_py_tools.range_tricks as _rt
 from .arg_tricks import default as _default
 from .arg_tricks import default_non_eval as _default_neval
 from .containers import ZipSequences, tuplify

@@ -5,12 +5,13 @@ from __future__ import annotations
 
 import collections as cn
 import contextlib as _cx
+import functools as _ft
 import itertools as _it
 import numbers as _num
 import operator as _op
 import typing as _ty
 
-from . import arg_tricks as _ag
+import sl_py_tools.arg_tricks as _ag
 
 # =============================================================================
 # Function parameter/return helpers
@@ -159,7 +160,8 @@ def unsetify(arg: _ty.Set[Var]) -> _ty.Optional[InstanceOrSet[Var]]:
     if len(arg) == 0:
         return None
     if len(arg) == 1:
-        return arg.pop()
+        for val in arg:
+            return val
     return arg
 
 
@@ -494,13 +496,187 @@ class ShapeTuple(tuple):
 
 
 # =============================================================================
+# Subscriptable properties
+# =============================================================================
+
+
+class SubscriptProxy:
+    """Object that passes subscripts to functions
+
+    Parameters
+    ----------
+    getit : Callable[Var->Val], optional
+        Function that returns items, by default `None`
+    setit : Callable[Var,Val->None], optional
+        Function that sets items, by default `None`
+    delit : Callable[Var->None], optional
+        Function that deletes items, by default `None`
+    doc : str|None, optional
+        Docstring, by default `None`
+    """
+    getit: Getter
+    setit: Setter
+    delit: Deleter
+
+    def __init__(self, getit: Getter = None, setit: Setter = None,
+                 delit: Deleter = None, doc: _ty.Optional[str] = None) -> None:
+        self.getit = getit
+        self.setit = setit
+        self.delit = delit
+        self.__doc__ = doc
+
+    def __getitem__(self, key: Var) -> Val:
+        if self.getit is None:
+            raise AttributeError("Cannot be read")
+        return self.getit(key)
+
+    def __setitem__(self, key: Var, value: Val) -> None:
+        if self.setit is None:
+            raise AttributeError("Cannot be set")
+        self.setit(key, value)
+
+    def __delitem__(self, key: Var) -> None:
+        if self.delit is None:
+            raise AttributeError("Cannot be deleted")
+        self.delit(key)
+
+
+class SubscriptProperty:
+    """Subscriptable property.
+
+    This can be used to decorate the methods of a class in a similar way to the
+    `property` decorator. The signature of the methods should be the same as
+    `__getitem__`, `__setitem__` and `__delitem__` methods. The resulting
+    property is then used by subscripting rather than calling.
+
+    Parameters
+    ----------
+    getit : Callable[Owner,Var->Val], optional
+        Function that returns items, by default `None`
+    setit : Callable[Owner,Var,Val->None], optional
+        Function that sets items, by default `None`
+    delit : Callable[Owner,Var->None], optional
+        Function that deletes items, by default `None`
+    doc : str|None, optional
+        Docstring, by default `None`
+
+    Examples
+    --------
+    ```
+    class MyList:
+        '''List access two ways
+        '''
+        def __init__(self, mylist) -> None:
+            self.mylist = mylist
+
+        def __getitem__(self, key):
+            return self.mylist[key]
+
+        def __setitem__(self, key, value):
+            self.mylist[key] = value
+
+        def __delitem__(self, key):
+            del self.mylist[key]
+
+        @SubscriptProperty
+        def aslist(self, key):
+            '''Treats int indices as length 1 slices. Always returns a list,
+            always expects an iterable when setting.
+            '''
+            try:
+                return listify(self.mylist[key])
+            except IndexError:
+                return []
+
+        @aslist.setter
+        def aslist(self, key, value):
+            if isinstance(value, set):
+                self.mylist[key] = unsetify(value)
+            else:
+                self.mylist[key] = unseqify(value)
+
+        @aslist.deleter
+        def aslist(self, key):
+            del self.mylist[key]
+    ```
+    """
+    getit: GetterMethod
+    setit: SetterMethod
+    delit: DeleterMethod
+    name: str
+
+    def __init__(self, getit: GetterMethod = None, setit: SetterMethod = None,
+                 delit: DeleterMethod = None, doc: _ty.Optional[str] = None
+                 ) -> None:
+        self.getit = getit
+        self.setit = setit
+        self.delit = delit
+        self.__doc__ = _ag.default(doc, self._get_fun_attr('__doc__'))
+        self.name = self._get_fun_attr('__name__', '')
+        for fun in self._get_funs():
+            _set_doc_name(self, fun)
+
+    def __set_name__(self, owner: _ty.Type[Owner], name: str) -> None:
+        self.name = name
+
+    def __get__(self, obj: Owner, objtype: OwnerType = None) -> SubscriptProxy:
+        if obj is None:
+            return self
+        fns = [_make_fn(fun, obj) for fun in self._get_funs()]
+        obj.__dict__[self.name] = SubscriptProxy(*fns, self.__doc__)
+        return obj.__dict__[self.name]
+
+    def getter(self, getit: GetterMethod) -> SubscriptProperty:
+        """Decorate the method that implements __getitem__"""
+        return type(self)(getit, self.setit, self.delit, self.__doc__)
+
+    def setter(self, setit: SetterMethod) -> SubscriptProperty:
+        """Decorate the method that implements __setitem__"""
+        return type(self)(self.getit, setit, self.delit, self.__doc__)
+
+    def deleter(self, delit: DeleterMethod) -> SubscriptProperty:
+        """Decorate the method that implements __delitem__"""
+        return type(self)(self.getit, self.setit, delit, self.__doc__)
+
+    def _get_funs(self) -> _ty.Tuple[PropMethod, ...]:
+        """Get `getit, setit, delit` in a tuple"""
+        return self.getit, self.setit, self.delit
+
+    def _get_fun_attr(self, attr: str, default: _ty.Any = None) -> _ty.Any:
+        """Get attribute from first of `getit, setit, delit` that has it"""
+        return getattr(self.getit, attr,
+                       getattr(self.setit, attr,
+                               getattr(self.delit, attr, default)))
+
+
+def _make_fn(fun: PropMethod, obj: Owner) -> _ft.partial:
+    """Make partial object from function attribute"""
+    return None if fun is None else _ft.partial(fun, obj)
+
+
+def _set_doc_name(prop: SubscriptProperty, fun: PropMethod) -> None:
+    """Set docstring and name of function attribute"""
+    if fun is not None:
+        fun.__doc__, fun.__name__ = prop.__doc__, prop.name
+
+
+# =============================================================================
 # Hints, aliases
 # =============================================================================
 untuplify = unseqify
 unlistify = unseqify
 Var = _ty.TypeVar('Var')
 Val = _ty.TypeVar('Val')
+Owner = _ty.TypeVar('Owner')
 InstanceOrIter = _ty.Union[Var, _ty.Iterable[Var]]
 InstanceOrSeq = _ty.Union[Var, _ty.Sequence[Var]]
 InstanceOrSet = _ty.Union[Var, _ty.Set[Var]]
 Excludable = _ty.Tuple[_ty.Type[_ty.Iterable], ...]
+Getter = _ty.Optional[_ty.Callable[[Var], Val]]
+Setter = _ty.Optional[_ty.Callable[[Var, Val], None]]
+Deleter = _ty.Optional[_ty.Callable[[Var], None]]
+OwnerType = _ty.Optional[_ty.Type[Owner]]
+GetterMethod = _ty.Optional[_ty.Callable[[Owner, Var], Val]]
+SetterMethod = _ty.Optional[_ty.Callable[[Owner, Var, Val], None]]
+DeleterMethod = _ty.Optional[_ty.Callable[[Owner, Var], None]]
+PropMethod = _ty.Union[GetterMethod, SetterMethod, DeleterMethod]

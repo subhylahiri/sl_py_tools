@@ -128,7 +128,7 @@ __all__ = [
 import sys
 from typing import Sequence
 
-from . import _iter_base as _it
+import sl_py_tools._iter_base as _it
 from .containers import ZipSequences
 from .display_tricks import delay_warnings
 from .iter_disp import (DisplayBatch, DisplayCount, DisplayEnumerate,

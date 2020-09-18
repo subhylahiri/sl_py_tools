@@ -7,7 +7,7 @@ import contextlib as _cx
 import functools as _ft
 import typing as _ty
 
-from . import arg_tricks as _ag
+import sl_py_tools.arg_tricks as _ag
 
 # =============================================================================
 # Dictionaries

@@ -8,9 +8,9 @@ from abc import abstractmethod
 from numbers import Number
 from typing import Optional, Tuple, Union
 
-from . import _iter_base as _ib
-from . import arg_tricks as _ag
-from . import integer_tricks as _ig
+import sl_py_tools._iter_base as _ib
+import sl_py_tools.arg_tricks as _ag
+import sl_py_tools.integer_tricks as _ig
 from .abc_tricks import ABCauto
 from .modular_arithmetic import and_
 
