@@ -199,12 +199,3 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
         _mh.stochastify(nmat)
         if not np.may_share_memory(nmat, mat):
             mat[...] = np.moveaxis(nmat, (-2, -1), maxes)
-
-
-# def _mat_update(arrays: Tuple[np.ndarray, np.ndarray], drn: int,
-#                 fun_axes: Tuple[Axes, int], drn_axes: Tuple[int, int],
-#                 **kwds) -> None:
-#     """call back wrapper for mat_update_params in bcast_update"""
-#     kwds.update(zip(('maxes', 'paxis', 'mdaxis', 'pdaxis'),
-#                     fun_axes + drn_axes), drn=drn)
-#     mat_update_params(*arrays, **kwds)

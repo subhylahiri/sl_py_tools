@@ -313,25 +313,103 @@ def bcast_update(updater: _ty.Callable[..., None],
         updater(*arrays, **kwds)
 
 
-def bcast_inds(ifn: IndFun, nst: int, drn: _ty.Sequence[int]) -> np.ndarray:
+def bcast_inds(ifun: IndFun, nst: int, drn: _ty.Sequence[int],
+               ravel: bool = True) -> np.ndarray:
     """Indices for an array of transition matrices, with different directions.
 
     Parameters
     ----------
-    ifn : IndFun
+    ifun : IndFun
         Function that computes ravelled indices for a single transition matrix
     nst : int
         Number of states, `M`.
-    drn : Sequence[int] (P,)
+    drn : s[int] (P,)
         Direction for each transition matrix.
+    ravel : bool, optional
+        Return a ravelled array, or use first axis for different matrices.
+        By default `True`.
 
     Returns
     -------
-    inds : np.ndarray
+    inds : np.ndarray (Pq,) or (P,Q)
         Ravelled indices for a (P, M, M) array of transition matrices.
     """
-    inds = [ifn(nst, dirn) + k * nst**2 for k, dirn in enumerate(drn)]
-    return np.concatenate(inds)
+    inds = [ifun(nst, dirn) + k * nst**2 for k, dirn in enumerate(drn)]
+    return np.concatenate(inds) if ravel else np.stack(inds)
+
+
+def bcast_subs(sfun: SubFun, nst: int, drn: _ty.Sequence[int],
+               ravel: bool = True) -> Subs:
+    """Indices for an array of transition matrices, with different directions.
+
+    Parameters
+    ----------
+    sfun : SubFun
+        Function to compute unravelled indices for a single transition matrix.
+    nst : int
+        Number of states, `M`.
+    drn : s[int] (P,)
+        Direction for each transition matrix.
+    ravel : bool, optional
+        Return a ravelled array, or use first axis for different matrices.
+        By default `True`.
+
+    Returns
+    -------
+    mats : ndarray (PQ,)
+        Which transition matrix, in a `(P,M,M)` array of matrices?
+    rows : ndarray (PQ,)
+        Vector of row indices of off-diagonal elements.
+    cols : ndarray (PQ,)
+        Vector of column indices of off-diagonal elements.
+    """
+    subs = [sfun(nst, dirn) for dirn in drn]
+    rows, cols = zip(*subs)
+    mats = [np.full_like(row, k) for k, row in enumerate(rows)]
+    combo = np.concatenate if ravel else np.stack
+    return combo(mats), combo(rows), combo(cols)
+
+
+def stack_inds(ifun: IndFun, nst) -> np.ndarray:
+    """Stack ravel indices for each direction
+
+    Parameters
+    ----------
+    ifun : IndFun
+        Function to compute ravelled indices for a single direction.
+    nst : int
+        Number of states, `M`.
+
+    Returns
+    -------
+    rows : ndarray (PQ,)
+        Vector of row indices of off-diagonal elements.
+    cols : ndarray (PQ,)
+        Vector of column indices of off-diagonal elements.
+    """
+    return np.concatenate([ifun(nst, dirn) for dirn in (1, -1)])
+
+
+def stack_subs(sfun: SubFun, nst) -> Subs:
+    """Stack rows and columns for each direction
+
+    Parameters
+    ----------
+    sfun : SubFun
+        Function to compute unravelled indices for a single direction.
+    nst : int
+        Number of states, `M`.
+
+    Returns
+    -------
+    rows : ndarray (PQ,)
+        Vector of row indices of off-diagonal elements.
+    cols : ndarray (PQ,)
+        Vector of column indices of off-diagonal elements.
+    """
+    subs = [sfun(nst, dirn) for dirn in (1, -1)]
+    rows, cols = zip(*subs)
+    return np.concatenate(rows), np.concatenate(cols)
 
 
 # =============================================================================
@@ -372,8 +450,7 @@ def params_to_mat(params: ArrayType, fun: IndFun, drn: IntOrSeq,
     if isinstance(drn, Sequence):
         return bcast_drns(params_to_mat, params, fun, **kwds)
     params = np.asanyarray(params)
-    npar = _get_size(params, kwds, True)
-    nst = num_state(npar, **kwds)
+    nst = num_state(params, **kwds)
     axis = _posify(params.ndim, axis)
     params = np.moveaxis(params, axis, -1)
     shape = params.shape[:-1]
@@ -431,7 +508,7 @@ def _out_axis(ndim: int, axes: Axes) -> int:
     return min(_posify(ndim, axes))
 
 
-def mat_to_params(mat: ArrayType, fun: IndFun, drn: IntOrSeq, axes: Axes,
+def mat_to_params(mat: ArrayType, fun: IndFun, drn: IntOrSeq, axes: AxesOrSeq,
                   daxis: IntOrSeq, **kwds) -> ArrayType:
     """Helper function for *_mat_to_params
 
@@ -445,8 +522,8 @@ def mat_to_params(mat: ArrayType, fun: IndFun, drn: IntOrSeq, axes: Axes,
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`.
     axes : Tuple[int, int]
         Axes to treat as (from, to) axes.
-    daxis : int, optional
-        Axis to broadcast non-scalar `drn` over, by default: 0
+    daxis : int
+        Axis to broadcast non-scalar `drn` over.
     """
     kwds.update(drn=drn, fun_axis=axes, drn_axis=daxis)
     if isinstance(axes[0], Sequence):
@@ -497,7 +574,9 @@ def to_uni(params: ArrayType, drn: IntOrSeq, grad: bool, axes: AxesOrSeq,
 ArrayType = _ty.TypeVar('ArrayType', bound=np.ndarray)
 Sized = _ty.Union[int, np.ndarray]
 Axes = _ty.Tuple[int, int]
-IndFun = _ty.Callable[[int, int], np.ndarray]
+Subs = _ty.Tuple[np.ndarray, ...]
+SubFun = _ty.Callable[[int, int, bool], Subs]
+IndFun = _ty.Callable[[int, int, bool], np.ndarray]
 Axies = _ty.Union[int, Axes]
 AxType = _ty.TypeVar('AxType', int, Axes, Axies)
 OrSeqOf = _ty.Union[AxType, _ty.Sequence[AxType]]
