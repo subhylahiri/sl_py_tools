@@ -184,7 +184,6 @@ ExtendedIntegral.register(Integral)
 # =============================================================================
 # _TYPES = (Real, type(gmpy2.mpz(1)))
 _TYPES = ExtendedIntegral
-_METH_CACHE = set()
 _nmspace = SimpleNamespace()
 _nmspace.floordiv = floor_divide
 _nmspace.mod = mod
@@ -208,7 +207,7 @@ def _eint_conv(args):
     return [_conv(arg) for arg in args]
 
 
-_eint_in = _nl.in_method_wrapper(_eint_conv, _METH_CACHE)
+_eint_in = _nl.in_method_wrapper(_eint_conv)
 
 # =============================================================================
 # Extended integers
@@ -216,7 +215,7 @@ _eint_in = _nl.in_method_wrapper(_eint_conv, _METH_CACHE)
 
 
 @ExtendedIntegral.register
-class ExtendedInt(_nl.number_mixin(_eint_conv, _METH_CACHE, _TYPES, _NMSPACE)):
+class ExtendedInt(_nl.number_mixin(_eint_conv, _TYPES, _NMSPACE)):
     """Extended integers to include +/-inf and nan.
 
     All of the usual operations and built in functions for numeric types are
@@ -270,7 +269,7 @@ class ExtendedInt(_nl.number_mixin(_eint_conv, _METH_CACHE, _TYPES, _NMSPACE)):
 # ExtendedInt finalise & function decorators
 # =============================================================================
 
-_nl.set_objclasses(ExtendedInt, _METH_CACHE)
+_nl.set_objclasses(ExtendedInt)
 eint_in, eint_out = _nl.function_decorators(_eint_conv, ExtendedInt, _TYPES)
 
 

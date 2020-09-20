@@ -171,12 +171,11 @@ def _flatten_inputs(args):
     return list(chain.from_iterable(_get_data(x) for x in args))
 
 
-_METHOD_CACHE = set()
-_mth = nl.one_method_wrapper(_flatten_inputs, _METHOD_CACHE, tuple)
-_opf = nl.opr_methods_wrapper(_flatten_inputs, _METHOD_CACHE, tuple)
-_opr = nl.opr_methods_wrapper(_convert_inputs, _METHOD_CACHE, tuple)
-_Cnv = nl.convert_mixin(_convert_inputs, _METHOD_CACHE, Operators)
-_Ops = nl.mathops_mixin(_convert_inputs, _METHOD_CACHE, tuple, Operators)
+_mth = nl.one_method_wrapper(_flatten_inputs, tuple)
+_opf = nl.opr_methods_wrapper(_flatten_inputs, tuple)
+_opr = nl.opr_methods_wrapper(_convert_inputs, tuple)
+_Cnv = nl.convert_mixin(_convert_inputs, Operators)
+_Ops = nl.mathops_mixin(_convert_inputs, tuple, Operators)
 
 
 # =============================================================================
@@ -339,7 +338,7 @@ class Mod(_Cnv, _Ops):
         return Mod((self._remainder.conjugate(), self.modulus))
 
 
-nl.set_objclasses(Mod, _METHOD_CACHE)
+nl.set_objclasses(Mod)
 # =============================================================================
 # Helpers
 # =============================================================================
