@@ -323,15 +323,16 @@ def bcast_inds(ifun: IndFun, nst: int, drn: _ty.Sequence[int],
         Function that computes ravelled indices for a single transition matrix
     nst : int
         Number of states, `M`.
-    drn : s[int] (P,)
-        Direction for each transition matrix.
+    drn: Sequence[int] (P,), optional
+        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
+        Return the subscripts for a `(P,M,M)` array of matrices. By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices.
         By default `True`.
 
     Returns
     -------
-    inds : np.ndarray (Pq,) or (P,Q)
+    inds : np.ndarray (PQ,) or (P,Q)
         Ravelled indices for a (P, M, M) array of transition matrices.
     """
     inds = [ifun(nst, dirn) + k * nst**2 for k, dirn in enumerate(drn)]
@@ -348,8 +349,9 @@ def bcast_subs(sfun: SubFun, nst: int, drn: _ty.Sequence[int],
         Function to compute unravelled indices for a single transition matrix.
     nst : int
         Number of states, `M`.
-    drn : s[int] (P,)
-        Direction for each transition matrix.
+    drn: Sequence[int] (P,), optional
+        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
+        Return the subscripts for a `(P,M,M)` array of matrices. By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices.
         By default `True`.
