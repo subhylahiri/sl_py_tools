@@ -63,18 +63,18 @@ def _wrap_mod_ignore(func: Callable, name: str = '') -> Callable:
     return wrapper
 
 
-def _unwrap(func: Callable, name: str = '') -> Callable:
-    """wrap a function to disable it.
+# def _unwrap(func: Callable, name: str = '') -> Callable:
+#     """wrap a function to disable it.
 
-    Wrapper returns NotImplemented
-    """
-    @wraps(func)
-    def wrapper(*args):
-        """wrapper to remove method"""
-        return NotImplemented
-    if name:
-        wrapper.__name__ = name
-    return wrapper
+#     Wrapper returns NotImplemented
+#     """
+#     @wraps(func)
+#     def wrapper(*args):
+#         """wrapper to remove method"""
+#         return NotImplemented
+#     if name:
+#         wrapper.__name__ = name
+#     return wrapper
 
 
 # -----------------------------------------------------------------------------
@@ -94,7 +94,7 @@ class Operators:
     mul = _wrap_mod_bypass(operator.mul)
     floordiv = _wrap_mod_pass(ig.divm, 'floordiv')
     # floordiv = _wrap_mod_bypass(operator.floordiv)
-    truediv = _unwrap(operator.truediv)
+    truediv = nl.dummy_method('truediv')
     pow = _wrap_mod_bypass(operator.pow)
     pos = _wrap_mod_bypass(operator.pos)
     neg = _wrap_mod_bypass(operator.neg)
@@ -173,8 +173,8 @@ def _flatten_inputs(args):
 
 _METHOD_CACHE = set()
 _mth = nl.one_method_wrapper(_flatten_inputs, _METHOD_CACHE, tuple)
-_opf = nl.opr_method_wrappers(_flatten_inputs, _METHOD_CACHE, tuple)
-_opr = nl.opr_method_wrappers(_convert_inputs, _METHOD_CACHE, tuple)
+_opf = nl.opr_methods_wrapper(_flatten_inputs, _METHOD_CACHE, tuple)
+_opr = nl.opr_methods_wrapper(_convert_inputs, _METHOD_CACHE, tuple)
 _Cnv = nl.convert_mixin(_convert_inputs, _METHOD_CACHE, Operators)
 _Ops = nl.mathops_mixin(_convert_inputs, _METHOD_CACHE, tuple, Operators)
 
@@ -312,6 +312,7 @@ class Mod(_Cnv, _Ops):
     @modulus.setter
     def modulus(self, value: Eint):
         self._modulus = eint(value)
+        self._remainder %= self._modulus
 
     @property
     def data(self) -> Tuple[eint, ...]:
@@ -326,16 +327,16 @@ class Mod(_Cnv, _Ops):
     @property
     def real(self) -> Mod:
         """real part = self"""
-        return +self
+        return Mod(self._remainder.real, self.modulus)
 
     @property
     def imag(self) -> Mod:
         """imaginary part = 0"""
-        return Mod((0, self.modulus))
+        return Mod((self._remainder.imag, self.modulus))
 
     def conjugate(self) -> Mod:
         """conjugate = self"""
-        return +self
+        return Mod((self._remainder.conjugate(), self.modulus))
 
 
 nl.set_objclasses(Mod, _METHOD_CACHE)

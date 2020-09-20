@@ -12,9 +12,6 @@ __all__ = ['TestConversion', 'TestComparison', 'TestArithmetic', 'TestModulo',
 class TestConversion(TestCaseNumpy):
     """docstring for TestConversion."""
 
-    def setUp(self):
-        super().setUp()
-
     def test_eint_converts_to_int(self):
         self.assertEqual(int(ig.eint(5)), 5)
         self.assertSameRepr(int(ig.eint(5)), 5)
@@ -34,9 +31,6 @@ class TestConversion(TestCaseNumpy):
 
 class TestComparison(TestCaseNumpy):
     """docstring for TestComparison."""
-
-    def setUp(self):
-        super().setUp()
 
     def test_finite_comparisons(self):
         self.assertTrue(ig.eint(4) == 4, msg='finite eq')
@@ -83,12 +77,9 @@ class TestComparison(TestCaseNumpy):
 class TestArithmetic(TestCaseNumpy):
     """docstring for TestArithmetic."""
 
-    def setUp(self):
-        super().setUp()
-
     def test_finite_arithmetic(self):
         self.assertSameRepr(ig.eint(5)**2, ig.eint(25))
-        self.assertSameRepr(ig.eint(5) * 2.3, ig.eint(11))
+        self.assertSameRepr(ig.eint(5) * 2.3, 11.5)
         self.assertSameRepr(2 ** ig.eint(7), ig.eint(128))
 
     def test_inf_arithmetic(self):
@@ -105,9 +96,6 @@ class TestArithmetic(TestCaseNumpy):
 
 class TestModulo(TestCaseNumpy):
     """docstring for TestArithmetic."""
-
-    def setUp(self):
-        super().setUp()
 
     def test_finite_modulo(self):
         x = 5
@@ -145,9 +133,6 @@ class TestModulo(TestCaseNumpy):
 class TestGCD(TestCaseNumpy):
     """docstring for TestGCD."""
 
-    def setUp(self):
-        super().setUp()
-
     def test_finite_gcd(self):
         self.assertEqual(ig.gcd(72, 21), 3)
         self.assertSameRepr(ig.gcd(72, 21), 3)
@@ -178,9 +163,6 @@ class TestGCD(TestCaseNumpy):
 
 class TestInvertDivm(TestCaseNumpy):
     """docstring for TestGCD."""
-
-    def setUp(self):
-        super().setUp()
 
     def test_finite_invert(self):
         self.assertEqual(ig.invert(6, 25), 21)
@@ -271,8 +253,9 @@ class TestInplace(TestCaseNumpy):
         self.assertSameRepr(self.pinf, -ig.inf)
 
     def test_itruediv(self):
-        with self.assertRaises(TypeError):
-            self.x /= ig.eint(8)
+        # with self.assertRaises(TypeError):
+        self.x /= ig.eint(8)
+        self.assertSameRepr(self.x, 0.5)
 
     def test_ifloordiv(self):
         self.x *= 3
@@ -296,4 +279,7 @@ class TestInplace(TestCaseNumpy):
 
 
 if __name__ == '__main__':
+    # x = ig.inf
+    # x %= -ig.inf
+    # print(x)
     main()

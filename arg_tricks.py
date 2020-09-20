@@ -167,22 +167,25 @@ def args_to_kwargs(args: _ty.Tuple[Some],
 
 
 class Export:
-    """Dummy module/package level type hint to fool pyflakes.
+    """Dummy module/package level type hint to fool pyflakes/pylint.
 
     Should behave like a type hint that 'these were imported to make them
     available to the users of this module rather than for use in the module'.
 
-    Doesn't fool pylint. Issues a `pointless-statement` warning.
-
     Does not actually do anything. It is really only intended for files like
     `__init__.py`, where you might import things from private modules to make
     them part of the public interface, etc. Including expressions such as
-    `_EXPORT = Export[import1, import2, ...]` wil stop pyflakes/pylint from
+    `_EXPORTED = Export[import1, import2, ...]` will stop pyflakes/pylint from
     complaining that `'import1' imported but unused`, etc.
     """
 
     def __class_getitem__(cls, *args) -> None:
         assert any((True, cls) + args)
+
+
+def dummy(*args) -> None:
+    """Doesn't do anything."""
+    assert any((True,) + args)
 
 
 # =============================================================================

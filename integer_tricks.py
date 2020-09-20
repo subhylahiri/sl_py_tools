@@ -1,19 +1,47 @@
 # -*- coding: utf-8 -*-
 """Tricks for working with integers
 """
+from __future__ import annotations
+
 import abc
 import math
-from functools import reduce
-from math import ceil, floor, trunc
+from functools import reduce, wraps
 from numbers import Integral, Number, Real
-from operator import floordiv
-from typing import Optional
+from types import SimpleNamespace
+from typing import Callable, Optional, Tuple
 
 # import gmpy2
 import sl_py_tools.number_like as _nl
-from .arg_tricks import Export
 
-_EXPORTED = Export[floor, floordiv]
+# =============================================================================
+# Rounding and division for extended integers
+# =============================================================================
+
+
+def _extended_pass(func: Callable[[Number, Number]]) -> Callable[[Eint], Eint]:
+    """Wrap a function to pass non-finite values unchanged"""
+    @wraps(func)
+    def passer(val: Eint) -> Eint:
+        return func(val) if isfinite(val) else val
+    return passer
+
+
+ceil, floor, trunc, round_ = map(_extended_pass, (math.ceil, math.floor,
+                                                  math.trunc, round))
+
+
+def floor_divide(numerator: Number, denominator: Number) -> int:
+    """Floor division for extended integers.
+
+    Similar to `numerator // denominator`, but uses `ceil` on the result
+    rather than `floor`.
+
+    See Also
+    --------
+    operator.floordiv
+    math.floor
+    """
+    return floor(numerator / denominator)
 
 
 def ceil_divide(numerator: Number, denominator: Number) -> int:
@@ -61,7 +89,7 @@ def round_divide(numerator: Number,
     operator.floordiv
     round
     """
-    return round(numerator / denominator, ndigits)
+    return round_(numerator / denominator, ndigits)
 
 
 # =============================================================================
@@ -91,7 +119,7 @@ def mod(dividend: Number, divisor: Number) -> Number:
     return dividend
 
 
-def divmod_(dividend: Number, divisor: Number) -> Number:
+def divmod_(dividend: Number, divisor: Number) -> Tuple[Number, Number]:
     """Quotient and remainder for extended integers.
 
     Roughly the same as `(dividend // divisor, mod(dividend, divisor))`.
@@ -119,31 +147,7 @@ def divmod_(dividend: Number, divisor: Number) -> Number:
 
 
 # =============================================================================
-# ExtendedInt method wrappers
-# =============================================================================
-# _TYPES = (Real, type(gmpy2.mpz(1)))
-_TYPES = Real
-_METHOD_CACHE = set()
-
-
-def _eint_conv(args):
-    """Convert to Number
-    """
-    def _conv(arg):
-        if isinstance(arg, ExtendedInt):
-            return arg.value
-        if isinstance(arg, _TYPES):
-            return arg
-        raise TypeError("Other argument must be a number or eint")
-    return [_conv(arg) for arg in args]
-
-
-# pylint: disable=invalid-name
-_eint_meth_in = _nl.in_method_wrapper(_eint_conv, _METHOD_CACHE)
-_eint_opr = _nl.opr_method_wrappers(_eint_conv, _METHOD_CACHE, _TYPES)
-
-# =============================================================================
-# Extended integers
+# Extended integers ABC
 # =============================================================================
 
 
@@ -175,13 +179,50 @@ class ExtendedIntegral(Real, metaclass=ExtendedIntegralMeta):
 ExtendedIntegral.register(Integral)
 
 
+# =============================================================================
+# ExtendedInt method wrappers
+# =============================================================================
+# _TYPES = (Real, type(gmpy2.mpz(1)))
+_TYPES = ExtendedIntegral
+_METH_CACHE = set()
+_nmspace = SimpleNamespace()
+_nmspace.floordiv = floor_divide
+_nmspace.mod = mod
+_nmspace.divmod = divmod_
+_nmspace.round = round_
+_nmspace.trunc = trunc
+_nmspace.floor = floor
+_nmspace.ceil = ceil
+_NMSPACE = (None, None, None, _nmspace)
+
+
+def _eint_conv(args):
+    """Convert to Number
+    """
+    def _conv(arg):
+        if isinstance(arg, ExtendedInt):
+            return arg.value
+        if isinstance(arg, Number):
+            return arg
+        raise TypeError("Other argument must be a number or eint")
+    return [_conv(arg) for arg in args]
+
+
+_eint_in = _nl.in_method_wrapper(_eint_conv, _METH_CACHE)
+
+# =============================================================================
+# Extended integers
+# =============================================================================
+
+
 @ExtendedIntegral.register
-class ExtendedInt(_nl.number_mixin(_eint_conv, _METHOD_CACHE, _TYPES)):
+class ExtendedInt(_nl.number_mixin(_eint_conv, _METH_CACHE, _TYPES, _NMSPACE)):
     """Extended integers to include +/-inf and nan.
 
     All of the usual operations and built in functions for numeric types are
-    defined. If any argument is an `eint` the result will be too, with the
-    obvious exceptions: comparisons, type conversion...
+    defined, except for the bitwise ones. If any argument is an `eint` and the
+    result is an `Eint`, it will be converted to an `eint`, with the obvious
+    exceptions: comparison, casting...
 
     It can be converted to an ordinary number by calling `int(eint)` or
     `float(eint)`.
@@ -194,11 +235,9 @@ class ExtendedInt(_nl.number_mixin(_eint_conv, _METHOD_CACHE, _TYPES)):
     """
     value: ExtendedIntegral
 
-    __str__ = _eint_meth_in(str)
-    __hash__ = _eint_meth_in(hash)
-    __mod__, __rmod__ = _eint_opr(mod)
-    __divmod__, __rdivmod__ = _eint_opr(divmod_)
-    __truediv__, __rtruediv__ = _eint_opr(_nl.dummy_method('truediv'))
+    __str__ = _eint_in(str)
+    __hash__ = _eint_in(hash)
+    # Don't define in-place ops -> immutable like numbers
 
     def __init__(self, value: ExtendedIntegral):
         try:
@@ -212,30 +251,32 @@ class ExtendedInt(_nl.number_mixin(_eint_conv, _METHOD_CACHE, _TYPES)):
     def __getattr__(self, name):
         return getattr(self.value, name)
 
+    @property
+    def real(self) -> ExtendedInt:
+        """real part = self"""
+        return ExtendedInt(self.value.real)
+
+    @property
+    def imag(self) -> ExtendedInt:
+        """imaginary part = 0"""
+        return ExtendedInt(self.value.imag)
+
+    def conjugate(self) -> ExtendedInt:
+        """conjugate = self"""
+        return ExtendedInt(self.value.conjugate())
+
 
 # =============================================================================
-# ExtendedInt finalise & function wrappers
+# ExtendedInt finalise & function decorators
 # =============================================================================
 
-_nl.set_objclasses(ExtendedInt, _METHOD_CACHE)
-eint_in, eint_out = _nl.function_wrappers(_eint_conv, ExtendedInt, _TYPES)
+_nl.set_objclasses(ExtendedInt, _METH_CACHE)
+eint_in, eint_out = _nl.function_decorators(_eint_conv, ExtendedInt, _TYPES)
 
 
 # =============================================================================
 # Convenience
 # =============================================================================
-
-eint = ExtendedInt
-Eint = ExtendedIntegral
-
-nan = eint('nan')
-inf = eint('inf')
-
-isinf = eint_in(math.isinf)
-isnan = eint_in(math.isnan)
-isfinite = eint_in(math.isfinite)
-mod = eint_out(mod)
-divmod_ = eint_out(divmod_)
 
 
 def isinfnone(val: Optional[Eint]) -> bool:
@@ -248,8 +289,8 @@ def isinfnone(val: Optional[Eint]) -> bool:
 
 
 @eint_out
-def nan_gcd(left: ExtendedIntegral,
-            right: ExtendedIntegral) -> ExtendedIntegral:
+def nan_gcd(left: Eint,
+            right: Eint) -> Eint:
     """Greatest common divisor for extended integers.
 
     Largest `d` such that `left % d == 0 and right % d == 0`.
@@ -275,7 +316,7 @@ def nan_gcd(left: ExtendedIntegral,
 
 
 @eint_out
-def gcd(left: ExtendedIntegral, right: ExtendedIntegral) -> ExtendedIntegral:
+def gcd(left: Eint, right: Eint) -> Eint:
     """Greatest common divisor for extended integers.
 
     Largest `d` such that `left % d == 0 and right % d == 0`.
@@ -297,8 +338,8 @@ def gcd(left: ExtendedIntegral, right: ExtendedIntegral) -> ExtendedIntegral:
 
 
 @eint_out
-def nan_lcm(left: ExtendedIntegral,
-            right: ExtendedIntegral) -> ExtendedIntegral:
+def nan_lcm(left: Eint,
+            right: Eint) -> Eint:
     """Least common multiple for extended integers.
 
     Smallest `val` such that `val % left == 0 and val % right == 0`.
@@ -326,7 +367,7 @@ def nan_lcm(left: ExtendedIntegral,
 
 
 @eint_out
-def lcm(left: ExtendedIntegral, right: ExtendedIntegral) -> ExtendedIntegral:
+def lcm(left: Eint, right: Eint) -> Eint:
     """Least common multiple for extended integers.
 
     Smallest `val` such that `val % left == 0 and val % right == 0`.
@@ -348,8 +389,8 @@ def lcm(left: ExtendedIntegral, right: ExtendedIntegral) -> ExtendedIntegral:
 
 
 @eint_out
-def invert(val: ExtendedIntegral,
-           period: ExtendedIntegral) -> ExtendedIntegral:
+def invert(val: Eint,
+           period: Eint) -> Eint:
     """Multiplicative inverse (modulo period) for extended integers.
 
     Return `inv_val` such that `val * inv_val == 1 (mod period)`.
@@ -377,15 +418,14 @@ def invert(val: ExtendedIntegral,
         except ValueError as exc:
             if exc.args[0] != 'base is not invertible for the given modulus':
                 raise
-        # return int(gmpy2.invert(val, period))
     # if period == inf: inv(val) = 1/val,  - not invertible unless in {1, -1}
     # if val == inf: inf = 0 (mod period) - not invertible
     raise ZeroDivisionError(f'{val} is not invertible (mod {period})')
 
 
 @eint_out
-def divm(left: ExtendedIntegral, right: ExtendedIntegral,
-         period: ExtendedIntegral) -> ExtendedIntegral:
+def divm(left: Eint, right: Eint,
+         period: Eint) -> Eint:
     """Division (modulo period) for extended integers.
 
     Return `val` such that `val * right == left (mod period)`.
@@ -404,22 +444,20 @@ def divm(left: ExtendedIntegral, right: ExtendedIntegral,
         return math.nan
     if mod(left, period) == 0:
         return 0
-    if math.isfinite(left) and math.isfinite(right) and math.isfinite(period):
-        if period in {1, -1}:
-            # everything == 0 (mod period)
-            return 0
-        # return int(gmpy2.divm(left, right, period))
+    if math.isfinite(left) and math.isfinite(right) and period in {1, -1}:
+        # everything == 0 (mod +/-1)
+        return 0
     # if left == inf -> factor == right, so left -> inf, right -> 1
     # if right == inf -> factor == left, so left -> 1, right -> inf
     factor = nan_gcd(left, right)
-    left, right = left // factor, right // factor
+    left, right = floor_divide(left, factor), floor_divide(right, factor)
     # now gcd(left, right) == 1 && left != 0
     # -> gcd(right, period) == 1 or no solution
     return mod(left * invert(right, period), period)
 
 
 @eint_out
-def gcdn(*args: ExtendedIntegral, nan_safe: bool = False) -> ExtendedIntegral:
+def gcdn(*args: Eint, nan_safe: bool = False) -> Eint:
     """Greatest common divisor of many extended integers.
 
     Parameters
@@ -453,7 +491,7 @@ def gcdn(*args: ExtendedIntegral, nan_safe: bool = False) -> ExtendedIntegral:
 
 
 @eint_out
-def lcmn(*args: ExtendedIntegral, nan_safe: bool = False) -> ExtendedIntegral:
+def lcmn(*args: Eint, nan_safe: bool = False) -> Eint:
     """Lowest common multiple of many extended integers.
 
     Parameters
@@ -483,3 +521,20 @@ def lcmn(*args: ExtendedIntegral, nan_safe: bool = False) -> ExtendedIntegral:
     if nan_safe:
         return reduce(nan_lcm, args, 1)
     return reduce(lcm, args, 1)
+
+
+# =============================================================================
+# Convenience
+# =============================================================================
+eint = ExtendedInt  # pylint: disable=invalid-name
+Eint = ExtendedIntegral
+nan = eint('nan')
+inf = eint('inf')
+# =============================================================================
+# Wrapped functions
+# =============================================================================
+isinf, isnan, isfinite = map(eint_in, (math.isinf, math.isnan, math.isfinite))
+mod, divmod_ = map(eint_out, (mod, divmod_))
+ceil, floor, trunc, round_ = map(eint_out, (ceil, floor, trunc, round_))
+floor_divide, ceil_divide = map(eint_out, (floor_divide, ceil_divide))
+round_divide, trunc_divide = map(eint_out, (round_divide, trunc_divide))
