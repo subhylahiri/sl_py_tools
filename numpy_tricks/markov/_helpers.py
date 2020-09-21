@@ -2,14 +2,15 @@
 """Utilities for module markov_param
 """
 from __future__ import annotations
-import functools
 
+import functools
 import typing as _ty
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 import numpy as np
 
 import sl_py_tools.containers as _cn
+
 # =============================================================================
 # Utilities
 # =============================================================================
@@ -255,8 +256,7 @@ def _sort_axes(ndim: int, fun_axes: AxesOrSeq, drn_axes: IntOrSeq,
                to_mat: bool) -> _ty.Tuple[AxesOrSeq, IntOrSeq]:
     """order axes so that fun_axes is increasing"""
     fun_axes, drn_axes = _negify(ndim, fun_axes), _negify(ndim, drn_axes)
-    if isinstance(drn_axes, int):
-        drn_axes = (drn_axes,) * len(fun_axes)
+    drn_axes = _cn.tuplify(drn_axes, len(fun_axes))
     faxes, daxes = np.array(fun_axes), np.array(drn_axes)
     inds = np.argsort(faxes) if to_mat else np.argsort(faxes[:, -1])
     return faxes[inds].tolist(), daxes[inds].tolist()
@@ -276,7 +276,7 @@ def bcast_axes(fun: _ty.Callable[..., ArrayType], arr: ArrayType, *args,
     *args
         Additional positional arguments for `fun` after `arr`.
     drn : int|Sequence[int], optional
-        If `drn`, only include transitions `i -> i + sgn(drn)`, by default `0`.
+        If nonzero only include transitions `i -> i+sgn(drn)`, by default `0`.
     drn_axis : Sequence[int], optional
         If `drn` is a sequence, the axis to iterate over for each element,
         by default `(0,)`.
@@ -310,7 +310,7 @@ def bcast_inds(ifun: IndFun, nst: int, drn: _ty.Sequence[int],
     nst : int
         Number of states, `M`.
     drn: Sequence[int] (P,), optional
-        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
+        If nonzero only include transitions in direction `i -> i+sgn(drn)`.
         Return the subscripts for a `(P,M,M)` array of matrices. By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices.
@@ -336,7 +336,7 @@ def bcast_subs(sfun: SubFun, nst: int, drn: _ty.Sequence[int],
     nst : int
         Number of states, `M`.
     drn: Sequence[int] (P,), optional
-        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
+        If nonzero only include transitions in direction `i -> i+sgn(drn)`.
         Return the subscripts for a `(P,M,M)` array of matrices. By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices.
@@ -400,7 +400,7 @@ def stack_subs(sfun: SubFun, nst) -> Subs:
     return np.concatenate(rows), np.concatenate(cols)
 
 
-def sub_fun_bcast(fun: SubFun) -> SubsFun:
+def sub_fun_bcast(fun: SubFun):
     """Decorate an unravelled-multi-index function for multiple directions
 
     Parameters
@@ -413,7 +413,7 @@ def sub_fun_bcast(fun: SubFun) -> SubsFun:
     fun: Callable[(nst, drn, ravel)->([mats, ]rows, cols)]
         Function to make multi-indices when `drn == 0` or is a sequence.
     """
-    @functools.wraps(fun)
+    @functools.wraps(fun, assigned=functools.WRAPPER_ASSIGNMENTS[:-1])
     def new_func(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> Subs:
         """Row and column indices of transitions
 
@@ -422,7 +422,7 @@ def sub_fun_bcast(fun: SubFun) -> SubsFun:
         nst : int
             Number of states, `M`.
         drn: int|Sequence[int], optional
-            If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
+            If nonzero only include transitions in direction `i -> i+sgn(drn)`.
             If it is a sequence of length `P`, return the subscripts for a
             `(P,M,M)` array of matrices. By default 0.
         ravel : bool, optional
@@ -440,13 +440,14 @@ def sub_fun_bcast(fun: SubFun) -> SubsFun:
             Vector of column indices of off-diagonal elements.
         For the order of elements, see docs for `*_subs`.
         """
-        if not isinstance(drn, int):
-            return bcast_subs(fun, nst, drn, ravel)
+        if isinstance(drn, Iterable):
+            return bcast_subs(new_func, nst, drn, ravel)
         if drn == 0:
             return stack_subs(fun, nst)
         return fun(nst, drn)
 
     return new_func
+
 
 # =============================================================================
 # Parameters to matrices

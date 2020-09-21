@@ -166,7 +166,7 @@ def args_to_kwargs(args: _ty.Tuple[Some],
 # =============================================================================
 
 
-class Export:
+class Export:  # pylint: disable=too-few-public-methods
     """Dummy module/package level type hint to fool pyflakes/pylint.
 
     Should behave like a type hint that 'these were imported to make them
@@ -179,13 +179,12 @@ class Export:
     complaining that `'import1' imported but unused`, etc.
     """
 
-    def __class_getitem__(cls, *args) -> None:
-        assert any((True, cls) + args)
+    def __class_getitem__(cls, *arg) -> None:  # pylint: disable=unused-argument
+        pass
 
 
-def dummy(*args) -> None:
+def dummy(*args) -> None:  # pylint: disable=unused-argument
     """Doesn't do anything."""
-    assert any((True,) + args)
 
 
 # =============================================================================

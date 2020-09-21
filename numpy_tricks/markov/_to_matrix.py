@@ -75,9 +75,9 @@ def uni_gen_params_to_mat(params: ArrayType, num_st: int, drn: IntOrSeq = 0,
     offdiag_split_subs, uni_gen_mat_to_params
     """
     gen_params = _mh.uni_to_any(params, num_st, axis=axis)
-    if _mh.unpack_nest(drn):
-        return gen_params_to_mat(gen_params, drn, axis, daxis)
-    return _mh.params_to_mat(params, _in.offdiag_split_subs, drn, axis, daxis)
+    # if _mh.unpack_nest(drn):
+    #     return gen_params_to_mat(gen_params, drn, axis, daxis)
+    return _mh.params_to_mat(gen_params, _in.offdiag_split_subs, drn, axis, daxis)
 
 
 def ring_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,

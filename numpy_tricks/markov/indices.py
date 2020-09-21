@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from ._helpers import (IndsFun, IntOrSeq, Subs, SubsFun,
-                       bcast_inds, bcast_subs, stack_inds, stack_subs)
+import sl_py_tools.arg_tricks as _ag
+from ._helpers import (IndsFun, IntOrSeq, Subs, SubsFun, sub_fun_bcast,
+                       bcast_inds, bcast_subs, stack_inds)
 
 # =============================================================================
 # Indices of parameters
@@ -18,33 +19,26 @@ def offdiag_inds(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> np.ndarray:
     Parameters
     ----------
     nst : int
-        Number of states.
+        Number of states, `M`.
     drn: int|Sequence[int], optional
-        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
-        If it is a sequence of length `P`, return the subscripts for a
-        `(P,M,M)` array of matrices. By default 0.
+        If nonzero, only include transitions in direction `i -> i+sgn(drn)`.
+        If a sequence of length `P`, return indices for a `(P,M,M)` array.
+        By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices if
         `drn` is a sequence. By default `True`.
 
     Returns
     -------
-    inds : ndarray (n(n-1),)
-        Vector of ravel indices of off-diagonal elements, in order:
+    inds : ndarray (M(M-1),)
+        Vector of ravel indices of nonzero off-diagonal elements, in order:
         mat_01, mat_02, ..., mat_0n-1, mat10, mat_12, ..., mat_n-1,n-2.
     """
     if not isinstance(drn, int):
         return bcast_inds(offdiag_inds, nst, drn, ravel)
     if drn:
         return offdiag_split_inds(nst, drn)
-    # when put into groups of size nst+1:
-    # M[0,0], M[0,1], M[0,2], ..., M[0,n-1], M[1,0],
-    # M[1,1], M[1,2], ..., M[1,n-1], M[2,0], M[2,1],
-    # ...
-    # M[n-2,n-2], M[n-2,n-1], M[n-1,0], ..., M[n-1,n-2],
-    # unwanted elements are 1st in each group
-    # k_1st = np.arange(0, nst**2, nst+1)  # ravel ind of 1st element in group
-    # k = np.arange(nst**2)
+    # To get the next diagonal, down one, right one: nst + 1
     return np.delete(np.arange(nst**2), np.s_[::nst+1])
 
 
@@ -54,24 +48,24 @@ def offdiag_subs(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> Subs:
     Parameters
     ----------
     nst : int
-        Number of states.
+        Number of states, `M`.
     drn: int|Sequence[int], optional
-        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
-        If it is a sequence of length `P`, return the subscripts for a
-        `(P,M,M)` array of matrices. By default 0.
+        If nonzero, only include transitions in direction `i -> i+sgn(drn)`.
+        If a sequence of length `P`, return indices for a `(P,M,M)` array.
+        By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices if
         `drn` is a sequence. By default `True`.
 
     Returns
     -------
-    [mats : ndarray (PQ,)
+    [mats : ndarray (PM(M-1),)
         Which transition matrix, in a `(P,M,M)` array of matrices?
         Not returned if `drn` is an `int`.]
-    rows : ndarray (PQ,)
-        Vector of row indices of off-diagonal elements.
-    cols : ndarray (PQ,)
-        Vector of column indices of off-diagonal elements in order:
+    rows : ndarray (PM(M-1),)
+        Vector of row indices of nonzero off-diagonal elements.
+    cols : ndarray (PM(M-1),)
+        Vector of column indices of nonzero off-diagonal elements in order:
         mat_01, mat_02, ..., mat_0n-1, mat10, mat_12, ..., mat_n-1,n-2.
     """
     if not isinstance(drn, int):
@@ -83,6 +77,7 @@ def offdiag_subs(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> Subs:
     return tuple(np.delete(grid, np.s_[::nst+1], axis=-1))
 
 
+@sub_fun_bcast
 def offdiag_split_subs(nst: int, drn: IntOrSeq = 0, ravel: bool = True
                        ) -> Subs:
     """Indices of independent parameters of transition matrix.
@@ -90,36 +85,31 @@ def offdiag_split_subs(nst: int, drn: IntOrSeq = 0, ravel: bool = True
     Parameters
     ----------
     nst : int
-        Number of states.
+        Number of states, `M`.
     drn: int|Sequence[int], optional
-        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
-        If it is a sequence of length `P`, return the subscripts for a
-        `(P,M,M)` array of matrices. By default 0.
+        If nonzero, only include transitions in direction `i -> i+sgn(drn)`.
+        If a sequence of length `P`, return indices for a `(P,M,M)` array.
+        By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices if
         `drn` is a sequence. By default `True`.
 
     Returns
     -------
-    [mats : ndarray (PQ,)
+    [mats : ndarray (PM(M-1),)
         Which transition matrix, in a `(P,M,M)` array of matrices?
         Not returned if `drn` is an `int`.]
-    rows : ndarray (PQ,)
-        Vector of row indices of off-diagonal elements.
-    cols : ndarray (PQ,)
-        Vector of column indices of off-diagonal elements in order:
+    rows : ndarray (PM(M-1),)
+        Vector of row indices of nonzero off-diagonal elements.
+    cols : ndarray (PM(M-1),)
+        Vector of column indices of nonzero off-diagonal elements in order:
         First, the upper/right triangle -
         mat_01, ..., mat_0n-1, mat_12, ..., mat_n-3n-2, mat_n-3n-1, mat_n-2n-1,
         - followed by the lower/left triangle -
         mat_10, mat_20, mat_21, ..., mat_n-2n-3, mat_n-10, ... mat_n-1n-2.
     """
-    if not isinstance(drn, int):
-        return bcast_subs(offdiag_split_subs, nst, drn, ravel)
-    if drn > 0:
-        return np.triu_indices(nst, 1)
-    if drn < 0:
-        return np.tril_indices(nst, -1)
-    return stack_subs(offdiag_split_subs, nst)
+    _ag.dummy(ravel)
+    return np.triu_indices(nst, 1) if drn > 0 else np.tril_indices(nst, -1)
 
 
 def ring_inds(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> np.ndarray:
@@ -128,19 +118,19 @@ def ring_inds(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> np.ndarray:
     Parameters
     ----------
     nst : int
-        Number of states.
+        Number of states, `M`.
     drn: int|Sequence[int], optional
-        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
-        If it is a sequence of length `P`, return the subscripts for a
-        `(P,M,M)` array of matrices. By default 0.
+        If nonzero, only include transitions in direction `i -> i+sgn(drn)`.
+        If a sequence of length `P`, return indices for a `(P,M,M)` array.
+        By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices if
         `drn` is a sequence. By default `True`.
 
     Returns
     -------
-    inds : ndarray (2n,)
-        Vector of ravel indices of off-diagonal elements, in order:
+    inds : ndarray (2M,)
+        Vector of ravel indices of nonzero off-diagonal elements, in order:
         mat_01, mat_12, ..., mat_n-2,n-1, mat_n-1,0,
         mat_0,n-1, mat_10, mat_21, ..., mat_n-1,n-2.
     """
@@ -153,39 +143,37 @@ def ring_inds(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> np.ndarray:
     return stack_inds(ring_inds, nst)
 
 
+@sub_fun_bcast
 def ring_subs(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> Subs:
     """Ravel indices of non-zero elements of ring transition matrix.
 
     Parameters
     ----------
     nst : int
-        Number of states.
+        Number of states, `M`.
     drn: int|Sequence[int], optional
-        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
-        If it is a sequence of length `P`, return the subscripts for a
-        `(P,M,M)` array of matrices. By default 0.
+        If nonzero, only include transitions in direction `i -> i+sgn(drn)`.
+        If a sequence of length `P`, return indices for a `(P,M,M)` array.
+        By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices if
         `drn` is a sequence. By default `True`.
 
     Returns
     -------
-    [mats : ndarray (PQ,)
+    [mats : ndarray (2PM,)
         Which transition matrix, in a `(P,M,M)` array of matrices?
         Not returned if `drn` is an `int`.]
-    rows : ndarray (PQ,)
-        Vector of row indices of off-diagonal elements.
-    cols : ndarray (PQ,)
-        Vector of column indices of off-diagonal elements in order:
+    rows : ndarray (2PM,)
+        Vector of row indices of nonzero off-diagonal elements.
+    cols : ndarray (2PM,)
+        Vector of column indices of nonzero off-diagonal elements in order:
         mat_01, mat_12, ..., mat_n-2,n-1, mat_n-1,0,
         mat_0,n-1, mat_10, mat_21, ..., mat_n-1,n-2.
     """
-    if not isinstance(drn, int):
-        return bcast_subs(ring_subs, nst, drn, ravel)
-    if drn:
-        rows = np.arange(nst)
-        return rows, np.roll(rows, -drn)
-    return stack_subs(ring_subs, nst)
+    _ag.dummy(ravel)
+    rows = np.arange(nst)
+    return rows, np.roll(rows, -drn // abs(drn))
 
 
 def serial_inds(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> np.ndarray:
@@ -194,19 +182,19 @@ def serial_inds(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> np.ndarray:
     Parameters
     ----------
     nst : int
-        Number of states.
+        Number of states, `M`.
     drn: int|Sequence[int], optional
-        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
-        If it is a sequence of length `P`, return the subscripts for a
-        `(P,M,M)` array of matrices. By default 0.
+        If nonzero, only include transitions in direction `i -> i+sgn(drn)`.
+        If a sequence of length `P`, return indices for a `(P,M,M)` array.
+        By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices if
         `drn` is a sequence. By default `True`.
 
     Returns
     -------
-    inds : ndarray (2(n-1),)
-        Vector of ravel indices of off-diagonal elements, in order:
+    inds : ndarray (2(M-1),)
+        Vector of ravel indices of nonzero off-diagonal elements, in order:
         mat_01, mat_12, ..., mat_n-2,n-1,
         mat_10, mat_21, ..., mat_n-1,n-2.
     """
@@ -219,79 +207,73 @@ def serial_inds(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> np.ndarray:
     return stack_inds(serial_inds, nst)
 
 
+@sub_fun_bcast
 def serial_subs(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> Subs:
     """Ravel indices of non-zero elements of serial transition matrix.
 
     Parameters
     ----------
     nst : int
-        Number of states.
+        Number of states, `M`.
     drn: int|Sequence[int], optional
-        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
-        If it is a sequence of length `P`, return the subscripts for a
-        `(P,M,M)` array of matrices. By default 0.
+        If nonzero, only include transitions in direction `i -> i+sgn(drn)`.
+        If a sequence of length `P`, return indices for a `(P,M,M)` array.
+        By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices if
         `drn` is a sequence. By default `True`.
 
     Returns
     -------
-    [mats : ndarray (PQ,)
+    [mats : ndarray (2P(M-1),)
         Which transition matrix, in a `(P,M,M)` array of matrices?
         Not returned if `drn` is an `int`.]
-    rows : ndarray (PQ,)
-        Vector of row indices of off-diagonal elements.
-    cols : ndarray (PQ,)
-        Vector of column indices of off-diagonal elements in order:
+    rows : ndarray (2P(M-1),)
+        Vector of row indices of nonzero off-diagonal elements.
+    cols : ndarray (2P(M-1),)
+        Vector of column indices of nonzero off-diagonal elements in order:
         mat_01, mat_12, ..., mat_n-2,n-1,
         mat_10, mat_21, ..., mat_n-1,n-2.
     """
-    if not isinstance(drn, int):
-        return bcast_subs(serial_subs, nst, drn, ravel)
-    if drn > 0:
-        return np.arange(nst - 1), np.arange(1, nst)
-    if drn < 0:
-        return np.arange(1, nst), np.arange(nst - 1)
-    return stack_subs(serial_subs, nst)
+    _ag.dummy(ravel)
+    return (np.arange(nst - 1), np.arange(1, nst))[::drn // abs(drn)]
 
 
+@sub_fun_bcast
 def cascade_subs(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> Subs:
     """Indices of transitions for the cascade model
 
     Parameters
     ----------
     nst : int
-        Number of states, `2n`.
+        Number of states, `M == 2n`.
     drn: int|Sequence[int], optional
-        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
-        If it is a sequence of length `P`, return the subscripts for a
-        `(P,M,M)` array of matrices. By default 0.
+        If nonzero, only include transitions in direction `i -> i+sgn(drn)`.
+        If a sequence of length `P`, return indices for a `(P,M,M)` array.
+        By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices if
         `drn` is a sequence. By default `True`.
 
     Returns
     -------
-    [mats : ndarray (PQ,)
+    [mats : ndarray (2P(M-1),)
         Which transition matrix, in a `(P,M,M)` array of matrices?
         Not returned if `drn` is an `int`.]
-    rows : ndarray (PQ,)
-        Vector of row indices of off-diagonal elements.
-    cols : ndarray (PQ,)
-        Vector of column indices of off-diagonal elements in order:
+    rows : ndarray (2P(M-1),)
+        Vector of row indices of nonzero off-diagonal elements.
+    cols : ndarray (2P(M-1),)
+        Vector of column indices of nonzero off-diagonal elements in order:
         mat_0n, mat_1n, ..., mat_n-1,n,
         mat_n,n+1, mat_n+1,n+2, ... mat_2n-2,2n-1,
         mat_2n-1,n-1, ..., mat_n+1,n-1, mat_n,n-1,
         mat_n-1,n-2, ..., mat_21, mat_10.
     """
-    if not isinstance(drn, int):
-        return bcast_subs(cascade_subs, nst, drn, ravel)
-    if drn == 0:
-        return stack_subs(cascade_subs, nst)
+    _ag.dummy(ravel)
     npt = nst // 2
-    if drn > 0:
-        return np.arange(nst-1), np.r_[[npt] * npt, npt+1:nst]
-    return np.arange(nst-1, 0, -1), np.r_[[npt-1] * npt, npt-2:-1:-1]
+    rows = np.arange(nst-1)
+    cols = np.r_[[npt] * npt, rows[npt:] + 1]
+    return (rows, cols) if (drn > 0) else (nst - 1 - rows, nst - 1 - cols)
 
 
 def ind_fun(serial: bool, ring: bool, uniform: bool = False) -> IndsFun:
@@ -356,7 +338,7 @@ def param_inds(nst: int, *, serial: bool = False, ring: bool = False,
     Parameters
     ----------
     nst : int
-        Number of states.
+        Number of states, `M`.
     serial : bool, optional, default: False
         Is the rate vector meant for a model with the serial topology?
     ring : bool, optional, default: False
@@ -364,9 +346,9 @@ def param_inds(nst: int, *, serial: bool = False, ring: bool = False,
     uniform : bool, optional, default: False
         Do the nonzero transition rates (in one direction) have the same value?
     drn: int|Sequence[int], optional
-        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
-        If it is a sequence of length `P`, return the subscripts for a
-        `(P,M,M)` array of matrices. By default 0.
+        If nonzero, only include transitions in direction `i -> i+sgn(drn)`.
+        If a sequence of length `P`, return indices for a `(P,M,M)` array.
+        By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices if
         `drn` is a sequence. By default `True`.
@@ -387,7 +369,7 @@ def param_subs(nst: int, *, serial: bool = False, ring: bool = False,
     Parameters
     ----------
     nst : int
-        Number of states.
+        Number of states, `M`.
     serial : bool, optional, default: False
         Is the rate vector meant for a model with the serial topology?
     ring : bool, optional, default: False
@@ -395,9 +377,9 @@ def param_subs(nst: int, *, serial: bool = False, ring: bool = False,
     uniform : bool, optional, default: False
         Do the nonzero transition rates (in one direction) have the same value?
     drn: int|Sequence[int], optional
-        If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
-        If it is a sequence of length `P`, return the subscripts for a
-        `(P,M,M)` array of matrices. By default 0.
+        If nonzero, only include transitions in direction `i -> i+sgn(drn)`.
+        If a sequence of length `P`, return indices for a `(P,M,M)` array.
+        By default 0.
     ravel : bool, optional
         Return a ravelled array, or use first axis for different matrices if
         `drn` is a sequence. By default `True`.
@@ -408,9 +390,9 @@ def param_subs(nst: int, *, serial: bool = False, ring: bool = False,
         Which transition matrix, in a `(P,M,M)` array of matrices?
         Not returned if `drn` is an `int`.]
     rows : ndarray
-        Vector of row indices of off-diagonal elements.
+        Vector of row indices of nonzero off-diagonal elements.
     cols : ndarray
-        Vector of column indices of off-diagonal elements.
+        Vector of column indices of nonzero off-diagonal elements.
     For the order, see docs for `*_subs`.
     """
     return sub_fun(serial, ring, uniform)(nst, drn, ravel)
@@ -438,8 +420,8 @@ def _unravel_ind_fun(func: IndsFun) -> SubsFun:
         nst : int
             Number of states, `M`.
         drn: int|Sequence[int], optional
-            If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
-            If it is a sequence of length `P`, return the subscripts for a
+            If nonzero only include transitions in direction `i -> i+sgn(drn)`.
+            If it is a sequence of length `P`, return the indices for a
             `(P,M,M)` array of matrices. By default 0.
         ravel : bool, optional
             Return a ravelled array, or use first axis for different matrices
@@ -451,9 +433,9 @@ def _unravel_ind_fun(func: IndsFun) -> SubsFun:
             Which transition matrix, in a `(P,M,M)` array of matrices?
             Not returned if `drn` is an `int`.]
         rows : ndarray (PQ,)
-            Vector of row indices of off-diagonal elements.
+            Vector of row indices of nonzero nonzero off-diagonal elements.
         cols : ndarray (PQ,)
-            Vector of column indices of off-diagonal elements.
+            Vector of column indices of nonzero nonzero off-diagonal elements.
         """
         shape = (nst, nst) if isinstance(drn, int) else (len(drn), nst, nst)
         inds = func(nst, drn, ravel)
@@ -461,10 +443,11 @@ def _unravel_ind_fun(func: IndsFun) -> SubsFun:
     doc_ind = func.__doc__.rfind("in order:")
     new_func.__doc__ += func.__doc__[doc_ind:]
     new_func.__name__ = func.__name__.replace('inds', 'subs')
+    new_func.__qualname__ = func.__qualname__.replace('inds', 'subs')
     return new_func
 
 
-def _ravel_sub_fun(func: SubsFun) -> IndsFun:
+def _ravel_sub_fun(func: SubsFun):
     """Convert a function that returns unravelled indices to one that returns
     ravelled indices.
 
@@ -479,14 +462,14 @@ def _ravel_sub_fun(func: SubsFun) -> IndsFun:
         Function that returns ravelled indices
     """
     def new_fun(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> np.ndarray:
-        """Row and column indices of transitions
+        """Ravel indices of transitions
 
         Parameters
         ----------
         nst : int
             Number of states, `M`.
         drn: int|Sequence[int], optional, default: 0
-            If `drn`, only include transitions in direction `i -> i+sgn(drn)`.
+            If nonzero only include transitions in direction `i -> i+sgn(drn)`.
             If it is a sequence of length `P`, return the subscripts for a
             `(P,M,M)` array of matrices
         ravel : bool, optional
@@ -496,7 +479,7 @@ def _ravel_sub_fun(func: SubsFun) -> IndsFun:
         Returns
         -------
         inds : ndarray (PQ,)
-            Vector of ravelled indices of off-diagonal elements.
+            Vector of ravelled indices of nonzero off-diagonal elements.
         """
         shape = (nst, nst) if isinstance(drn, int) else (len(drn), nst, nst)
         subs = func(nst, drn, ravel)
@@ -504,6 +487,7 @@ def _ravel_sub_fun(func: SubsFun) -> IndsFun:
     doc_ind = func.__doc__.rfind("in order:")
     new_fun.__doc__ += func.__doc__[doc_ind:]
     new_fun.__name__ = func.__name__.replace('subs', 'inds')
+    new_fun.__qualname__ = func.__qualname__.replace('subs', 'inds')
     return new_fun
 
 
