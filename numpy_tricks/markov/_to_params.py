@@ -42,9 +42,9 @@ def gen_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
 
     See Also
     --------
-    offdiag_inds, gen_params_to_mat
+    offdiag_subs, gen_params_to_mat
     """
-    return _mh.mat_to_params(mat, _in.offdiag_inds, drn, axes, daxis)
+    return _mh.mat_to_params(mat, _in.offdiag_subs, drn, axes, daxis)
 
 
 def uni_gen_mat_to_params(mat: ArrayType, grad: bool = True, drn: IntOrSeq = 0,
@@ -79,13 +79,13 @@ def uni_gen_mat_to_params(mat: ArrayType, grad: bool = True, drn: IntOrSeq = 0,
 
     See Also
     --------
-    offdiag_split_inds, uni_gen_params_to_mat
+    offdiag_split_subs, uni_gen_params_to_mat
     """
-    if drn:
+    if _mh.unpack_nest(drn):
         return _mh.to_uni(gen_mat_to_params(mat, drn, axes, daxis),
                           drn, grad, axes)
     # need to separate pos, neg
-    params = _mh.mat_to_params(mat, _in.offdiag_split_inds, drn, axes, daxis)
+    params = _mh.mat_to_params(mat, _in.offdiag_split_subs, drn, axes, daxis)
     return _mh.to_uni(params, drn, grad, axes)
 
 
@@ -115,9 +115,9 @@ def ring_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
 
     See Also
     --------
-    ring_inds, ring_params_to_mat
+    ring_subs, ring_params_to_mat
     """
-    return _mh.mat_to_params(mat, _in.ring_inds, drn, axes, daxis)
+    return _mh.mat_to_params(mat, _in.ring_subs, drn, axes, daxis)
 
 
 def uni_ring_mat_to_params(mat: ArrayType, grad: bool = True,
@@ -152,7 +152,7 @@ def uni_ring_mat_to_params(mat: ArrayType, grad: bool = True,
 
     See Also
     --------
-    ring_inds, uni_ring_params_to_mat
+    ring_subs, uni_ring_params_to_mat
     """
     return _mh.to_uni(ring_mat_to_params(mat, drn, axes, daxis),
                       drn, grad, axes)
@@ -184,9 +184,9 @@ def serial_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
 
     See Also
     --------
-    serial_inds, serial_params_to_mat
+    serial_subs, serial_params_to_mat
     """
-    return _mh.mat_to_params(mat, _in.serial_inds, drn, axes, daxis)
+    return _mh.mat_to_params(mat, _in.serial_subs, drn, axes, daxis)
 
 
 def uni_serial_mat_to_params(mat: ArrayType, grad: bool = True,
@@ -221,7 +221,7 @@ def uni_serial_mat_to_params(mat: ArrayType, grad: bool = True,
 
     See Also
     --------
-    serial_inds, uni_serial_params_to_mat
+    serial_subs, uni_serial_params_to_mat
     """
     return _mh.to_uni(serial_mat_to_params(mat, drn, axes, daxis),
                       drn, grad, axes)
@@ -255,9 +255,9 @@ def cascade_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
 
     See Also
     --------
-    ring_inds, ring_params_to_mat
+    ring_subs, ring_params_to_mat
     """
-    return _mh.mat_to_params(mat, _in.cascade_inds, drn, axes, daxis)
+    return _mh.mat_to_params(mat, _in.cascade_subs, drn, axes, daxis)
 
 
 def std_cascade_mat_to_params(mat: ArrayType,
@@ -293,7 +293,7 @@ def std_cascade_mat_to_params(mat: ArrayType,
 
     See Also
     --------
-    cascade_inds, std_cascade_params_to_mat
+    cascade_subs, std_cascade_params_to_mat
     """
     if not isinstance(axes[0], int):
         return _mh.bcast_axes(std_cascade_mat_to_params, mat, param, grad=grad,
@@ -356,14 +356,14 @@ def mat_to_params(mat: ArrayType, *, serial: bool = False, ring: bool = False,
     Returns
     -------
     params : ndarray (n(n-1),) or (2(n-1),) or (2n,) or (2,) or half of them
-        Vector of independent elements. For the order, see docs for `*_inds`.
+        Vector of independent elements. For the order, see docs for `*_subs`.
         Elements lie across the earlier axis of `axes`.
 
     See Also
     --------
-    param_inds, params_to_mat
+    param_subs, params_to_mat
     """
-    params = _mh.mat_to_params(mat, _in.ind_fun(serial, ring, uniform),
+    params = _mh.mat_to_params(mat, _in.sub_fun(serial, ring, uniform),
                                drn, axes, daxis)
     if uniform:
         return _mh.to_uni(params, drn, grad, axes)
@@ -384,7 +384,7 @@ def paramify(params_or_mat: ArrayType, *args, **kwds) -> ArrayType:
     -------
     params : ndarray (np,)
         Vector of independent elements (in order that depends on flags,
-        see docs for `*_inds` for details).
+        see docs for `*_subs` for details).
 
     See Also
     --------

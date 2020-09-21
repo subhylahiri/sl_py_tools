@@ -38,9 +38,9 @@ def gen_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
 
     See Also
     --------
-    offdiag_inds, gen_mat_to_params
+    offdiag_subs, gen_mat_to_params
     """
-    return _mh.params_to_mat(params, _in.offdiag_inds, drn, axis, daxis)
+    return _mh.params_to_mat(params, _in.offdiag_subs, drn, axis, daxis)
 
 
 def uni_gen_params_to_mat(params: ArrayType, num_st: int, drn: IntOrSeq = 0,
@@ -72,12 +72,12 @@ def uni_gen_params_to_mat(params: ArrayType, num_st: int, drn: IntOrSeq = 0,
 
     See Also
     --------
-    offdiag_split_inds, uni_gen_mat_to_params
+    offdiag_split_subs, uni_gen_mat_to_params
     """
     gen_params = _mh.uni_to_any(params, num_st, axis=axis)
-    if drn:
+    if _mh.unpack_nest(drn):
         return gen_params_to_mat(gen_params, drn, axis, daxis)
-    return _mh.params_to_mat(params, _in.offdiag_split_inds, drn, axis, daxis)
+    return _mh.params_to_mat(params, _in.offdiag_split_subs, drn, axis, daxis)
 
 
 def ring_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
@@ -105,9 +105,9 @@ def ring_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
 
     See Also
     --------
-    ring_inds, ring_mat_to_params
+    ring_subs, ring_mat_to_params
     """
-    return _mh.params_to_mat(params, _in.ring_inds, drn, axis, daxis,
+    return _mh.params_to_mat(params, _in.ring_subs, drn, axis, daxis,
                              ring=True)
 
 
@@ -140,7 +140,7 @@ def uni_ring_params_to_mat(params: ArrayType, num_st: int, drn: IntOrSeq = 0,
 
     See Also
     --------
-    ring_inds, uni_ring_mat_to_params
+    ring_subs, uni_ring_mat_to_params
     """
     ring_params = _mh.uni_to_any(params, num_st, axis=axis, ring=True)
     return ring_params_to_mat(ring_params, drn, axis, daxis)
@@ -172,9 +172,9 @@ def serial_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
 
     See Also
     --------
-    serial_inds, serial_mat_to_params
+    serial_subs, serial_mat_to_params
     """
-    return _mh.params_to_mat(params, _in.serial_inds, drn, axis, daxis,
+    return _mh.params_to_mat(params, _in.serial_subs, drn, axis, daxis,
                              serial=True)
 
 
@@ -207,8 +207,9 @@ def uni_serial_params_to_mat(
 
     See Also
     --------
-    serial_inds, uni_serial_mat_to_params
+    serial_subs, uni_serial_mat_to_params
     """
+    # cascade topology has same number of transitions as serial
     ser_params = _mh.uni_to_any(params, num_st, axis=axis, serial=True)
     return serial_params_to_mat(ser_params, drn, axis, daxis)
 
@@ -240,9 +241,10 @@ def cascade_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
 
     See Also
     --------
-    cascade_inds, cascade_mat_to_params
+    cascade_subs, cascade_mat_to_params
     """
-    return _mh.params_to_mat(params, _in.cascade_inds, drn, axis, daxis,
+    # cascade topology has same number of transitions as serial
+    return _mh.params_to_mat(params, _in.cascade_subs, drn, axis, daxis,
                              serial=True)
 
 
@@ -272,7 +274,7 @@ def std_cascade_params_to_mat(params: ArrayType, num_st: int,
 
     See Also
     --------
-    cascade_inds, cascade_params_to_mat
+    cascade_subs, cascade_params_to_mat
     """
     if not isinstance(axis, int):
         return _mh.bcast_axes(std_cascade_params_to_mat, params, num_st,
@@ -302,7 +304,7 @@ def params_to_mat(params: ArrayType, *, serial: bool = False,
     ----------
     params : ndarray (n(n-1),) or (2(n-1),) or (2n,) or (2,)
         Vector of independent elements, in order that depends on flags below.
-        See docs for `*_inds` for details.
+        See docs for `*_subs` for details.
         If `uniform and drn == 0`, we need 2 parameters, one for each direction
     serial : bool, optional, default: False
         Is the rate vector meant for `serial_params_to_mat` or
@@ -330,12 +332,12 @@ def params_to_mat(params: ArrayType, *, serial: bool = False,
 
     See Also
     --------
-    param_inds, mat_to_params
+    param_subs, mat_to_params
     """
     opts = {'serial': serial, 'ring': ring}
     if uniform:
         params = _mh.uni_to_any(params, nst, axis=axis, **opts)
-    return _mh.params_to_mat(params, _in.ind_fun(serial, ring, uniform),
+    return _mh.params_to_mat(params, _in.sub_fun(serial, ring, uniform),
                              drn, axis, daxis, **opts)
 
 

@@ -182,20 +182,24 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
     --------
     param_inds, mat_to_params
     """
-    if not isinstance(drn, int) or not isinstance(paxis, int):
-        _mh.bcast_update(mat_update_params, (mat, params), drn, (maxes, paxis),
-                         (mdaxis, pdaxis), **kwds)
+    if not isinstance(paxis, int):
+        keys = ('maxes', 'paxis', 'mdaxis', 'pdaxis')
+        for axes in zip(maxes, paxis, mdaxis, pdaxis):
+            kwds.update(zip(keys, axes))
+            mat_update_params(mat, params, drn=drn, **kwds)
+        return
+    std_axes = (-3, -2, -1)
+    if isinstance(drn, int):
+        paxis, std_axes = (paxis,), std_axes[1:]
     else:
-        nst = mat.shape[maxes[0]]
-        params = np.asanyarray(params)
-        params = np.moveaxis(params, paxis, -1)
-        nmat = np.moveaxis(mat, maxes, (-2, -1))
-        shape = nmat.shape[:-2]
-        if kwds.get('uniform', False):
-            params = _mh.uni_to_any(params, nst, **kwds)
-        nmat = nmat.reshape(shape + (nst**2,))
-        nmat[_in.param_inds(nst, drn=drn, **kwds)] = params
-        nmat = nmat.reshape(shape + (nst, nst))
-        _mh.stochastify(nmat)
-        if not np.may_share_memory(nmat, mat):
-            mat[...] = np.moveaxis(nmat, (-2, -1), maxes)
+        paxis, maxes = (pdaxis, paxis), (mdaxis,) + tuple(maxes)
+    params = np.moveaxis(np.asanyarray(params), paxis, std_axes[1:])
+    nmat = np.moveaxis(mat, maxes, std_axes)
+    nst = nmat.shape[-1]
+    if kwds.get('uniform', False):
+        params = _mh.uni_to_any(params, nst, **kwds)
+    kwds.update(drn=drn, ravel=False)
+    nmat[_in.param_subs(nst, **kwds)] = params
+    _mh.stochastify(nmat)
+    if not np.may_share_memory(nmat, mat):
+        mat[...] = np.moveaxis(nmat, std_axes, maxes)
