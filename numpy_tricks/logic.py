@@ -89,9 +89,15 @@ def indmin(array, ignore_nan=True):
     return indarg(array, np.argmin)
 
 
-def unique_unsorted(sequence):
+def unique_unsorted(sequence, return_inverse=False):
     """remove repetitions without changing the order"""
     sequence = np.asanyarray(sequence)
-    _, inds = np.unique(sequence, return_index=True)
-    inds.sort()
-    return sequence[inds]
+    if not return_inverse:
+        _, inds = np.unique(sequence, return_index=True)
+        inds.sort()
+        return sequence[inds]
+    unq_srt, inds, inv = np.unique(sequence, True, True)
+    order = np.argsort(inds)
+    iorder = np.zeros_like(order)
+    iorder[order] = np.arange(len(order))
+    return unq_srt[order], iorder[inv]
