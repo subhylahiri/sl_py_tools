@@ -52,8 +52,8 @@ def diff_like(fun: _ty.Callable[[ArrayType, ArrayType], ArrayType],
 
 
 def stochastify_c(mat: np.ndarray):  # make cts time stochastic
-    """
-    Make a matrix the generator of a continuous time Markov process.
+    """Make a matrix the generator of a continuous time Markov process.
+
     Changes diagonal to make row sums zero.
     **Modifies** in place, **does not** return.
 
@@ -66,6 +66,21 @@ def stochastify_c(mat: np.ndarray):  # make cts time stochastic
     mat -= mat.sum(axis=-1, keepdims=True) * np.identity(mat.shape[-1])
 
 
+def unstochastify_c(mat: np.ndarray):  # make cts time stochastic
+    """Undo the effect of `stochastify_c` or `stochastify_pd`.
+
+    Makes diagonal zero.
+    **Modifies** in place, **does not** return.
+
+    Parameters
+    ----------
+    mat : la.lnarray (...,n,n)
+        square matrix with non-negative off-diagonal elements.
+        **Modified** in place.
+    """
+    mat[(...,) + np.diag_indices(mat.shape[-1])] = 0.
+
+
 def stochastify_pd(mat: np.ndarray):  # make dscr time stochastic
     """
     Make a matrix the generator of a discrete time Markov process.
@@ -74,7 +89,7 @@ def stochastify_pd(mat: np.ndarray):  # make dscr time stochastic
     Parameters
     ----------
     mat : la.lnarray (...,n,n)
-        square matrix with non-negative elements.
+        square matrix with non-negative off-diagonals and row sums below 1.
         **Modified** in place
     """
     mat += (1 - mat.sum(axis=-1, keepdims=True)) * np.identity(mat.shape[-1])

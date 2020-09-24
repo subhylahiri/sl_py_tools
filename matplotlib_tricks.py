@@ -11,6 +11,11 @@ import numpy as np
 import sl_py_tools.arg_tricks as _ag
 import sl_py_tools.containers as _cn
 import sl_py_tools.tol_colors as tol
+import sl_py_tools.options_classes as op
+
+# =============================================================================
+# Global Options
+# =============================================================================
 
 
 def rc_fonts(family: str = 'serif'):
@@ -523,6 +528,125 @@ def centre_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
         old_clim = img.get_clim()
         cdiff = max(old_clim[1] - centre, centre - old_clim[0])
         img.set_clim((centre - cdiff, centre + cdiff))
+
+
+# =============================================================================
+# Options classes
+# =============================================================================
+
+
+# pylint: disable=too-many-ancestors
+class ImageOptions(op.AnyOptions):
+    """Options for heatmaps
+
+    The individual options can be accessed as object instance attributes
+    (e.g. `obj.name`) or as dictionary items (e.g. `obj['name']`) for both
+    getting and setting.
+
+    Parameters
+    ----------
+    cmap : str|Colormap
+        Colour map used to map numbers to colours. By default, `'YlOrBr'`.
+    norm : Normalize
+        Mapsheatmap values to interval `[0, 1]` for `cmap`.
+        By default: `Normalise(0, 1)`.
+    vmin : float
+        Lower bound of `norm`. By default: `0`.
+    vmax : float
+        Lower bound of `norm`. By default: `1`.
+
+    All parameters are optional keywords. Any dictionary passed as positional
+    parameters will be popped for the relevant items. Keyword parameters must
+    be valid keys, otherwise a `KeyError` is raised.
+    """
+    prop_attributes: op.Attrs = ('cmap',)
+    _cmap: mpl.colors.Colormap
+    norm: mpl.colors.Normalize
+
+    def __init__(self, *args, **kwds) -> None:
+        self._cmap = mpl.cm.get_cmap('YlOrBr')
+        self.norm = mpl.colors.Normalize(0., 1.)
+        super().__init__(*args, **kwds)
+
+    @property
+    def cmap(self) -> mpl.colors.Colormap:
+        """Get the colour map.
+        """
+        return self._cmap
+
+    def set_cmap(self, value: _ty.Union[str, mpl.colors.Colormap]) -> None:
+        """Set the colour map.
+
+        Does noting if `value` is `None`. Converts to `Colormap` if `str`.
+        """
+        if value is None:
+            pass
+        elif isinstance(value, str):
+            self._cmap = mpl.cm.get_cmap(value)
+        elif isinstance(value, mpl.colors.Colormap):
+            self._cmap = value
+        else:
+            raise TypeError("cmap must be `str` or `mpl.colors.Colormap`, not "
+                            + type(value).__name__)
+
+    def set_vmin(self, value: float) -> None:
+        """Set the lower bound for the colour map.
+
+        Does noting if `value` is `None`.
+        """
+        if value is None:
+            pass
+        else:
+            self.norm.vmin = value
+
+    def set_vmax(self, value: float) -> None:
+        """Set the upper bound for the colour map.
+
+        Does noting if `value` is `None`.
+        """
+        if value is None:
+            pass
+        else:
+            self.norm.vmax = value
+# pylint: enable=too-many-ancestors
+
+
+# pylint: disable=too-many-ancestors
+class AnimationOptions(op.AnyOptions):
+    """Options for animations
+
+    The individual options can be accessed as object instance attributes
+    (e.g. `obj.name`) or as dictionary items (e.g. `obj['name']`) for both
+    getting and setting.
+
+    Parameters
+    ----------
+    interval : float
+        The gap between frames in milliseconds, by default `500`.
+    repeat_delay : float
+        The gap between repetitions in milliseconds, by default `1000`.
+    repeat : bool
+        Whether the animation repeats when the sequence of frames is completed,
+        by default `True`.
+    blit : bool
+        Do we only redraw the parts that have changed? By default `False`.
+
+    All parameters are optional keywords. Any dictionary passed as positional
+    parameters will be popped for the relevant items. Keyword parameters must
+    be valid keys, otherwise a `KeyError` is raised.
+    """
+    interval: float
+    repeat_delay: float
+    repeat: bool
+    blit: bool
+
+    def __init__(self, *args, **kwds) -> None:
+        self.interval = 500
+        self.repeat_delay = 1000
+        self.repeat = True
+        self.blit = False
+        super().__init__(*args, **kwds)
+# pylint: enable=too-many-ancestors
 
 
 # =============================================================================
