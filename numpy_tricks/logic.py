@@ -89,15 +89,32 @@ def indmin(array, ignore_nan=True):
     return indarg(array, np.argmin)
 
 
-def unique_unsorted(sequence, return_inverse=False):
-    """remove repetitions without changing the order"""
+def unique_unsorted(sequence: np.ndarray, get_inv: bool = False) -> np.ndarray:
+    """Remove repetitions without changing the order
+
+    Parameters
+    ----------
+    sequence : array_like, (N,)
+        The array whose unique elements we want.
+    return_inverse : bool, optional
+        If `True`, also return an array of assignments. By default `False`.
+
+    Returns
+    -------
+    unique : np.ndarray, (V,)
+        Array containing the unique elements of `sequence` in the order they
+        first apppear.
+    inv : np.ndarray[int] (N,)
+        Array of assignments, i.e. the index array, `inds`, such that
+        `sequence = unique[inds]`.
+    """
     sequence = np.asanyarray(sequence)
-    if not return_inverse:
+    if not get_inv:
         _, inds = np.unique(sequence, return_index=True)
         inds.sort()
         return sequence[inds]
     unq_srt, inds, inv = np.unique(sequence, True, True)
     order = np.argsort(inds)
-    iorder = np.zeros_like(order)
-    iorder[order] = np.arange(len(order))
+    iorder = np.argsort(order)
+    # iorder[order] = np.arange(len(order))
     return unq_srt[order], iorder[inv]

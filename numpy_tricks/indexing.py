@@ -9,6 +9,7 @@
 """
 Tools for messing with array shapes
 """
+import typing as ty
 
 import numpy as np
 
@@ -22,6 +23,8 @@ from ..slice_tricks import (SliceRange, disjoint_slice, in_slice, is_subslice,
 _EXPORTED = Export[same_shape, identical_shape, broadcastable, ShapeTuple]
 _EXPORTED = Export[slice_to_range, SliceRange, srange, slice_str]
 _EXPORTED = Export[in_slice, is_subslice, disjoint_slice]
+
+# =============================================================================
 
 
 def mesh_stack(*arrays):
@@ -171,6 +174,42 @@ def ravelaxes(arr: np.ndarray, start: int = 0, stop: int = None) -> np.ndarray:
     return np.reshape(arr, newshape)
 
 
+def unravelaxis(arr: np.ndarray, axis: int, shape: ty.Tuple[int, ...]
+                ) -> np.ndarray:
+    """Partial unflattening.
+
+    Folds an `axis` into `shape`.
+
+    Parameters
+    ----------
+    arr : np.ndarray (...,L,M*N*...*P*Q,R,...)
+        Array to be partially folded.
+    axis : int
+        Axis to be folded.
+    shape : Tuple[int, ...]
+        Shape to fold `axis` into. One element can be -1, like `numpy.reshape`.
+
+    Returns
+    -------
+    new_arr : np.ndarray (...,L,M,N,...,P,Q,R,...)
+        Partially unflattened array.
+
+    Raises
+    ------
+    ValueError
+        If multiple elements of `shape` are -1.
+        If `arr.shape[axis] != prod(shape)` (unless one element is -1).
+    """
+    minus_one = np.count_nonzero([siz == -1 for siz in shape])
+    if minus_one > 1:
+        raise ValueError(f"Axis size {arr.shape[axis]} cannot fold to {shape}")
+    if minus_one == 0 and np.prod(shape) != arr.shape[axis]:
+        raise ValueError(f"Axis size {arr.shape[axis]} cannot fold to {shape}")
+    axis %= arr.ndim
+    newshape = arr.shape[:axis] + shape + arr.shape[axis+1:]
+    return np.reshape(arr, newshape)
+
+
 def expand_dims(arr: np.ndarray, *axis) -> np.ndarray:
     """Expand the shape of the array with length one axes.
 
@@ -204,13 +243,7 @@ def expand_dims(arr: np.ndarray, *axis) -> np.ndarray:
         return arr
     if len(axis) == 1:
         return np.expand_dims(arr, axis[0]).view(type(arr))
-    ndim = arr.ndim + len(axis)
-    axes_sort = np.unique([_posify(x, ndim) for x in axis])
-    if np.any(axes_sort < 0) or np.any(axes_sort >= ndim):
-        raise ValueError(f'Axes out of range in: {axis}, ndim={ndim}')
-    if len(axes_sort) < len(axis):
-        raise ValueError(f'Repeated axes in: {axis}, ndim={ndim}')
-    return expand_dims(expand_dims(arr, axes_sort[0]), *axes_sort[1:].tolist())
+    return np.expand_dims(arr, axis)
 
 
 BCAST_FNS = {}

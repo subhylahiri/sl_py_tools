@@ -20,6 +20,11 @@ def _public(key: str) -> bool:
     return not key.startswith('_')
 
 
+def _has_str(val: _ty.Any) -> bool:
+    """Does it have a string producung method?"""
+    return any(hasattr(val, x) for x in ('__repr__', '__str__', '__format__'))
+
+
 def _fmt_sep(format_spec: str) -> _ty.Tuple[str, str, str]:
     """helper for Options.__format__: process `format_spec`."""
     if '#' not in format_spec:
@@ -35,6 +40,8 @@ def _fmt_help(key: str, val: _ty.Any, conv: str, next_spec: str) -> str:
     """helper for Options.__format__: entry for one item"""
     if isinstance(val, mpl.colors.Colormap):
         val = val.name
+    if callable(val) and not _has_str(val):
+        val = val.__name__
     if conv != '!r' or _LINE_SEP.fullmatch(next_spec) is None:
         item = "{}={" + conv + "}"
         return item.format(key, val)

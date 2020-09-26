@@ -276,7 +276,7 @@ def cascade_subs(nst: int, drn: IntOrSeq = 0, ravel: bool = True) -> Subs:
     return (rows, cols) if (drn > 0) else (nst - 1 - rows, nst - 1 - cols)
 
 
-def ind_fun(serial: bool, ring: bool, uniform: bool = False) -> IndsFun:
+def ind_fun(serial: bool, ring: bool, uniform: bool = False, **kws) -> IndsFun:
     """Which index function to use
 
     Parameters
@@ -298,12 +298,14 @@ def ind_fun(serial: bool, ring: bool, uniform: bool = False) -> IndsFun:
         return serial_inds
     if ring:
         return ring_inds
+    if kws.get('cascade', False):
+        return cascade_inds
     if uniform:
         return offdiag_split_inds
     return offdiag_inds
 
 
-def sub_fun(serial: bool, ring: bool, uniform: bool = False) -> SubsFun:
+def sub_fun(serial: bool, ring: bool, uniform: bool = False, **kws) -> SubsFun:
     """which index function to use
 
     Parameters
@@ -325,14 +327,16 @@ def sub_fun(serial: bool, ring: bool, uniform: bool = False) -> SubsFun:
         return serial_subs
     if ring:
         return ring_subs
+    if kws.get('cascade', False):
+        return cascade_subs
     if uniform:
         return offdiag_split_subs
     return offdiag_subs
 
 
 def param_inds(nst: int, *, serial: bool = False, ring: bool = False,
-               uniform: bool = False, drn: IntOrSeq = 0, ravel: bool = True
-               ) -> np.ndarray:
+               uniform: bool = False, drn: IntOrSeq = 0, ravel: bool = True,
+               **kwds) -> np.ndarray:
     """Ravel indices of independent parameters of transition matrix.
 
     Parameters
@@ -355,15 +359,15 @@ def param_inds(nst: int, *, serial: bool = False, ring: bool = False,
 
     Returns
     -------
-    inds : ndarray (k,), k in (n(n-1), 2(n-1), 2n, 2)
+    inds : ndarray (k,), k in (M(M-1), 2(M-1), 2M, 2)
         Indices of independent elements. For the order, see docs for `*_inds`.
     """
-    return ind_fun(serial, ring, uniform)(nst, drn, ravel)
+    return ind_fun(serial, ring, uniform, **kwds)(nst, drn, ravel)
 
 
 def param_subs(nst: int, *, serial: bool = False, ring: bool = False,
-               uniform: bool = False, drn: IntOrSeq = 0, ravel: bool = True
-               ) -> Subs:
+               uniform: bool = False, drn: IntOrSeq = 0, ravel: bool = True,
+               **kwds) -> Subs:
     """Row and column indices of independent parameters of transition matrix.
 
     Parameters
@@ -395,7 +399,7 @@ def param_subs(nst: int, *, serial: bool = False, ring: bool = False,
         Vector of column indices of nonzero off-diagonal elements.
     For the order, see docs for `*_subs`.
     """
-    return sub_fun(serial, ring, uniform)(nst, drn, ravel)
+    return sub_fun(serial, ring, uniform, **kwds)(nst, drn, ravel)
 
 
 def _unravel_ind_fun(func: IndsFun) -> SubsFun:

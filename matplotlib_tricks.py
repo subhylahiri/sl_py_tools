@@ -608,6 +608,21 @@ class ImageOptions(op.AnyOptions):
             pass
         else:
             self.norm.vmax = value
+
+    def val_to_colour(self, values) -> np.ndarray:
+        """Normalise and convert values to colours
+
+        Parameters
+        ----------
+        values : array_like (N,)
+            Values to convert to colours
+
+        Returns
+        -------
+        cols : np.ndarray (N, 4)
+            RGBA array representing colours.
+        """
+        return self._cmap(self.norm(values))
 # pylint: enable=too-many-ancestors
 
 

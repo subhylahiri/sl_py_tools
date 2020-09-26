@@ -12,10 +12,10 @@ import networkx as nx
 import numpy as np
 
 import sl_py_tools.arg_tricks as ag
-import sl_py_tools.containers as cn
 import sl_py_tools.iter_tricks as it
 import sl_py_tools.numpy_tricks.markov as ma
 from sl_py_tools.numpy_tricks.logic import unique_unsorted
+from sl_py_tools.numpy_tricks.markov import TopologyOptions
 
 # =============================================================================
 # Graph view class
@@ -80,6 +80,8 @@ class OutEdgeDataView(nx.classes.reportviews.OutEdgeDataView):
         KeyError
             If the key is not present.
         """
+        if not self._data:
+            return None
         edge_data = self._report(*key, self._viewer[key])
         if edge_data in self:
             return edge_data[-1]
@@ -221,9 +223,11 @@ class OutMultiEdgeDataView(nx.classes.reportviews.OutMultiEdgeDataView):
         KeyError
             If the key is not present.
         """
+        if not self._data:
+            return None
         edge_data = self._report(*key, self._viewer[key])
         if edge_data in self:
-            return cn.unseqify(edge_data[2 + self.keys:])
+            return edge_data[-1]
         raise KeyError(f"Edge {key} not in this (sub)graph.")
 
     def mkeys(self) -> ty.Iterable[MEdge]:
@@ -307,25 +311,35 @@ class OutMultiEdgeView(nx.classes.reportviews.OutMultiEdgeView):
 # =============================================================================
 
 
-class GraphAttrMixin(nx.Graph):
-    """Mixin providing attribute collecting methods"""
+class GraphAttrs(nx.Graph):
+    """Mixin providing attribute array methods.
 
-    def has_node_attr(self, data: str) -> bool:
+    This class provides methods for working with `np.ndarray`s of node/edge
+    attribute: `has_node_attr`, `get_node_attr`, `set_node_attr`,
+    `has_edge_attr`, `get_edge_attr`, `set_edge_attr`.
+
+    See Also
+    --------
+    `networkx.Graph, DiGraph, MultiGraph, MultiDiGraph`.
+    """
+
+    def has_node_attr(self, data: str, strict: bool = True) -> bool:
         """Test for existence of node attributes.
 
         Parameters
         ----------
-        graph : nx.DiGraph
-            Graph with nodes whose attributes we want.
         key : str
             Name of attribute.
+        strict : bool, optopnal
+            Only `True` if every node has the attribute. By default `True`.
 
         Returns
         -------
         has : bool
-            `True` if every node has the attribute, `False` otherwise.
+            `True` when some/every node has the attribute, `False` otherwise.
         """
-        return all(data in node for node in self.nodes.values())
+        fun = all if strict else any
+        return fun(data in node for node in self.nodes.values())
 
     def get_node_attr(self, data: str, default: Number = np.nan) -> np.ndarray:
         """Collect values of node attributes.
@@ -345,32 +359,35 @@ class GraphAttrMixin(nx.Graph):
         return np.array(list(self.nodes(data=data, default=default)))[:, 1]
 
     def set_node_attr(self, data: str, values: np.ndarray) -> None:
-        """Collect values of node attributes.
+        """Change values of node attributes.
 
         Parameters
         ----------
         data : str
             Name of attribute.
-        values : ndarray
+        values : ndarray (N,)
             Value to assign to the attribute for each node.
         """
         for node_dict, value in zip(self.nodes.values(), values):
             node_dict[data] = value
 
-    def has_edge_attr(self, data: str) -> bool:
+    def has_edge_attr(self, data: str, strict: bool = True) -> bool:
         """Test for existence of edge attributes.
 
         Parameters
         ----------
         data : str
             Name of attribute.
+        strict : bool, optopnal
+            Only `True` if every edge has the attribute. By default `True`.
 
         Returns
         -------
         has : bool
-            `True` if every edge has the attribute, `False` otherwise.
+            `True` when some/every edge has the attribute, `False` otherwise.
         """
-        return all(data in edge for edge in self.edges.values())
+        fun = all if strict else any
+        return fun(data in edge for edge in self.edges.values())
 
     def get_edge_attr(self, data: str, default: Number = np.nan) -> np.ndarray:
         """Collect values of edge attributes.
@@ -396,15 +413,25 @@ class GraphAttrMixin(nx.Graph):
         ----------
         data : str
             Name of attribute.
-        values : ndarray
+        values : ndarray (E,)
             Value to assign to the attribute for each edge.
         """
         for edge_dict, value in zip(self.edges.values(), values):
             edge_dict[data] = value
 
 
-class DiGraph(nx.DiGraph, GraphAttrMixin):
+class DiGraph(nx.DiGraph, GraphAttrs):
     """Custom directed graph class that remembers edge order (N,E)
+
+    Iterating over edges is done in the order that the edges were first added.
+    It also provides methods for working with `np.ndarray`s of node/edge
+    attribute: `has_node_attr`, `get_node_attr`, `set_node_attr`,
+    `has_edge_attr`, `get_edge_attr`, `set_edge_attr`.
+
+    See Also
+    --------
+    `networkx.DiGraph`
+    `GraphAttrs`
     """
     edge_order: ty.List[Edge]
 
@@ -413,23 +440,50 @@ class DiGraph(nx.DiGraph, GraphAttrMixin):
         self.edge_order = []
 
     def add_edge(self, u_of_edge: Node, v_of_edge: Node, **attr) -> None:
-        """Add an edge"""
-        # attr.setdefault('pind', len(self.edges))
+        """Add/modify an edge.
+
+        The nodes u and v will be automatically added if they are
+        not already in the graph.
+
+        Edge attributes can be specified with keywords or by directly
+        accessing the edge's attribute dictionary. See examples below.
+
+        Parameters
+        ----------
+        u, v : nodes
+            Nodes can be, for example, strings or numbers.
+            Nodes must be hashable (and not None) Python objects.
+        attr : keyword arguments, optional
+            Edge data (or labels or objects) can be assigned using
+            keyword arguments.
+        """
         super().add_edge(u_of_edge, v_of_edge, **attr)
         if (u_of_edge, v_of_edge) not in self.edge_order:
             self.edge_order.append((u_of_edge, v_of_edge))
 
     @property
     def edges(self) -> OutEdgeView:
-        """OutEdgeView of the DiGraph as G.edges or G.edges()."""
+        """OutEdgeView of the DiGraph as G.edges or G.edges().
+
+        This property provides a `dict/set`-like view of the graph's edge,
+        with tuples `(u,v)` as keys and `(u,v,data)` as set-members. Iterating
+        over edges is done in the order that the edges were first added.
+
+        Calling this property with optional arguments `data` and `default`
+        controls the form of the tuple. Optional argument `nbunch`
+        allows restriction to edges only involving certain nodes.
+        If `data is False` (the default) then iterate over 2-tuples `(u, v)`.
+        If `data is True` iterate over 3-tuples `(u, v, datadict)`.
+        Otherwise iterate over `(u, v, datadict.get(data, default))`.
+        """
         return OutEdgeView(self)
 
-    def edge_attr_matrix(self, key: str, fill: Number = 0.) -> np.ndarray:
+    def edge_attr_matrix(self, data: str, fill: Number = 0.) -> np.ndarray:
         """Collect values of edge attributes in a matrix.
 
         Parameters
         ----------
-        key : str
+        data : str
             Name of attribute to use for matrix elements.
         fill : Number
             Value given to missing edges.
@@ -441,14 +495,24 @@ class DiGraph(nx.DiGraph, GraphAttrMixin):
         """
         nodes = list(self.nodes)
         mat = np.full((len(nodes),) * 2, fill)
-        for edge, val in self.edges(data=key, default=fill).items():
+        for edge, val in self.edges(data=data, default=fill).items():
             ind = tuple(map(nodes.index, edge))
             mat[ind] = val
         return mat
 
 
-class MultiDiGraph(nx.MultiDiGraph, GraphAttrMixin):
+class MultiDiGraph(nx.MultiDiGraph, GraphAttrs):
     """Custom directed multi-graph class that remembers edge order (N,E)
+
+    Iterating over edges is done in the order that the edges were first added.
+    It also provides methods for working with `np.ndarray`s of node/edge
+    attribute: `has_node_attr`, `get_node_attr`, `set_node_attr`,
+    `has_edge_attr`, `get_edge_attr`, `set_edge_attr`.
+
+    See Also
+    --------
+    `networkx.MultiDiGraph`
+    `GraphAttrs`
     """
     edge_order: ty.List[Edge]
 
@@ -458,7 +522,31 @@ class MultiDiGraph(nx.MultiDiGraph, GraphAttrMixin):
 
     def add_edge(self, u_for_edge: Node, v_for_edge: Node,
                  key: Optional[Key] = None, **attr) -> Key:
-        """Add an edge"""
+        """Add/modify an edge
+
+        The nodes u and v will be automatically added if they are
+        not already in the graph.
+
+        Edge attributes can be specified with keywords or by directly
+        accessing the edge's attribute dictionary. See examples below.
+
+        Parameters
+        ----------
+        u_for_edge, v_for_edge : nodes
+            Nodes can be, for example, strings or numbers.
+            Nodes must be hashable (and not None) Python objects.
+        key : hashable identifier, optional
+            Used to distinguish multiedges between a pair of nodes.
+            By default lowest unused integer
+        attr : keyword arguments, optional
+            Edge data (or labels or objects) can be assigned using
+            keyword arguments.
+
+        Returns
+        -------
+        key : hashable identifier
+            The edge key assigned to the edge.
+        """
         # attr.setdefault('pind', len(self.edges))
         key = super().add_edge(u_for_edge, v_for_edge, key, **attr)
         if (u_for_edge, v_for_edge, key) not in self.edge_order:
@@ -467,7 +555,21 @@ class MultiDiGraph(nx.MultiDiGraph, GraphAttrMixin):
 
     @property
     def edges(self) -> OutMultiEdgeView:
-        """OutMultiEdgeView of the MultiDiGraph as G.edges or G.edges(...)."""
+        """OutMultiEdgeView of the MultiDiGraph as G.edges or G.edges(...).
+
+        This property provides a `dict/set`-like view of the graph's edge,
+        with tuples `(u,v)` or `(u,v,key)` as keys and `(u,v,key,data)` as
+        set-members. Iterating over edges is done in the order that the edges
+        were first added.
+
+        Calling this property with optional arguments `data`, `default` and
+        `keys` controls the form of the tuple. Optional argument `nbunch`
+        allows restriction to edges only involving certain nodes.
+        If `data is False` (the default) then iterate over 2-tuples `(u, v)`.
+        If `data is True` iterate over 3-tuples `(u, v, datadict)`.
+        Otherwise iterate over `(u, v, datadict.get(data, default))`.
+        If `keys is True`, replace `u, v` with `u, v, key` above.
+        """
         return OutMultiEdgeView(self)
 
     def edge_key(self) -> np.ndarray:
@@ -480,12 +582,31 @@ class MultiDiGraph(nx.MultiDiGraph, GraphAttrMixin):
         """
         return np.array(self.edge_order)[:, 2]
 
-    def edge_attr_matrix(self, key: str, fill: Number = 0.) -> np.ndarray:
+    def get_edge_attr(self, data: str, default: Number = np.nan) -> np.ndarray:
+        """Collect values of edge attributes.
+
+        Parameters
+        ----------
+        data : str
+            Name of attribute.
+        default : Number, optional
+            Value to use for nodes without that attribute, by default `nan`.
+
+        Returns
+        -------
+        vec : np.ndarray (E,)
+            Vector of edge attribute values.
+        """
+        if data == 'key':
+            return self.edge_key()
+        return super().get_edge_attr(data, default)
+
+    def edge_attr_matrix(self, data: str, fill: Number = 0.) -> np.ndarray:
         """Collect values of edge attributes in an array of matrices.
 
         Parameters
         ----------
-        key : str
+        data : str
             Name of attribute to use for matrix elements.
         fill : Number
             Value given to missing edges.
@@ -494,14 +615,14 @@ class MultiDiGraph(nx.MultiDiGraph, GraphAttrMixin):
         -------
         mat : np.ndarray (K,N,N)
             Matrices of edge attribute values. Each matrix in the array
-            corresponds to an entry of `self.edge_keys()`, in that order.
+            corresponds to a value of `list_edge_keys(self`, in that order.
         """
         nodes = list(self.nodes)
-        keys = unique_unsorted(self.edge_key()).tolist()
+        _, keys = list_edge_keys(self, get_inv=True)
         mat = np.full((len(keys), len(nodes), len(nodes)), fill)
-        for edge, val in self.edges(data=key, default=fill, keys=True).items():
-            ind = (keys.index(edge[2]),) + tuple(map(nodes.index, edge[:2]))
-            mat[ind] = val
+        for key, edge_val in zip(keys, self.edges(data=data, default=fill)):
+            ind = (key,) + tuple(map(nodes.index, edge_val[:2]))
+            mat[ind] = edge_val[2]
         return mat
 
 
@@ -513,20 +634,18 @@ class MultiDiGraph(nx.MultiDiGraph, GraphAttrMixin):
 def mat_to_graph(mat: np.ndarray, node_values: Optional[np.ndarray] = None,
                  node_keys: Optional[np.ndarray] = None,
                  edge_keys: Optional[np.ndarray] = None) -> MultiDiGraph:
-    """Create a directed graph from a parameters of a Markov model.
+    """Create a directed multi-graph from a parameters of a Markov model.
 
     Parameters
     ----------
     mat : np.ndarray (P,M,M)
         Array of transition matrices.
     node_values : np.ndarray (M,)
-        Value associated with each node.
+        Value associated with each node. By default `ma.calc_peq(...)`.
     node_keys : np.ndarray (M,)
-        Node type.
+        Node type. By default `np.zeros(nstate)`.
     edge_keys : np.ndarray (P,)
-        Edge type.
-    topology : ma.TopologyOptions
-        Encapsulation of model class.
+        Edge type. By default `np.arange(...)`.
 
     Returns
     -------
@@ -535,8 +654,9 @@ def mat_to_graph(mat: np.ndarray, node_values: Optional[np.ndarray] = None,
     """
     mat = mat[None] if mat.ndim == 2 else mat
     drn = (0,) * mat.shape[0]
-    topology = ma.TopologyOptions(directions=drn)
+    topology = TopologyOptions(directions=drn)
     params = ma.params.gen_mat_to_params(mat, drn)
+    edge_keys = ag.default(edge_keys, np.arange(len(drn)))
     if node_values is None:
         axis = tuple(range(mat.ndim-2))
         node_values = ma.calc_peq(mat.sum(axis))
@@ -546,28 +666,28 @@ def mat_to_graph(mat: np.ndarray, node_values: Optional[np.ndarray] = None,
 def param_to_graph(param: np.ndarray, node_values: Optional[np.ndarray] = None,
                    node_keys: Optional[np.ndarray] = None,
                    edge_keys: Optional[np.ndarray] = None,
-                   topology: Optional[ma.TopologyOptions] = None) -> MultiDiGraph:
-    """Create a directed graph from a parameters of a Markov model.
+                   topology: Optional[TopologyOptions] = None) -> MultiDiGraph:
+    """Create a directed multi-graph from a parameters of a Markov model.
 
     Parameters
     ----------
     param : np.ndarray (PQ,), Q in [M(M-1), M, M-1, 1]
         Independent parameters of model - a `(P,M,M)` array.
-    node_values : np.ndarray (M,)
-        Value associated with each node.
-    node_keys : np.ndarray (M,)
-        Node type.
-    edge_keys : np.ndarray (P,)
-        Edge type.
-    topology : ma.TopologyOptions
-        Encapsulation of model class.
+    node_values : np.ndarray (M,), optional
+        Value associated with each node. By default `ma.calc_peq(...)`.
+    node_keys : np.ndarray (M,), optional
+        Node type. By default `np.zeros(nstate)`.
+    edge_keys : np.ndarray (P,), optional
+        Edge type. By default `topology.directions`.
+    topology : TopologyOptions, optional
+        Encapsulation of model class. By default `TopologyOptions()`.
 
     Returns
     -------
     graph : DiGraph
         Graph describing model.
     """
-    topology = ag.default_eval(topology, ma.TopologyOptions)
+    topology = ag.default_eval(topology, TopologyOptions)
     nstate = ma.params.num_state(param, **topology.directed())
     node_keys = ag.default(node_keys, np.zeros(nstate))
     edge_keys = ag.default(edge_keys, topology.directions)
@@ -590,20 +710,62 @@ def param_to_graph(param: np.ndarray, node_values: Optional[np.ndarray] = None,
 # =============================================================================
 
 
-def list_node_attrs(graph: nx.Graph) -> ty.List[str]:
-    """List of attributes of nodes in the graph"""
+def list_node_attrs(graph: GraphAttrs, strict: bool = False) -> ty.List[str]:
+    """List of attributes of nodes in the graph
+
+    Parameters
+    ----------
+    graph : DiGraph|MultiDiGraph
+        Graph with nodes whose attributes we want.
+    strict : bool, optopnal
+        Only list attribute if every node has the it. By default `False`.
+    """
     attrs = {}
     for node_val in graph.nodes.values():
         attrs.update(node_val)
-    return list(attrs)
+    if not strict:
+        return list(attrs)
+    return list(filter(graph.has_node_attr, attrs))
 
 
-def list_edge_attrs(graph: nx.Graph) -> ty.List[str]:
-    """List of attributes of edges in the graph"""
+def list_edge_attrs(graph: GraphAttrs, strict: bool = False) -> ty.List[str]:
+    """List of attributes of edges in the graph
+
+    Parameters
+    ----------
+    graph : DiGraph|MultiDiGraph (N,E)
+        Graph with edges whose attributes we want.
+    strict : bool, optopnal
+        Only list attribute if every node has the it. By default `False`.
+    """
     attrs = {}
     for edge_val in graph.edges.values():
         attrs.update(edge_val)
-    return list(attrs)
+    if not strict:
+        return list(attrs)
+    return list(filter(graph.has_edge_attr, attrs))
+
+
+def list_edge_keys(graph: MultiDiGraph, get_inv: bool = False) -> np.ndarray:
+    """Vector of unique keys of edges in the graph
+
+    Parameters
+    ----------
+    graph : MultiDiGraph (N,E)
+        Graph with edges whose keys we want.
+    get_inv : bool, optopnal
+        Also return assignments of edges to keys. By default `False`.
+
+    Returns
+    -------
+    keys : ndarray (K,)
+        Values of keys, in order of first appearance in `graph.edge_key()`.
+    inv : ndarray (E,)
+        Index array: assignments of each edge's keys to each entry of `keys`.
+    `graph.edge_key() == keys[inv]`.
+    """
+    key_vec = graph.edge_key()
+    return unique_unsorted(key_vec, get_inv)
 
 
 # =============================================================================
