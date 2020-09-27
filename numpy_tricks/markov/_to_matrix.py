@@ -8,14 +8,14 @@ import numpy_linalg as la
 
 import sl_py_tools.numpy_tricks.markov._helpers as _mh
 import sl_py_tools.numpy_tricks.markov.indices as _in
-from ._helpers import IntOrSeq, ArrayType
+from ._helpers import IntOrSeq, Array
 # =============================================================================
 # Parameters to matrices
 # =============================================================================
 
 
-def gen_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
-                      axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> ArrayType:
+def gen_params_to_mat(params: Array, drn: IntOrSeq = 0, axis: IntOrSeq = -1,
+                      daxis: IntOrSeq = 0, **kwds) -> Array:
     """Transition matrix from independent parameters.
 
     Parameters
@@ -40,12 +40,12 @@ def gen_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
     --------
     offdiag_subs, gen_mat_to_params
     """
-    return _mh.params_to_mat(params, _in.offdiag_subs, drn, axis, daxis)
+    return _mh.params_to_mat(params, _in.offdiag_subs, drn, axis, daxis, **kwds)
 
 
-def uni_gen_params_to_mat(params: ArrayType, num_st: int, drn: IntOrSeq = 0,
-                          axis: IntOrSeq = -1, daxis: IntOrSeq = 0
-                          ) -> ArrayType:
+def uni_gen_params_to_mat(params: Array, num_st: int, drn: IntOrSeq = 0,
+                          axis: IntOrSeq = -1, daxis: IntOrSeq = 0, **kwds
+                          ) -> Array:
     """Uniform transition matrix from independent parameters.
 
     Parameters
@@ -74,14 +74,12 @@ def uni_gen_params_to_mat(params: ArrayType, num_st: int, drn: IntOrSeq = 0,
     --------
     offdiag_split_subs, uni_gen_mat_to_params
     """
-    gen_params = _mh.uni_to_any(params, num_st, axis=axis)
-    # if _mh.unpack_nest(drn):
-    #     return gen_params_to_mat(gen_params, drn, axis, daxis)
-    return _mh.params_to_mat(gen_params, _in.offdiag_split_subs, drn, axis, daxis)
+    params = _mh.uni_to_any(params, num_st, axis=axis, **kwds)
+    return _mh.params_to_mat(params, _in.offdiag_split_subs, drn, axis, daxis, **kwds)
 
 
-def ring_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
-                       axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> ArrayType:
+def ring_params_to_mat(params: Array, drn: IntOrSeq = 0, axis: IntOrSeq = -1,
+                       daxis: IntOrSeq = 0, **kwds) -> Array:
     """Ring transition matrix from independent parameters.
 
     Parameters
@@ -107,13 +105,13 @@ def ring_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
     --------
     ring_subs, ring_mat_to_params
     """
-    return _mh.params_to_mat(params, _in.ring_subs, drn, axis, daxis,
-                             ring=True)
+    kwds['ring'] = True
+    return _mh.params_to_mat(params, _in.ring_subs, drn, axis, daxis, **kwds)
 
 
-def uni_ring_params_to_mat(params: ArrayType, num_st: int, drn: IntOrSeq = 0,
-                           axis: IntOrSeq = -1, daxis: IntOrSeq = 0
-                           ) -> ArrayType:
+def uni_ring_params_to_mat(params: Array, num_st: int, drn: IntOrSeq = 0,
+                           axis: IntOrSeq = -1, daxis: IntOrSeq = 0, **kwds
+                           ) -> Array:
     """Ring transition matrix from independent parameters.
 
     Parameters
@@ -142,13 +140,14 @@ def uni_ring_params_to_mat(params: ArrayType, num_st: int, drn: IntOrSeq = 0,
     --------
     ring_subs, uni_ring_mat_to_params
     """
-    ring_params = _mh.uni_to_any(params, num_st, axis=axis, ring=True)
-    return ring_params_to_mat(ring_params, drn, axis, daxis)
+    kwds['ring'] = True
+    ring_params = _mh.uni_to_any(params, num_st, axis=axis, **kwds)
+    return ring_params_to_mat(ring_params, drn, axis, daxis, **kwds)
 
 
-def serial_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
-                         axis: IntOrSeq = -1, daxis: IntOrSeq = 0
-                         ) -> ArrayType:
+def serial_params_to_mat(params: Array, drn: IntOrSeq = 0,
+                         axis: IntOrSeq = -1, daxis: IntOrSeq = 0, **kwds
+                         ) -> Array:
     """Serial transition matrix from independent parameters.
 
     Parameters
@@ -174,13 +173,13 @@ def serial_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
     --------
     serial_subs, serial_mat_to_params
     """
-    return _mh.params_to_mat(params, _in.serial_subs, drn, axis, daxis,
-                             serial=True)
+    kwds['serial'] = True
+    return _mh.params_to_mat(params, _in.serial_subs, drn, axis, daxis, **kwds)
 
 
-def uni_serial_params_to_mat(
-        params: ArrayType, num_st: int, drn: IntOrSeq = 0,
-        axis: IntOrSeq = -1, daxis: IntOrSeq = 0) -> ArrayType:
+def uni_serial_params_to_mat(params: Array, num_st: int, drn: IntOrSeq = 0,
+                             axis: IntOrSeq = -1, daxis: IntOrSeq = 0, **kwds
+                             ) -> Array:
     """Uniform serial transition matrix from independent parameters.
 
     Parameters
@@ -209,14 +208,14 @@ def uni_serial_params_to_mat(
     --------
     serial_subs, uni_serial_mat_to_params
     """
-    # cascade topology has same number of transitions as serial
-    ser_params = _mh.uni_to_any(params, num_st, axis=axis, serial=True)
-    return serial_params_to_mat(ser_params, drn, axis, daxis)
+    kwds['serial'] = True
+    ser_params = _mh.uni_to_any(params, num_st, axis=axis, **kwds)
+    return serial_params_to_mat(ser_params, drn, axis, daxis, **kwds)
 
 
-def cascade_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
-                          axis: IntOrSeq = -1, daxis: IntOrSeq = 0
-                          ) -> ArrayType:
+def cascade_params_to_mat(params: Array, drn: IntOrSeq = 0,
+                          axis: IntOrSeq = -1, daxis: IntOrSeq = 0, **kwds
+                          ) -> Array:
     """Transition matrix with cascade topology from non-zero transition rates.
 
     Parameters
@@ -243,15 +242,18 @@ def cascade_params_to_mat(params: ArrayType, drn: IntOrSeq = 0,
     --------
     cascade_subs, cascade_mat_to_params
     """
-    # cascade topology has same number of transitions as serial
+    # cascade topology has same number of transitions as
+    kwds['serial'] = True
     return _mh.params_to_mat(params, _in.cascade_subs, drn, axis, daxis,
-                             serial=True)
+                             **kwds)
 
 
-def std_cascade_params_to_mat(params: ArrayType, num_st: int,
+def std_cascade_params_to_mat(params: Array, num_st: int,
                               drn: IntOrSeq = 0, axis: IntOrSeq = -1,
-                              daxis: IntOrSeq = 0) -> ArrayType:
-    """Cascade transition matrix narr transition rates.drn    Parameters
+                              daxis: IntOrSeq = 0, **kwds) -> Array:
+    """Cascade transition matrix with standard transition rates.
+
+    Parameters
     ----------
     params : ndarray (2,)
         Vector of elements, `x` so that:
@@ -279,10 +281,10 @@ def std_cascade_params_to_mat(params: ArrayType, num_st: int,
     if not isinstance(axis, int):
         return _mh.bcast_axes(std_cascade_params_to_mat, params, num_st,
                               drn=drn, drn_axis=daxis, fun_axis=axis,
-                              to_mat=True)
+                              to_mat=True, **kwds)
     npt = num_st // 2
     # (...,2,1)
-    params = la.array(params, copy=True).moveaxis(axis, -1)[..., None]
+    params = la.asarray(params).moveaxis(axis, -1)[..., None]
     # (n-1,)
     expn = np.abs(np.arange(1 - npt, npt))
     denom = np.r_[0, npt:2*npt-1]
@@ -291,13 +293,13 @@ def std_cascade_params_to_mat(params: ArrayType, num_st: int,
     full[..., denom] /= (1 - params)
     # (...,2(n-1)) -> (...,2(n-1),...)
     full = full.ravelaxes(-2).moveaxis(-1, axis)
-    return cascade_params_to_mat(full, drn=drn, axis=axis, daxis=daxis)
+    return cascade_params_to_mat(full, drn=drn, axis=axis, daxis=daxis, **kwds)
 
 
-def params_to_mat(params: ArrayType, *, serial: bool = False,
+def params_to_mat(params: Array, *, serial: bool = False,
                   ring: bool = False, uniform: bool = False, nst: int = 2,
-                  drn: IntOrSeq = 0, axis: IntOrSeq = -1, daxis: IntOrSeq = 0
-                  ) -> ArrayType:
+                  drn: IntOrSeq = 0, axis: IntOrSeq = -1, daxis: IntOrSeq = 0,
+                  **kwds) -> Array:
     """Transition matrix from independent parameters.
 
     Parameters
@@ -334,14 +336,14 @@ def params_to_mat(params: ArrayType, *, serial: bool = False,
     --------
     param_subs, mat_to_params
     """
-    opts = {'serial': serial, 'ring': ring}
+    kwds.update({'serial': serial, 'ring': ring})
     if uniform:
-        params = _mh.uni_to_any(params, nst, axis=axis, **opts)
+        params = _mh.uni_to_any(params, nst, axis=axis, **kwds)
     return _mh.params_to_mat(params, _in.sub_fun(serial, ring, uniform),
-                             drn, axis, daxis, **opts)
+                             drn, axis, daxis, **kwds)
 
 
-def matify(params_or_mat: ArrayType, *args, **kwds) -> ArrayType:
+def matify(params_or_mat: Array, *args, **kwds) -> Array:
     """Transition matrix from independent parameters, if not already so.
 
     Parameters

@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 # import numpy as np
 
 # import numpy_linalg as la
-# import sl_py_tools.numpy_tricks.markov.params as mp
+import sl_py_tools.numpy_tricks.markov._helpers as _mh
 import sl_py_tools.options_classes as _opt
 
 # =============================================================================
@@ -35,6 +35,9 @@ class TopologyOptions(_opt.Options):
     directions: Tuple[int] (P,), optional keyword
         If nonzero, only include transitions in direction `i -> i + sgn(drn)`,
         one value for each plasticity type. By default `(0, 0)`.
+    discrete : bool
+        Are we kaking transition matrices for a discrete-time Markov process?
+        By default `False`.
 
     All parameters are optional keywords. Any dictionary passed as positional
     parameters will be popped for the relevant items. Keyword parameters must
@@ -44,12 +47,14 @@ class TopologyOptions(_opt.Options):
     ring: bool
     uniform: bool
     directions: Tuple[int, ...]
+    discrete: bool
 
     def __init__(self, *args, **kwds) -> None:
         self.serial = False
         self.ring = False
         self.uniform = False
         self.directions = (0, 0)
+        self.discrete = False
         args = _opt.sort_dicts(args, ('directions', 'npl'), -1)
         kwds = _opt.sort_dict(kwds, ('directions', 'npl'), -1)
         super().__init__(*args, **kwds)
@@ -78,6 +83,8 @@ class TopologyOptions(_opt.Options):
         if which is not None:
             kwds['drn'] = self.directions[which]
         kwds.update(serial=self.serial, ring=self.ring, uniform=self.uniform)
+        if self.discrete:
+            kwds['stochastifier'] = _mh.stochastify_pd
         return kwds
 
     def set_constrained(self, value: Optional[bool]) -> None:

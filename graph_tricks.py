@@ -688,6 +688,7 @@ def param_to_graph(param: np.ndarray, node_values: Optional[np.ndarray] = None,
         Graph describing model.
     """
     topology = ag.default_eval(topology, TopologyOptions)
+    param = np.asanyarray(param)
     nstate = ma.params.num_state(param, **topology.directed())
     node_keys = ag.default(node_keys, np.zeros(nstate))
     edge_keys = ag.default(edge_keys, topology.directions)

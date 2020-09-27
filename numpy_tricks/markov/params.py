@@ -24,7 +24,7 @@ import numpy as np
 
 import sl_py_tools.numpy_tricks.markov._helpers as _mh
 import sl_py_tools.numpy_tricks.markov.indices as _in
-from ._helpers import (ArrayType, Axes, AxesOrSeq, IntOrSeq, Sized,
+from ._helpers import (Array, Axes, AxesOrSeq, IntOrSeq, Sized,
                        mat_type_siz, num_param, num_state)
 from ._to_matrix import (cascade_params_to_mat, gen_params_to_mat, matify,
                          params_to_mat, ring_params_to_mat,
@@ -137,7 +137,7 @@ def mat_type_dict(params: Sized, states: Sized, **kwds) -> Tuple[bool, ...]:
 # =============================================================================
 
 
-def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
+def mat_update_params(mat: Array, params: np.ndarray, *, drn: IntOrSeq = 0,
                       maxes: AxesOrSeq = (-2, -1), paxis: IntOrSeq = -1,
                       mdaxis: IntOrSeq = 0, pdaxis: IntOrSeq = 0,
                       **kwds) -> None:
@@ -193,6 +193,7 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
         paxis, std_axes = (paxis,), std_axes[1:]
     else:
         paxis, maxes = (pdaxis, paxis), (mdaxis,) + tuple(maxes)
+    stochastifier = kwds.pop('stochastifier', _mh.stochastify)
     params = np.moveaxis(np.asanyarray(params), paxis, std_axes[1:])
     nmat = np.moveaxis(mat, maxes, std_axes)
     nst = nmat.shape[-1]
@@ -200,6 +201,6 @@ def mat_update_params(mat: ArrayType, params: np.ndarray, *, drn: IntOrSeq = 0,
         params = _mh.uni_to_any(params, nst, **kwds)
     kwds.update(drn=drn, ravel=False)
     nmat[_in.param_subs(nst, **kwds)] = params
-    _mh.stochastify(nmat)
+    stochastifier(nmat)
     if not np.may_share_memory(nmat, mat):
         mat[...] = np.moveaxis(nmat, std_axes, maxes)

@@ -6,20 +6,20 @@ from typing import Optional
 
 import numpy as np
 
-import numpy_linalg as la
+# import numpy_linalg as la
 
 import sl_py_tools.numpy_tricks.markov._helpers as _mh
 import sl_py_tools.numpy_tricks.markov.indices as _in
-from ._helpers import ArrayType, AxesOrSeq, IntOrSeq
+from ._helpers import Array, AxesOrSeq, IntOrSeq
 
 # =============================================================================
 # Matrices to parameters
 # =============================================================================
 
 
-def gen_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
+def gen_mat_to_params(mat: Array, drn: IntOrSeq = 0,
                       axes: AxesOrSeq = (-2, -1), daxis: IntOrSeq = 0
-                      ) -> ArrayType:
+                      ) -> Array:
     """Independent parameters of transition matrix.
 
     Parameters
@@ -47,9 +47,9 @@ def gen_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
     return _mh.mat_to_params(mat, _in.offdiag_subs, drn, axes, daxis)
 
 
-def uni_gen_mat_to_params(mat: ArrayType, grad: bool = True, drn: IntOrSeq = 0,
+def uni_gen_mat_to_params(mat: Array, grad: bool = True, drn: IntOrSeq = 0,
                           axes: AxesOrSeq = (-2, -1), daxis: IntOrSeq = 0
-                          ) -> ArrayType:
+                          ) -> Array:
     """Independent parameters of uniform transition matrix.
 
     Parameters
@@ -89,9 +89,9 @@ def uni_gen_mat_to_params(mat: ArrayType, grad: bool = True, drn: IntOrSeq = 0,
     return _mh.to_uni(params, drn, grad, axes)
 
 
-def ring_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
+def ring_mat_to_params(mat: Array, drn: IntOrSeq = 0,
                        axes: AxesOrSeq = (-2, -1), daxis: IntOrSeq = 0
-                       ) -> ArrayType:
+                       ) -> Array:
     """Independent parameters of ring transition matrix.
 
     Parameters
@@ -120,9 +120,9 @@ def ring_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
     return _mh.mat_to_params(mat, _in.ring_subs, drn, axes, daxis)
 
 
-def uni_ring_mat_to_params(mat: ArrayType, grad: bool = True,
+def uni_ring_mat_to_params(mat: Array, grad: bool = True,
                            drn: IntOrSeq = 0, axes: AxesOrSeq = (-2, -1),
-                           daxis: IntOrSeq = 0) -> ArrayType:
+                           daxis: IntOrSeq = 0) -> Array:
     """Independent parameters of ring transition matrix.
 
     Parameters
@@ -158,9 +158,9 @@ def uni_ring_mat_to_params(mat: ArrayType, grad: bool = True,
                       drn, grad, axes)
 
 
-def serial_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
+def serial_mat_to_params(mat: Array, drn: IntOrSeq = 0,
                          axes: AxesOrSeq = (-2, -1), daxis: IntOrSeq = 0
-                         ) -> ArrayType:
+                         ) -> Array:
     """Independent parameters of serial transition matrix.
 
     Parameters
@@ -189,9 +189,9 @@ def serial_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
     return _mh.mat_to_params(mat, _in.serial_subs, drn, axes, daxis)
 
 
-def uni_serial_mat_to_params(mat: ArrayType, grad: bool = True,
+def uni_serial_mat_to_params(mat: Array, grad: bool = True,
                              drn: IntOrSeq = 0, axes: AxesOrSeq = (-2, -1),
-                             daxis: IntOrSeq = 0) -> ArrayType:
+                             daxis: IntOrSeq = 0) -> Array:
     """Independent parameters of uniform serial transition matrix.
 
     Parameters
@@ -227,9 +227,9 @@ def uni_serial_mat_to_params(mat: ArrayType, grad: bool = True,
                       drn, grad, axes)
 
 
-def cascade_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
+def cascade_mat_to_params(mat: Array, drn: IntOrSeq = 0,
                           axes: AxesOrSeq = (-2, -1), daxis: IntOrSeq = 0
-                          ) -> ArrayType:
+                          ) -> Array:
     """Non-zero transition rates of transition matrix with cascade topology.
 
     Parameters
@@ -260,11 +260,11 @@ def cascade_mat_to_params(mat: ArrayType, drn: IntOrSeq = 0,
     return _mh.mat_to_params(mat, _in.cascade_subs, drn, axes, daxis)
 
 
-def std_cascade_mat_to_params(mat: ArrayType,
+def std_cascade_mat_to_params(mat: Array,
                               param: Optional[np.ndarray] = None,
                               drn: IntOrSeq = 0, *, grad: bool = True,
                               axes: AxesOrSeq = (-2, -1), daxis: IntOrSeq = 0
-                              ) -> ArrayType:
+                              ) -> Array:
     """(Gradient wrt) parameters of cascade transition matrix.
 
     Parameters
@@ -298,7 +298,7 @@ def std_cascade_mat_to_params(mat: ArrayType,
     if not isinstance(axes[0], int):
         return _mh.bcast_axes(std_cascade_mat_to_params, mat, param, grad=grad,
                               drn=drn, drn_axis=daxis, fun_axis=axes)
-    rates = cascade_mat_to_params(la.asanyarray(mat), drn, axes, daxis)
+    rates = cascade_mat_to_params(np.asanyarray(mat), drn, axes, daxis)
     axis = min(axs % mat.ndim for axs in axes)
     npt = mat.shape[axis] // 2
     # (...,2,n-1)
@@ -314,7 +314,7 @@ def std_cascade_mat_to_params(mat: ArrayType,
     # (n-1,)
     expn = np.abs(np.arange(1 - npt, npt))
     # (...,2,1)
-    param = np.moveaxis(la.asanyarray(param), axis, -1)[..., None]
+    param = np.moveaxis(np.asanyarray(param), axis, -1)[..., None]
     # (...,2,n-1)
     jac = param ** (expn - 1)
     jac[..., numer] *= expn[numer]
@@ -323,10 +323,10 @@ def std_cascade_mat_to_params(mat: ArrayType,
     return np.moveaxis(np.sum(rates * jac, axis=-1), -1, axis)
 
 
-def mat_to_params(mat: ArrayType, *, serial: bool = False, ring: bool = False,
+def mat_to_params(mat: Array, *, serial: bool = False, ring: bool = False,
                   uniform: bool = False, grad: bool = True, drn: IntOrSeq = 0,
                   axes: AxesOrSeq = (-2, -1), daxis: IntOrSeq = 0
-                  ) -> ArrayType:
+                  ) -> Array:
     """Independent parameters of transition matrix.
 
     Parameters
@@ -370,7 +370,7 @@ def mat_to_params(mat: ArrayType, *, serial: bool = False, ring: bool = False,
     return params
 
 
-def paramify(params_or_mat: ArrayType, *args, **kwds) -> ArrayType:
+def paramify(params_or_mat: Array, *args, **kwds) -> Array:
     """Independent parameters of transition matrix, if not already so.
 
     Parameters

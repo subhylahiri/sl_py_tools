@@ -16,8 +16,8 @@ import sl_py_tools.containers as _cn
 # =============================================================================
 
 
-def diff_like(fun: _ty.Callable[[ArrayType, ArrayType], ArrayType],
-              arr: ArrayType, step: int = 1, axis: int = -1) -> ArrayType:
+def diff_like(fun: _ty.Callable[[Array, Array], Array],
+              arr: Array, step: int = 1, axis: int = -1) -> Array:
     """Perform an operation on adjacent elements in an array
 
     Parameters
@@ -277,9 +277,9 @@ def _sort_axes(ndim: int, fun_axes: AxesOrSeq, drn_axes: IntOrSeq,
     return faxes[inds].tolist(), daxes[inds].tolist()
 
 
-def bcast_axes(fun: _ty.Callable[..., ArrayType], arr: ArrayType, *args,
+def bcast_axes(fun: _ty.Callable[..., Array], arr: Array, *args,
                drn: IntOrSeq = 0, drn_axis: _ty.Sequence[int] = (0,),
-               fun_axis: _ty.Sequence[Axies] = (-1,), **kwds) -> ArrayType:
+               fun_axis: _ty.Sequence[Axies] = (-1,), **kwds) -> Array:
     """broadcast over axes
 
     Parameters
@@ -469,7 +469,7 @@ def sub_fun_bcast(fun: SubFun):
 # =============================================================================
 
 
-def _to_std(arr: ArrayType, fax: Axies, dax: int, drnseq: bool) -> ArrayType:
+def _to_std(arr: Array, fax: Axies, dax: int, drnseq: bool) -> Array:
     """put axes into standard position
 
     drnseq : bool
@@ -481,7 +481,7 @@ def _to_std(arr: ArrayType, fax: Axies, dax: int, drnseq: bool) -> ArrayType:
     return np.moveaxis(np.asanyarray(arr), oax, nax)
 
 
-def _from_std(arr: ArrayType, fax: Axies, dax: int, drnseq: bool) -> ArrayType:
+def _from_std(arr: Array, fax: Axies, dax: int, drnseq: bool) -> Array:
     """put axes back from standard position
 
     drnseq : bool
@@ -502,8 +502,8 @@ def _par_axis(ndim: int, axes: Axes) -> int:
     return min(_posify(ndim, axes))
 
 
-def params_to_mat(params: ArrayType, fun: SubFun, drn: IntOrSeq,
-                  axis: IntOrSeq, daxis: IntOrSeq, **kwds) -> ArrayType:
+def params_to_mat(params: Array, fun: SubFun, drn: IntOrSeq,
+                  axis: IntOrSeq, daxis: IntOrSeq, **kwds) -> Array:
     """Helper function for *_params_to_mat
 
     Parameters
@@ -532,12 +532,13 @@ def params_to_mat(params: ArrayType, fun: SubFun, drn: IntOrSeq,
     kwds.update(drn=drn, fun_axis=axis, drn_axis=daxis, to_mat=True)
     if isinstance(axis, Sequence):
         return bcast_axes(params_to_mat, params, fun, **kwds)
+    stochastifier = kwds.pop('stochastifier', stochastify)
     drnseq = not isinstance(drn, int)
     params = _to_std(params, axis, daxis, drnseq)
     nst = num_state(params, **kwds)
     mat = np.zeros(params.shape[:-1] + (nst, nst)).view(type(params))
     mat[(...,) + fun(nst, drn, False)] = params
-    stochastify(mat)
+    stochastifier(mat)
     return _from_std(mat, axis, daxis, drnseq)
 
 
@@ -583,8 +584,8 @@ def uni_to_any(params: np.ndarray, nst: int, axis: IntOrSeq, **kwds
 # =============================================================================
 
 
-def mat_to_params(mat: ArrayType, fun: IndFun, drn: IntOrSeq, axes: AxesOrSeq,
-                  daxis: IntOrSeq, **kwds) -> ArrayType:
+def mat_to_params(mat: Array, fun: IndFun, drn: IntOrSeq, axes: AxesOrSeq,
+                  daxis: IntOrSeq, **kwds) -> Array:
     """Helper function for *_mat_to_params
 
     Parameters
@@ -609,8 +610,8 @@ def mat_to_params(mat: ArrayType, fun: IndFun, drn: IntOrSeq, axes: AxesOrSeq,
     return _from_std(params, axes, daxis, drnseq)
 
 
-def to_uni(params: ArrayType, drn: IntOrSeq, grad: bool, axes: AxesOrSeq,
-           **kwds) -> ArrayType:
+def to_uni(params: Array, drn: IntOrSeq, grad: bool, axes: AxesOrSeq,
+           **kwds) -> Array:
     """Helper for uni_*_mat_to_params
 
     Parameters
@@ -642,7 +643,7 @@ def to_uni(params: ArrayType, drn: IntOrSeq, grad: bool, axes: AxesOrSeq,
 # =============================================================================
 # Type hints
 # =============================================================================
-ArrayType = _ty.TypeVar('ArrayType', bound=np.ndarray)
+Array = _ty.TypeVar('Array', bound=np.ndarray)
 Sized = _ty.Union[int, np.ndarray]
 Axes = _ty.Tuple[int, int]
 Subs = _ty.Tuple[np.ndarray, ...]
