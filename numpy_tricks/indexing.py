@@ -15,7 +15,7 @@ import numpy as np
 
 import sl_py_tools.numpy_tricks.subclass as sc
 
-from ..arg_tricks import Export, args_to_kwargs, default, default_non_eval
+from ..arg_tricks import Export, args_to_kwargs, default, eval_or_default
 from ..containers import ShapeTuple, broadcastable, identical_shape, same_shape
 from ..slice_tricks import (SliceRange, disjoint_slice, in_slice, is_subslice,
                             slice_str, slice_to_range, srange)
@@ -137,7 +137,7 @@ def take_slice(array: np.ndarray, the_slice: slice, axis: int = None, **kwds):
     --------
     `np.take`
     """
-    size = default_non_eval(axis, lambda x: array.shape[x], array.size)
+    size = eval_or_default(axis, lambda x: array.shape[x], array.size)
     return np.take(array, slice_to_inds(the_slice, size), axis=axis, **kwds)
 
 
@@ -289,8 +289,8 @@ class BroadcastType:
     dtype: np.dtype
 
     def __init__(self, *arrays, shape=None, dtype=None):
-        _dtype = default_non_eval(dtype, lambda x: (x,), ())
-        _shape = default_non_eval(shape, lambda x: (_minimal(x, *_dtype),), ())
+        _dtype = eval_or_default(dtype, lambda x: (x,), ())
+        _shape = eval_or_default(shape, lambda x: (_minimal(x, *_dtype),), ())
         self.bcast = np.broadcast(*arrays, *_shape)
         self.dtype = np.result_type(*arrays, *_dtype)
 

@@ -50,9 +50,9 @@ def default_eval(optional: _ty.Optional[Some],
     return optional
 
 
-def default_non_eval(optional: _ty.Optional[Some],
-                     non_default_fn: _ty.Callable[[Some], Other],
-                     default_value: Other) -> Other:
+def eval_or_default(optional: _ty.Optional[Some],
+                    non_default_fn: _ty.Callable[[Some], Other],
+                    default_value: Other) -> Other:
     """Evaluate function on optional if it is not None
 
     Parameters
@@ -76,9 +76,9 @@ def default_non_eval(optional: _ty.Optional[Some],
     return non_default_fn(optional)
 
 
-def non_default_eval(optional: _ty.Optional[Some],
-                     non_default_fn: _ty.Callable[[Some], Other],
-                     default_fn: _ty.Callable[[], Other]) -> Other:
+def eval_or_default_eval(optional: _ty.Optional[Some],
+                         non_default_fn: _ty.Callable[[Some], Other],
+                         default_fn: _ty.Callable[[], Other]) -> Other:
     """Evaluate function on optional if it is not None, else evaluate default.
 
     Parameters
@@ -129,6 +129,10 @@ def defaults(optionals: _ty.Iterable[_ty.Optional[Some]],
     optionals = tuple(optionals) + (None,) * extra
     default_vals = tuple(default_vals) + (None,) * -extra
     return tuple(default(opt, df) for opt, df in zip(optionals, default_vals))
+
+
+default_non_eval = eval_or_default
+non_default_eval = eval_or_default_eval
 
 
 def args_to_kwargs(args: _ty.Tuple[Some],

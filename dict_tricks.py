@@ -73,6 +73,85 @@ def pop_new(to_update: _ty.MutableMapping[Key, Val],
             to_update[k] = pop_from.pop(k)
 
 
+def pop_or_eval(mapping: _ty.MutableMapping[Key, Val], key: Key,
+                default_fn: _ty.Callable[[], Val]) -> Val:
+    """Replace optional with evaluation of default function if it is None
+
+    Parameters
+    ----------
+    mapping : MutableMapping[Key, Val]
+        A dictionary that may contain `key`.
+    key : Key
+        The key for the item we want to pop.
+    default_fn : Callable[()->Some]
+        Evaluates to default value for the argument, only evaluated and used
+        when `key not in mapping`. Does not take any arguments.
+
+    Returns
+    -------
+    use_value : Some
+        Either `mapping[key]`, if it exists `None` or `default_fn()` otherwise.
+    """
+    if key not in mapping:
+        return default_fn()
+    return mapping.pop(key)
+
+
+def eval_pop(mapping: _ty.MutableMapping[Key, Val], key: Key,
+             non_default_fn: _ty.Callable[[Val], Other],
+             default_value: Other) -> Other:
+    """Evaluate function on optional if it is not None
+
+    Parameters
+    ----------
+    mapping : MutableMapping[Key, Val]
+        A dictionary that may contain `key`.
+    key : Key
+        The key for the item we want to pop.
+    non_default_fn : Callable[(Some)->Other]
+        Evaluated on `mapping[key]` if it exists.
+    default_value : Other
+        Default value for the argument, used when `key not in mapping`.
+
+    Returns
+    -------
+    use_value : Other
+        Either `non_default_fn(optional)`, if `optional` is not `None` or
+        `default_value` if it is.
+    """
+    if key not in mapping:
+        return default_value
+    return non_default_fn(mapping.pop(key))
+
+
+def eval_pop_or_eval(mapping: _ty.MutableMapping[Key, Val], key: Key,
+                     non_default_fn: _ty.Callable[[Val], Other],
+                     default_fn: _ty.Callable[[], Other]) -> Other:
+    """Evaluate function on optional if it is not None, else evaluate default.
+
+    Parameters
+    ----------
+    mapping : MutableMapping[Key, Val]
+        A dictionary that may contain `key`.
+    key : Key
+        The key for the item we want to pop.
+    non_default_fn : Callable[(Some)->Other]
+        Evaluated on `mapping[key]` if it exists.
+    default_fn : Callable[()->Some]
+        Evaluates to default value for the argument, only evaluated and used
+        when `key not in mapping`. Does not take any arguments.
+
+    Returns
+    -------
+    use_value : Other
+        Either `non_default_fn(optional)`, if `optional` is not `None` or
+        `default_fn()` if it is.
+    """
+    if key not in mapping:
+        return default_fn()
+    return non_default_fn(mapping.pop(key))
+
+
 @_cx.contextmanager
 def updated(base: _ty.Dict[Key, Val], extra: Dictable[Key, Val], **kwds
             ) ->  _ty.Dict[Key, Val]:
@@ -210,7 +289,7 @@ class PairedDict(cn.UserDict):
         if secret:
             self.inverse = _ag.default_eval(inverse, init_fn)
         else:
-            self.inverse = _ag.non_default_eval(inverse, init_fn, init_fn)
+            self.inverse = _ag.eval_or_default_eval(inverse, init_fn, init_fn)
         # In all calls of self.inverse.__init__ above, __secret is True and
         # inverse is self => no infinite recursion (at most one more call).
 
@@ -381,6 +460,7 @@ class BijectiveMap(cn.ChainMap):
 # =============================================================================
 # Hints, aliases
 # =============================================================================
-Key = _ty.TypeVar('Key')
+Key = _ty.TypeVar('Key', bound=_ty.Hashable)
 Val = _ty.TypeVar('Val')
+Other = _ty.TypeVar('Other')
 Dictable = _ty.Union[_ty.Mapping[Key, Val], _ty.Iterable[_ty.Tuple[Key, Val]]]

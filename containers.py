@@ -114,7 +114,7 @@ def repeatify(arg: InstanceOrIter[Var], times: _ty.Optional[int] = None,
     repeated : Iterable[Var]
         Iterable version of `arg`.
     """
-    opt = _ag.default_non_eval(times, tuple, ())
+    opt = _ag.eval_or_default(times, tuple, ())
     return arg if _is_iter(arg, exclude) else _it.repeat(arg, *opt)
 
 

@@ -78,7 +78,7 @@ from numbers import Complex, Integral, Number, Real
 from types import new_class
 from typing import Any, Callable, Optional, Tuple, Type
 
-from .arg_tricks import default, default_non_eval
+from .arg_tricks import default, eval_or_default
 from .containers import InstanceOrSeq, Val, Var, tuplify, unseqify
 
 # =============================================================================
@@ -450,7 +450,7 @@ def iop_method_wrapper(conv: Conv, attr: str = '') -> OpWrapper:
     especially if you used any of `one_method_wrapper`, `opr_method_wrappers`.
     The `__objclass__`attribute is needed to convert the outputs back.
     """
-    prefix = default_non_eval(attr, lambda x: 'i', '')
+    prefix = eval_or_default(attr, lambda x: 'i', '')
 
     def wrap_inplace(func: Func) -> Operator:
         """Wrap inplace operator.
