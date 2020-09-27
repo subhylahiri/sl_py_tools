@@ -548,7 +548,7 @@ class ImageOptions(op.AnyOptions):
     cmap : str|Colormap
         Colour map used to map numbers to colours. By default, `'YlOrBr'`.
     norm : Normalize
-        Mapsheatmap values to interval `[0, 1]` for `cmap`.
+        Maps heatmap values to interval `[0, 1]` for `cmap`.
         By default: `Normalise(0, 1)`.
     vmin : float
         Lower bound of `norm`. By default: `0`.
@@ -577,7 +577,7 @@ class ImageOptions(op.AnyOptions):
     def set_cmap(self, value: _ty.Union[str, mpl.colors.Colormap]) -> None:
         """Set the colour map.
 
-        Does noting if `value` is `None`. Converts to `Colormap` if `str`.
+        Does nothing if `value` is `None`. Converts to `Colormap` if `str`.
         """
         if value is None:
             pass
@@ -592,7 +592,7 @@ class ImageOptions(op.AnyOptions):
     def set_vmin(self, value: float) -> None:
         """Set the lower bound for the colour map.
 
-        Does noting if `value` is `None`.
+        Does nothing if `value` is `None`.
         """
         if value is None:
             pass
@@ -602,7 +602,7 @@ class ImageOptions(op.AnyOptions):
     def set_vmax(self, value: float) -> None:
         """Set the upper bound for the colour map.
 
-        Does noting if `value` is `None`.
+        Does nothing if `value` is `None`.
         """
         if value is None:
             pass

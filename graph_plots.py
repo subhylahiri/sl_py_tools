@@ -2,6 +2,7 @@
 """Tools for working with graphs and plotting them
 """
 from __future__ import annotations
+from functools import wraps
 
 import typing as ty
 from numbers import Number
@@ -26,7 +27,7 @@ from sl_py_tools.numpy_tricks.markov import TopologyOptions
 
 
 # pylint: disable=too-many-ancestors
-class ColourOptions(mpt.ImageOptions):
+class StyleOptions(mpt.ImageOptions):
     """Options for node/edge colours when drawing graphs.
 
     Parameters
@@ -34,14 +35,18 @@ class ColourOptions(mpt.ImageOptions):
     cmap : str|Colormap
         Colour map used to map numbers to colours. By default, `'YlOrBr'`.
     norm : Normalize
-        Mapsheatmap values to interval `[0, 1]` for `cmap`.
+        Maps heatmap values to interval `[0, 1]` for `cmap`.
         By default: `Normalise(0, 1)`.
     vmin : float
         Lower bound of `norm`. By default: `0`.
     vmax : float
         Lower bound of `norm`. By default: `1`.
-    attr : str
-        Name of node/edge attribute used to determine node area/edge width.
+    col_attr : str
+        Name of node/edge attribute used to determine colour.
+    siz_attr : str
+        Name of node/edge attribute used to determine area/width.
+    mult : float
+        Scale factor between `node/edge[siz_attr]` and area/width.
     entity : str
         Type of graph element, 'node' or 'edge'
 
@@ -50,14 +55,18 @@ class ColourOptions(mpt.ImageOptions):
     be valid keys, otherwise a `KeyError` is raised.
     """
     map_attributes: op.Attrs = ()
-    prop_attributes: op.Attrs = ()
+    prop_attributes: op.Attrs = ('entity')
     # topology specifying options
-    attr: str
-    entity: str
+    key_attr: str
+    val_attr: str
+    mult: float
+    _method: str
 
     def __init__(self, *args, **kwds) -> None:
-        self.attr = 'key'
-        self.entity = 'node'
+        self.key_attr = 'key'
+        self._method = 'get_node_attr'
+        self.val_attr = 'value'
+        self.mult = 1.
         super().__init__(*args, **kwds)
 
     def to_colour(self, graph: GraphAttrs) -> np.ndarray:
@@ -73,40 +82,10 @@ class ColourOptions(mpt.ImageOptions):
         sizes : np.ndarray
             Array of node areas/edge widths.
         """
-        vals = getattr(graph, f"get_{self.entity}_attr")(self.attr)
+        vals = getattr(graph, self._method)(self.key_attr)
         self.set_vmin(vals.min())
         self.set_vmax(vals.max())
         return self.val_to_colour(vals)
-# pylint: enable=too-many-ancestors
-
-# pylint: disable=too-many-ancestors
-class SizeOptions(op.Options):
-    """Options for node/edge sizes when drawing graphs.
-
-    Parameters
-    ----------
-    attr : str
-        Name of node/edge attribute used to determine node area/edge width.
-    size : float
-        Scale factor between `node/edge[attr]` and node area/edge width.
-    entity : str
-        Type of graph element, 'node' or 'edge'
-
-    All parameters are optional keywords. Any dictionary passed as positional
-    parameters will be popped for the relevant items. Keyword parameters must
-    be valid keys, otherwise a `KeyError` is raised.
-    """
-    map_attributes: op.Attrs = ()
-    prop_attributes: op.Attrs = ()
-    attr: str
-    mult: float
-    entity: str
-
-    def __init__(self, *args, **kwds) -> None:
-        self.attr = 'value'
-        self.mult = 1.
-        self.entity = 'node'
-        super().__init__(*args, **kwds)
 
     def to_size(self, graph: GraphAttrs) -> np.ndarray:
         """Get sizes from graph attributes
@@ -121,7 +100,24 @@ class SizeOptions(op.Options):
         sizes : np.ndarray
             Array of node areas/edge widths.
         """
-        return getattr(graph, f"get_{self.entity}_attr")(self.attr) * self.mult
+        return getattr(graph, self._method)(self.val_attr) * self.mult
+
+    def set_entity(self, value: str) -> None:
+        """Set the Type of graph element, 'node' or 'edge'.
+
+        Does nothing if `value` is `None`.
+        """
+        if value is None:
+            pass
+        elif value in {'node', 'edge'}:
+            self._method = f"get_{value}_attr"
+        else:
+            raise ValueError(f"Entity must be 'node' or 'edge', not {value}")
+
+    @property
+    def entity(self) -> str:
+        """Type of graph element, 'node' or 'edge'."""
+        return self._method[4:-5]
 # pylint: enable=too-many-ancestors
 
 
@@ -135,6 +131,9 @@ class GraphOptions(op.Options):
         Topology specifying options, for creating graphs/reference for `judge`.
     layout : Callable[DiGraph -> Dict[Node, ArrayLike]]
         Function to compute node positions.
+    layout_args : Tuple[..., Dict[str, Any]]
+        Arguments for `layout` after the graph. The last element must be a
+        dictionary of keyword arguments.
     node_colours : ImageOptions
         Options for mapping `node[attr]` to node colour..
     edge_colours : ImageOptions
@@ -155,26 +154,24 @@ class GraphOptions(op.Options):
     be valid keys, otherwise a `KeyError` is raised.
     """
     map_attributes: op.Attrs = ('topology', 'node_colours', 'edge_colours')
-    prop_attributes: op.Attrs = ()
+    prop_attributes: op.Attrs = ('layout')
     # topology specifying options
     topology: TopologyOptions
-    layout: Layout
-    node_colours: ColourOptions
-    edge_colours: ColourOptions
-    node_size: SizeOptions
-    edge_size: SizeOptions
+    _layout_fn: Layout
+    layout_args: Tuple[ty.Any, ...]
+    node_style: StyleOptions
+    edge_style: StyleOptions
     rad: ty.List[float]
     judge: Optional[Judger]
 
     def __init__(self, *args, **kwds) -> None:
         self.topology = TopologyOptions(serial=True)
-        self.layout = linear_layout
-        self.node_size = SizeOptions(entity="node", mult=600)
-        self.edge_size = SizeOptions(entity="edge", mult=5)
+        self._layout_fn = linear_layout
+        self.layout_args = ({},)
         self.rad = [-0.7, 0.35]
         self.judge = good_direction
-        self.node_colours = ColourOptions(entity="node", cmap='coolwarm')
-        self.edge_colours = ColourOptions(entity="edge", cmap='seismic')
+        self.node_style = StyleOptions(cmap='coolwarm', mult=600)
+        self.edge_style = StyleOptions(entity="edge", cmap='seismic', mult=5)
         super().__init__(*args, **kwds)
 
     def choose_rads(self, graph: gt.MultiDiGraph) -> np.ndarray:
@@ -184,6 +181,25 @@ class GraphOptions(op.Options):
         else:
             good_drn = self.judge(graph, self.topology)
         return np.where(good_drn, *self.rad)
+
+    def set_layout(self, value) -> None:
+        """Set the layout function.
+
+        Does nothing if `value` is `None`.
+        """
+        if value is None:
+            pass
+        else:
+            self._layout_fn = value
+
+    @property
+    def layout(self) -> Layout:
+        "The layout function, with other arguments bound"
+        @wraps(self._layout_fn)
+        def layout_fn(graph: nx.Graph) -> NodePos:
+            *args, kwds = self.layout_args
+            return self._layout_fn(graph, *args, **kwds)
+        return layout_fn
 # pylint: enable=too-many-ancestors
 
 
@@ -237,7 +253,8 @@ def get_edge_colours(graph: GraphAttrs, data: str) -> Dict[str, np.ndarray]:
     return {'edge_color': vals, 'edge_vmin': vmin, 'edge_vmax': vmax}
 
 
-def linear_layout(graph: nx.Graph, sep: ArrayLike = (1., 0.)) -> NodePos:
+def linear_layout(graph: nx.Graph, sep: ArrayLike = (1., 0.),
+                  origin: ArrayLike = (0., 0.)) -> NodePos:
     """Layout graph nodes in a line.
 
     Parameters
@@ -246,14 +263,16 @@ def linear_layout(graph: nx.Graph, sep: ArrayLike = (1., 0.)) -> NodePos:
         Graph whose nodes need laying out.
     sep : ArrayLike, optional
         Separation of nodes along line, by default `(1.0, 0.0)`.
+    origin : ArrayLike, optional
+        Position of node 0, by default `(0.0, 0.0)`.
 
     Returns
     -------
     pos : Dict[Node, np.ndarray]
         Dictionary of node ids -> position vectors.
     """
-    sep = np.asarray(sep)
-    return {node: pos * sep for pos, node in enumerate(graph.nodes)}
+    sep, origin = np.asarray(sep), np.asarray(origin)
+    return {node: origin + pos * sep for pos, node in enumerate(graph.nodes)}
 
 
 def good_direction(graph: gt.MultiDiGraph, ideal: TopologyOptions) -> np.ndarray:
@@ -290,8 +309,7 @@ class NodeCollection:
     """A collection of node plots"""
     _nodes: NodePlots
     _node_ids: ty.List[gt.Node]
-    colours: ColourOptions
-    size: SizeOptions
+    style: StyleOptions
     # actual sizes, after scaling by size.mult
     node_pos: NodePos
     node_size: np.ndarray
@@ -303,14 +321,13 @@ class NodeCollection:
         opts = ag.default_eval(opts, GraphOptions)
         axs = ag.default_eval(axs, plt.gca)
         opts.pop_my_args(kwds)
-        self.colours = opts.node_colours
-        self.size = opts.node_size
+        self.style = opts.node_style
         self.node_pos = ag.default(pos, opts.layout)
         if callable(self.node_pos):
             self.node_pos = self.node_pos(graph)
 
-        self.node_size = self.size.to_size(graph)
-        node_col = self.colours.to_colour(graph)
+        self.node_size = self.style.to_size(graph)
+        node_col = self.style.to_colour(graph)
 
         kwds.update(ax=axs, node_color=node_col, node_size=self.node_size,
                     edgecolors='k')
@@ -318,12 +335,12 @@ class NodeCollection:
 
     def set_color(self, col_vals: gt.ArrayLike) -> None:
         """Set node colour valuess"""
-        cols = self.colours.val_to_colour(col_vals)
+        cols = self.style.val_to_colour(col_vals)
         self._nodes.set_color(cols)
 
     def set_sizes(self, node_siz: ArrayLike) -> None:
         """Set node sizes"""
-        self.node_size = np.asarray(node_siz) * self.size.mult
+        self.node_size = np.asarray(node_siz) * self.style.mult
         self._nodes.set_sizes(self.node_size)
 
     def set_pos(self, pos: NodePos) -> None:
@@ -347,8 +364,7 @@ class DiEdgeCollection:
     """A collection of directed edge plots"""
     _edges: Dict[Edge, EdgePlot]
     _node_ids: ty.List[gt.Node]
-    colours: ColourOptions
-    size: SizeOptions
+    style: StyleOptions
 
     def __init__(self, graph: GraphAttrs, nodes: NodeCollection,
                  axs: Optional[mpl.axes.Axes] = None,
@@ -357,11 +373,10 @@ class DiEdgeCollection:
         opts = ag.default_eval(opts, GraphOptions)
         axs = ag.default_eval(axs, plt.gca)
         opts.pop_my_args(kwds)
-        self.colours = opts.edge_colours
-        self.size = opts.edge_size
+        self.style = opts.edge_style
 
-        edge_wid = self.size.to_size(graph)
-        edge_col = self.colours.to_colour(graph)
+        edge_wid = self.style.to_size(graph)
+        edge_col = self.style.to_colour(graph)
 
         kwds.update(ax=axs, edge_color=edge_col, width=edge_wid,
                     node_size=nodes.get_sizes(),
@@ -393,7 +408,7 @@ class DiEdgeCollection:
 
     def set_color(self, col_vals: gt.ArrayLike) -> None:
         """Set line colour values"""
-        cols = self.colours.val_to_colour(col_vals)
+        cols = self.style.val_to_colour(col_vals)
         cols = mpl.colors.to_rgba_array(cols)
         cols = np.broadcast_to(cols, (len(self), 4), True)
         for edge, col in zip(self.values(), cols):
@@ -405,7 +420,7 @@ class DiEdgeCollection:
             Values used to set widths, without scaling by `mult`.
         """
         edge_vals = np.broadcast_to(edge_vals, (len(self),), True)
-        for edge, wid in zip(self.values(), edge_vals * self.size.mult):
+        for edge, wid in zip(self.values(), edge_vals * self.style.mult):
             edge.set_linewidth(wid)
 
     def set_node_sizes(self, node_siz: ArrayLike) -> None:
@@ -502,8 +517,8 @@ class GraphPlots:
             Graph object describing model. Nodes have attributes `key` and
             `value`.  Edges have attributes `key`, `value`.
         """
-        params = graph.get_edge_attr(self.opts.edge_size.attr)
-        peq = graph.get_node_attr(self.opts.node_size.attr)
+        params = graph.get_edge_attr(self.opts.edge_size.val_attr)
+        peq = graph.get_node_attr(self.opts.node_size.val_attr)
         self.update(params, peq)
 
     def set_node_colors(self, cols: gt.ArrayLike) -> None:
@@ -539,6 +554,6 @@ class GraphPlots:
 NodePlots = mpl.collections.PathCollection
 EdgePlot = mpl.patches.FancyArrowPatch
 NodePos = Dict[gt.Node, ArrayLike]
-Layout = Callable[[nx.DiGraph], NodePos]
+Layout = Callable[[nx.Graph], NodePos]
 Colour = Union[str, ty.Sequence[float]]
 Judger = Callable[[nx.Graph, TopologyOptions], np.ndarray]

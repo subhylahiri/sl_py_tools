@@ -90,7 +90,7 @@ class TopologyOptions(_opt.Options):
     def set_constrained(self, value: Optional[bool]) -> None:
         """Remove all constraints on topology by setting it `False`.
 
-        Does noting if `value` is `None`. Raises `ValueError if it is `True`.
+        Does nothing if `value` is `None`. Raises `ValueError if it is `True`.
         """
         if value is None:
             return
@@ -105,7 +105,7 @@ class TopologyOptions(_opt.Options):
     def set_npl(self, value: Optional[int]) -> None:
         """Set the number of transition matrices.
 
-        Does noting if `value` is `None`. Removes end elements of `directions`
+        Does nothing if `value` is `None`. Removes end elements of `directions`
         if shortening. Appends zeros if lengthening.
         """
         if value is None:

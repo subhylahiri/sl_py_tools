@@ -619,7 +619,7 @@ class MultiDiGraph(nx.MultiDiGraph, GraphAttrs):
         """
         nodes = list(self.nodes)
         _, keys = list_edge_keys(self, get_inv=True)
-        mat = np.full((len(keys), len(nodes), len(nodes)), fill)
+        mat = np.full((keys.max() + 1, len(nodes), len(nodes)), fill)
         for key, edge_val in zip(keys, self.edges(data=data, default=fill)):
             ind = (key,) + tuple(map(nodes.index, edge_val[:2]))
             mat[ind] = edge_val[2]
