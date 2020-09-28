@@ -28,7 +28,7 @@ def default(optional: _ty.Optional[Some], default_value: Some) -> Some:
 
 
 def default_eval(optional: _ty.Optional[Some],
-                 default_fn: _ty.Callable[[], Some]) -> Some:
+                 default_fn: _ty.Callable[[], Some], *args, **kwds) -> Some:
     """Replace optional with evaluation of default function if it is None
 
     Parameters
@@ -46,13 +46,13 @@ def default_eval(optional: _ty.Optional[Some],
         Either `optional`, if it is not `None` or `default_fn()` if it is.
     """
     if optional is None:
-        return default_fn()
+        return default_fn(*args, **kwds)
     return optional
 
 
 def eval_or_default(optional: _ty.Optional[Some],
                     non_default_fn: _ty.Callable[[Some], Other],
-                    default_value: Other) -> Other:
+                    default_value: Other, *args, **kwds) -> Other:
     """Evaluate function on optional if it is not None
 
     Parameters
@@ -73,12 +73,13 @@ def eval_or_default(optional: _ty.Optional[Some],
     """
     if optional is None:
         return default_value
-    return non_default_fn(optional)
+    return non_default_fn(optional, *args, **kwds)
 
 
 def eval_or_default_eval(optional: _ty.Optional[Some],
                          non_default_fn: _ty.Callable[[Some], Other],
-                         default_fn: _ty.Callable[[], Other]) -> Other:
+                         default_fn: _ty.Callable[[], Other],
+                         *args, **kwds) -> Other:
     """Evaluate function on optional if it is not None, else evaluate default.
 
     Parameters
@@ -99,8 +100,8 @@ def eval_or_default_eval(optional: _ty.Optional[Some],
         `default_fn()` if it is.
     """
     if optional is None:
-        return default_fn()
-    return non_default_fn(optional)
+        return default_fn(*args, **kwds)
+    return non_default_fn(optional, *args, **kwds)
 
 
 def defaults(optionals: _ty.Iterable[_ty.Optional[Some]],

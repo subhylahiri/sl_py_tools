@@ -10,7 +10,7 @@ import typing as _ty
 import sl_py_tools.arg_tricks as _ag
 
 # =============================================================================
-# Dictionaries
+# Updating
 # =============================================================================
 
 
@@ -74,7 +74,7 @@ def pop_new(to_update: _ty.MutableMapping[Key, Val],
 
 
 def pop_or_eval(mapping: _ty.MutableMapping[Key, Val], key: Key,
-                default_fn: _ty.Callable[[], Val]) -> Val:
+                default_fn: _ty.Callable[[], Val], *args, **kwds) -> Val:
     """Replace optional with evaluation of default function if it is None
 
     Parameters
@@ -93,13 +93,13 @@ def pop_or_eval(mapping: _ty.MutableMapping[Key, Val], key: Key,
         Either `mapping[key]`, if it exists `None` or `default_fn()` otherwise.
     """
     if key not in mapping:
-        return default_fn()
+        return default_fn(*args, **kwds)
     return mapping.pop(key)
 
 
 def eval_pop(mapping: _ty.MutableMapping[Key, Val], key: Key,
              non_default_fn: _ty.Callable[[Val], Other],
-             default_value: Other) -> Other:
+             default_value: Other, *args, **kwds) -> Other:
     """Evaluate function on optional if it is not None
 
     Parameters
@@ -121,12 +121,13 @@ def eval_pop(mapping: _ty.MutableMapping[Key, Val], key: Key,
     """
     if key not in mapping:
         return default_value
-    return non_default_fn(mapping.pop(key))
+    return non_default_fn(mapping.pop(key), *args, **kwds)
 
 
 def eval_pop_or_eval(mapping: _ty.MutableMapping[Key, Val], key: Key,
                      non_default_fn: _ty.Callable[[Val], Other],
-                     default_fn: _ty.Callable[[], Other]) -> Other:
+                     default_fn: _ty.Callable[[], Other],
+                     *args, **kwds) -> Other:
     """Evaluate function on optional if it is not None, else evaluate default.
 
     Parameters
@@ -148,8 +149,8 @@ def eval_pop_or_eval(mapping: _ty.MutableMapping[Key, Val], key: Key,
         `default_fn()` if it is.
     """
     if key not in mapping:
-        return default_fn()
-    return non_default_fn(mapping.pop(key))
+        return default_fn(*args, **kwds)
+    return non_default_fn(mapping.pop(key), *args, **kwds)
 
 
 @_cx.contextmanager
@@ -177,6 +178,116 @@ def updated(base: _ty.Dict[Key, Val], extra: Dictable[Key, Val], **kwds
     finally:
         base.clear()
         base.update(original)
+
+
+# =============================================================================
+# Sorting
+# =============================================================================
+
+
+def sort_dict(unordered: Dictable[Key, Val], order: _ty.Sequence[Key],
+              default: _ty.Optional[int] = None) -> _ty.Dict[Key, Val]:
+    """Sort a dict by the order the keys appear in another list
+
+    Parameters
+    ----------
+    unordered : Dict[str, Any]
+        Dictionary whose entries we want to sort
+    order : Sequence[str]
+        Keys in order we want
+    default : int|None, optional
+        Sort keys for items that do not appear in `order`.
+        By default `None` -> `len(order)`.
+
+    Returns
+    -------
+    ordered : Dict[str, Any]
+        Dictionary whose keys are in the same order as `order`
+    """
+    default = len(order) if default is None else default
+    def key_fn(item: _ty.Tuple[str, _ty.Any]) -> int:
+        """Key function for sorting"""
+        return order.index(item[0]) if item[0] in order else default
+
+    if isinstance(unordered, cn.abc.Mapping):
+        return dict(sorted(unordered.items(), key=key_fn))
+    return sort_dict(dict(unordered), order, default)
+
+
+def sort_dicts(unordered: _ty.Sequence[Dictable[Key, Val]],
+               order: _ty.Sequence[Key],
+               default: _ty.Optional[int] = None,
+               ) -> _ty.List[_ty.Dict[Key, Val]]:
+    """Sort a dict by the order the keys appear in another list
+
+    Parameters
+    ----------
+    unordered : Sequence[Dict[str, Any]]
+        Dictionaries whose entries we want to sort
+    order : Sequence[str]
+        Keys in order we want.
+    default : int|None, optional
+        Sort keys for items that do not appear in `order`.
+        By default `None` -> `len(order)` -> at end.
+        Alternatively -1 -> at start.
+
+    Returns
+    -------
+    ordered : List[Dict[str, Any]]
+        Dictionaries whose keys are in the same order as `order`
+    """
+    default = len(order) if default is None else default
+    return [sort_dict(arg, order, default) for arg in unordered]
+
+
+def sort_ends_dict(unordered: Dictable[Key, Val],
+                   to_start: _ty.Sequence[Key] = (),
+                   to_end: _ty.Sequence[Key] = ()) -> _ty.Dict[Key, Val]:
+    """Sort a dictionary so that some items are at the start, some at the end.
+
+    Parameters
+    ----------
+    unordered : Dictable[Key, Val]
+        The dictionary that needs sorting
+    to_start : Sequence[Key], optional
+        The keys that must go at the start, in order. By default ()
+    to_end : Sequence[Key], optional
+        The keys that must go at the end, in order. By default ()
+
+    Returns
+    -------
+    ordered : Dict[Key, Val]
+        The sorted dictionary.
+    """
+    reordered = sort_dict(unordered, to_start, None)
+    return sort_dict(reordered, to_end, -1)
+
+
+def sort_ends_dicts(unordered: _ty.Sequence[Dictable[Key, Val]],
+                    to_start: _ty.Sequence[Key] = (),
+                    to_end: _ty.Sequence[Key] = ()) -> _ty.List[_ty.Dict[Key, Val]]:
+    """Sort a dictionary so that some items are at the start, some at the end.
+
+    Parameters
+    ----------
+    unordered : Dictable[Key, Val]
+        The dictionaries that need sorting
+    to_start : Sequence[Key], optional
+        The keys that must go at the start, in order. By default ()
+    to_end : Sequence[Key], optional
+        The keys that must go at the end, in order. By default ()
+
+    Returns
+    -------
+    ordered : Dict[Key, Val]
+        The sorted dictionaries.
+    """
+    return [sort_ends_dict(arg, to_start, to_end) for arg in unordered]
+
+
+# =============================================================================
+# Inverting and pairing
+# =============================================================================
 
 
 def _inv_dict_iter(to_invert: _ty.Mapping[Key, Val]

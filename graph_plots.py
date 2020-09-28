@@ -54,8 +54,7 @@ class StyleOptions(mpt.ImageOptions):
     parameters will be popped for the relevant items. Keyword parameters must
     be valid keys, otherwise a `KeyError` is raised.
     """
-    map_attributes: op.Attrs = ()
-    prop_attributes: op.Attrs = ('entity')
+    prop_attributes: op.Attrs = mpt.ImageOptions.prop_attributes + ('entity',)
     # topology specifying options
     key_attr: str
     val_attr: str
@@ -153,8 +152,8 @@ class GraphOptions(op.Options):
     parameters will be popped for the relevant items. Keyword parameters must
     be valid keys, otherwise a `KeyError` is raised.
     """
-    map_attributes: op.Attrs = ('topology', 'node_colours', 'edge_colours')
-    prop_attributes: op.Attrs = ('layout')
+    map_attributes: op.Attrs = ('topology', 'node_style', 'edge_style')
+    prop_attributes: op.Attrs = ('layout',)
     # topology specifying options
     topology: TopologyOptions
     _layout_fn: Layout

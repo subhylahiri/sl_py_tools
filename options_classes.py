@@ -3,11 +3,14 @@
 """
 from __future__ import annotations
 
+import operator
 import collections.abc
 import re
 import typing as _ty
 
 import matplotlib as mpl
+
+import sl_py_tools.dict_tricks as _dt
 
 _LINE_SEP = re.compile('\n {4,}')
 # =============================================================================
@@ -20,9 +23,14 @@ def _public(key: str) -> bool:
     return not key.startswith('_')
 
 
-def _has_str(val: _ty.Any) -> bool:
-    """Does it have a string producung method?"""
-    return any(hasattr(val, x) for x in ('__repr__', '__str__', '__format__'))
+def _norm_str(norm: mpl.colors.Normalize) -> str:
+    """string rep of Normalize"""
+    return norm.__class__.__name__ + f"({norm.vmin}, {norm.vmax})"
+
+
+_FIX_STR = {mpl.colors.Colormap: operator.attrgetter('name'),
+            mpl.colors.Normalize: _norm_str,
+            collections.abc.Callable: operator.attrgetter('__name__')}
 
 
 def _fmt_sep(format_spec: str) -> _ty.Tuple[str, str, str]:
@@ -38,10 +46,10 @@ def _fmt_sep(format_spec: str) -> _ty.Tuple[str, str, str]:
 
 def _fmt_help(key: str, val: _ty.Any, conv: str, next_spec: str) -> str:
     """helper for Options.__format__: entry for one item"""
-    if isinstance(val, mpl.colors.Colormap):
-        val = val.name
-    if callable(val) and not _has_str(val):
-        val = val.__name__
+    for cls, fun in _FIX_STR.items():
+        if isinstance(val, cls):
+            val = fun(val)
+            break
     if conv != '!r' or _LINE_SEP.fullmatch(next_spec) is None:
         item = "{}={" + conv + "}"
         return item.format(key, val)
@@ -108,6 +116,7 @@ class Options(collections.abc.MutableMapping):
     """
     map_attributes: _ty.ClassVar[_ty.Tuple[str, ...]] = ()
     prop_attributes: _ty.ClassVar[_ty.Tuple[str, ...]] = ()
+    key_order: _ty.ClassVar[_ty.Tuple[str, ...]] = ()
 
     def __init__(self, *args, **kwds) -> None:
         """The recommended approach to a subclass constructor is
@@ -125,6 +134,9 @@ class Options(collections.abc.MutableMapping):
         Mappings provided as positional arguments will be popped for the
         relevant items.
         """
+        # put kwds in order
+        args = _dt.sort_dicts(args, self.key_order, -1)
+        kwds = _dt.sort_dict(kwds, self.key_order, -1)
         for mapping in args:
             self.pop_my_args(mapping)
         self.update(kwds)
@@ -235,6 +247,15 @@ class Options(collections.abc.MutableMapping):
         yield from filter(_public, self.__dict__)
         yield from self.prop_attributes
 
+    # pylint: disable=arguments-differ
+    def update(self, __m: _dt.Dictable[str, _ty.Any] = (), **kwargs) -> None:
+        """Update from mappings/iterables"""
+        # put kwds in order
+        __m = _dt.sort_dict(__m, self.key_order, -1)
+        kwargs = _dt.sort_dict(kwargs, self.key_order, -1)
+        super().update(__m, **kwargs)
+    # pylint: enable=arguments-differ
+
     def copy(self) -> Options:
         """Get a shallow copy of the object.
 
@@ -314,56 +335,6 @@ class MasterOptions(Options):
 # =============================================================================
 # Helpers
 # =============================================================================
-
-
-def sort_dict(unordered: StrDict, order: _ty.Sequence[str],
-              default: _ty.Optional[int] = None) -> StrDict:
-    """Sort a dict by the order the keys appear in another list
-
-    Parameters
-    ----------
-    unordered : Dict[str, Any]
-        Dictionary whose entries we want to sort
-    order : Sequence[str]
-        Keys in order we want
-    default : int|None, optional
-        Sort keys for items that do not appear in `order`.
-        By default `None` -> `len(order)`.
-
-    Returns
-    -------
-    ordered : Dict[str, Any]
-        Dictionary whose keys are in the same order as `order`
-    """
-    default = len(order) if default is None else default
-    def key_fn(item: _ty.Tuple[str, _ty.Any]) -> int:
-        """Key function for sorting"""
-        return order.index(item[0]) if item[0] in order else default
-
-    return dict(sorted(unordered.items(), key=key_fn))
-
-
-def sort_dicts(unordered: _ty.Sequence[StrDict], order: _ty.Sequence[str],
-               default: _ty.Optional[int] = None) -> _ty.List[StrDict]:
-    """Sort a dict by the order the keys appear in another list
-
-    Parameters
-    ----------
-    unordered : Sequence[Dict[str, Any]]
-        Dictionary whose entries we want to sort
-    order : Sequence[str]
-        Keys in order we want
-    default : int|None, optional
-        Sort keys for items that do not appear in `order`.
-        By default `None` -> `len(order)`.
-
-    Returns
-    -------
-    ordered : Dict[str, Any]
-        Dictionary whose keys are in the same order as `order`
-    """
-    default = len(order) if default is None else default
-    return [sort_dict(arg, order, default) for arg in unordered]
 
 
 # =============================================================================

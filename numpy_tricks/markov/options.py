@@ -43,6 +43,7 @@ class TopologyOptions(_opt.Options):
     parameters will be popped for the relevant items. Keyword parameters must
     be valid keys, otherwise a `KeyError` is raised.
     """
+    key_order: _opt.Attrs = ('directions', 'npl')
     serial: bool
     ring: bool
     uniform: bool
@@ -55,8 +56,6 @@ class TopologyOptions(_opt.Options):
         self.uniform = False
         self.directions = (0, 0)
         self.discrete = False
-        args = _opt.sort_dicts(args, ('directions', 'npl'), -1)
-        kwds = _opt.sort_dict(kwds, ('directions', 'npl'), -1)
         super().__init__(*args, **kwds)
         if self.constrained and 'directions' not in kwds:
             # different default if any(serial, ring, uniform)
