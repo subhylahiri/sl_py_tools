@@ -186,6 +186,12 @@ class Options(collections.abc.MutableMapping):
 
     def __getitem__(self, key: str) -> _ty.Any:
         """Get an attribute"""
+        if '.' in key:
+            *args, attr = key.split('.')
+            obj = self
+            for arg in args:
+                obj = getattr(obj, arg)
+            return obj[attr]
         try:
             return getattr(self, key)
         except AttributeError:
@@ -198,6 +204,13 @@ class Options(collections.abc.MutableMapping):
 
     def __setitem__(self, key: str, value: _ty.Any) -> None:
         """Set an existing attribute"""
+        if '.' in key:
+            *args, attr = key.split('.')
+            obj = self
+            for arg in args:
+                obj = getattr(obj, arg)
+            obj[attr] = value
+            return
         if hasattr(self, 'set_' + key):
             getattr(self, 'set_' + key)(value)
         elif key in self.map_attributes:
@@ -220,6 +233,12 @@ class Options(collections.abc.MutableMapping):
     def __delitem__(self, key: str) -> None:
         if key in self.map_attributes + self.prop_attributes:
             raise TypeError(f"`del {type(self).__name__}['{key}']` disallowed")
+        if '.' in key:
+            *args, attr = key.split('.')
+            obj = self
+            for arg in args:
+                obj = getattr(obj, arg)
+            del obj[attr]
         try:
             delattr(self, key)
         except AttributeError:

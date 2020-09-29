@@ -47,6 +47,8 @@ class StyleOptions(mpt.ImageOptions):
         Name of node/edge attribute used to determine area/width.
     mult : float
         Scale factor between `node/edge[siz_attr]` and area/width.
+    mut_scale : float
+        Ratio of `FancyArrowPatch.mutation_scale` to `linewidth` (for edges).
     entity : str
         Type of graph element, 'node' or 'edge'
 
@@ -59,6 +61,7 @@ class StyleOptions(mpt.ImageOptions):
     key_attr: str
     val_attr: str
     mult: float
+    mut_scale: float
     _method: str
 
     def __init__(self, *args, **kwds) -> None:
@@ -66,6 +69,7 @@ class StyleOptions(mpt.ImageOptions):
         self._method = 'get_node_attr'
         self.val_attr = 'value'
         self.mult = 1.
+        self.mut_scale = 2.
         super().__init__(*args, **kwds)
 
     def to_colour(self, graph: GraphAttrs) -> np.ndarray:
@@ -383,6 +387,7 @@ class DiEdgeCollection:
         edges = nx.draw_networkx_edges(graph, nodes.get_pos(), **kwds)
         self._edges = dict(zip(graph.edges, edges))
         self.set_rads(opts.choose_rads(graph))
+        self.set_widths(edge_wid)
 
     def __len__(self) -> int:
         return len(self._edges)
@@ -421,6 +426,7 @@ class DiEdgeCollection:
         edge_vals = np.broadcast_to(edge_vals, (len(self),), True)
         for edge, wid in zip(self.values(), edge_vals * self.style.mult):
             edge.set_linewidth(wid)
+            edge.set_mutation_scale(self.style.mut_scale * wid)
 
     def set_node_sizes(self, node_siz: ArrayLike) -> None:
         """Set sizes of nodes
@@ -471,7 +477,7 @@ class GraphPlots:
 
     def __init__(self, graph: GraphAttrs, pos: Optional[NodePos] = None,
                  axs: Optional[mpl.axes.Axes] = None,
-                 opts: Optional[GraphOptions] = None, **kwds) -> None:
+                 opts: Optional[GraphOptions] = None, **kws) -> None:
         """Class for plotting model as a graph.
 
         Parameters
@@ -485,11 +491,11 @@ class GraphPlots:
         `nx.draw_networkx_edges`.
         """
         self.opts = ag.default_eval(opts, GraphOptions)
-        self.opts.pop_my_args(kwds)
+        self.opts.pop_my_args(kws)
         axs = ag.default_eval(axs, plt.gca)
 
-        self.nodes = NodeCollection(graph, pos, axs, self.opts, **kwds)
-        self.edges = DiEdgeCollection(graph, self.nodes, axs, self.opts, **kwds)
+        self.nodes = NodeCollection(graph, pos, axs, self.opts, **kws)
+        self.edges = DiEdgeCollection(graph, self.nodes, axs, self.opts, **kws)
 
     def update(self, edge_vals: Optional[np.ndarray],
                node_vals: Optional[np.ndarray]) -> None:

@@ -154,7 +154,7 @@ def eval_pop_or_eval(mapping: _ty.MutableMapping[Key, Val], key: Key,
 
 
 @_cx.contextmanager
-def updated(base: _ty.Dict[Key, Val], extra: Dictable[Key, Val], **kwds
+def updated(base: _ty.Dict[Key, Val], extra: Dictable[Key, Val] = (), **kwds
             ) ->  _ty.Dict[Key, Val]:
     """Update a dictionary in a context, then restore
 
