@@ -522,8 +522,8 @@ class GraphPlots:
             Graph object describing model. Nodes have attributes `key` and
             `value`.  Edges have attributes `key`, `value`.
         """
-        params = graph.get_edge_attr(self.opts.edge_size.val_attr)
-        peq = graph.get_node_attr(self.opts.node_size.val_attr)
+        params = graph.get_edge_attr(self.opts.edge_style.val_attr)
+        peq = graph.get_node_attr(self.opts.node_style.val_attr)
         self.update(params, peq)
 
     def set_node_colors(self, cols: gt.ArrayLike) -> None:

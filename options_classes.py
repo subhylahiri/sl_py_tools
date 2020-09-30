@@ -266,14 +266,12 @@ class Options(collections.abc.MutableMapping):
         yield from filter(_public, self.__dict__)
         yield from self.prop_attributes
 
-    # pylint: disable=arguments-differ
-    def update(self, __m: _dt.Dictable[str, _ty.Any] = (), **kwargs) -> None:
+    def update(self, __m: StrDictable = (), /, **kwargs) -> None:
         """Update from mappings/iterables"""
         # put kwds in order
         __m = _dt.sort_dict(__m, self.key_order, -1)
         kwargs = _dt.sort_dict(kwargs, self.key_order, -1)
         super().update(__m, **kwargs)
-    # pylint: enable=arguments-differ
 
     def copy(self) -> Options:
         """Get a shallow copy of the object.
@@ -360,4 +358,5 @@ class MasterOptions(Options):
 # Hinting aliases
 # =============================================================================
 StrDict = _ty.Dict[str, _ty.Any]
+StrDictable = _dt.Dictable[str, _ty.Any]
 Attrs = _ty.ClassVar[_ty.Tuple[str, ...]]
