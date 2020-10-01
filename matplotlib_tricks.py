@@ -26,6 +26,9 @@ def rc_fonts(family: str = 'serif'):
 #    mpl.rcParams['text.latex.unicode'] = True
     mpl.rcParams['font.family'] = family
     mpl.rcParams['text.latex.preamble'] = "\\usepackage{amsmath,amssymb}"
+    if family == 'sans-serif':
+        mpl.rcParams['text.latex.preamble'] += r"\usepackage{euler}"
+        mpl.rcParams['text.latex.preamble'] += r"\usepackage{sansmath}\sansmath"
 
 
 def rc_colours(cset: str = 'bright', cmap: str = 'YlOrBr',
@@ -329,8 +332,6 @@ def centre_spines(axs: _ty.Optional[plt.Axes] = None,
         Any other value interpreted as 'none', default: 'both'.
     """
     axs = _ag.default_eval(axs, plt.gca)
-    if axs is None:
-        axs = plt.gca()
 
     in_bounds = _cn.tuplify(kwds.pop('in_bounds', False), 2)
     if in_bounds[0]:

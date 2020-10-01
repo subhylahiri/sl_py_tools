@@ -80,8 +80,11 @@ class Options(collections.abc.MutableMapping):
     printing. If it is both a member of `self.__dict__` and listed in
     `prop_attributes`, it will appear twice.
 
-    Setting attributes may be achieved via subscripting. If the name is not
-    found, it will search the attributes listed in `map_attributes`. If
+    Setting attributes may be achieved via subscripting like a dictionary.
+    If the name is not found, it will search the attributes listed in
+    `map_attributes`. In case name exists in multiple map attributes, the
+    first one in definition order will be chosen. You also specify which map
+    attribute to choose with dotted keys: `options['suboptions.name']`. If
     a key is not found when recursing these attributes, a `KeyError` is raised.
     If an attribute's name is found in `map_attributes`, the attribute is
     updated when set rather than replaced like other attributes. These three
@@ -354,9 +357,97 @@ class MasterOptions(Options):
 # =============================================================================
 
 
+class Delayed:
+    """Stores factory and arguments for the default of a mutable attribute.
+    """
+    _factory: _ty.Callable[..., Mutable]
+    _args: _ty.Tuple[_ty.Any, ...]
+    _kwargs: _ty.Tuple[_ty.Tuple[str, _ty.Any], ...]
+
+    def __init__(self, factory: _ty.Callable[..., Mutable], *args, **kwargs
+                 ) -> None:
+        self._factory = factory
+        self._args = args
+        self._kwargs = tuple(kwargs.items())
+
+    def __repr__(self) -> str:
+        return (self._factory.__name__ + repr(self._args)[:-1]
+                + f", **{self._kwargs!r})")
+
+    def exec(self, *args: _ty.Any, **kwds: _ty.Any) -> Mutable:
+        """Execute the factory
+        """
+        return self._factory(*args, *self._args, **kwds, **dict(self._kwargs))
+
+
+class Partial:
+    """Stores factory and arguments for the default of a mutable attribute.
+    """
+    _factory: _ty.Callable[..., Mutable]
+    _args: _ty.Tuple[_ty.Any, ...]
+    _kwargs: _ty.Tuple[_ty.Tuple[str, _ty.Any], ...]
+
+    def __init__(self, factory: _ty.Callable[..., Mutable], *args, **kwargs
+                 ) -> None:
+        self._factory = factory
+        self._args = args
+        self._kwargs = tuple(kwargs.items())
+
+    def __repr__(self) -> str:
+        return (self._factory.__name__ + repr(self._args)[:-1]
+                + f", **{self._kwargs!r})")
+
+    def __call__(self, *args: _ty.Any, **kwds: _ty.Any) -> Mutable:
+        """Execute the factory
+        """
+        return self._factory(*args, *self._args, **kwds, **dict(self._kwargs))
+
+
+def list_to_be(*args: Immutable) -> Delayed:
+    """Delayed list creation
+
+    The returned object will, upon being called with no parameters, return a
+    `list` containing `args`.
+    """
+    return Delayed(list, args)
+
+
+def dict_to_be(**kws: Immutable) -> Delayed:
+    """Delayed dict creation
+
+    The returned object will, upon being called with no parameters, return a
+    `dict` containing `kws`.
+    """
+    return Delayed(dict, **kws)
+
+
+# Thess aren't really useful - you could just call the Field.__init__
+# but hopefully the names are more evocative
+def to_be(clss: _ty.Type[Mutable], *args: Immutable, **kwds: Immutable
+          ) -> Delayed:
+    """Delayed class instance creation
+
+    The returned object will, upon being called with no parameters, return an
+    instance of `clss` with `args` and `kwds` as parameters.
+    """
+    return Delayed(clss, *args, **kwds)
+
+
+def later(func: _ty.Callable[..., Mutable], *args: Immutable, **kwds: Immutable
+          ) -> Delayed:
+    """Delayed cfunction calling
+
+    The returned object will, upon being called with new parameters, call the
+    function `func` with `args` and `kwds` inserted after the new parameters.
+    """
+    return Delayed(func, *args, **kwds)
+
+
 # =============================================================================
 # Hinting aliases
 # =============================================================================
 StrDict = _ty.Dict[str, _ty.Any]
 StrDictable = _dt.Dictable[str, _ty.Any]
 Attrs = _ty.ClassVar[_ty.Tuple[str, ...]]
+Mutable = _ty.TypeVar('Mutable')
+Immutable = _ty.TypeVar('Immutable')

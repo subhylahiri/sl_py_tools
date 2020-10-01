@@ -2,7 +2,6 @@
 """Tools for working with graphs and plotting them
 """
 from __future__ import annotations
-from functools import wraps
 
 import typing as ty
 from numbers import Number
@@ -160,8 +159,7 @@ class GraphOptions(op.Options):
     prop_attributes: op.Attrs = ('layout',)
     # topology specifying options
     topology: TopologyOptions
-    _layout_fn: Layout
-    layout_args: Tuple[ty.Any, ...]
+    _layout: Layout
     node_style: StyleOptions
     edge_style: StyleOptions
     rad: ty.List[float]
@@ -169,8 +167,7 @@ class GraphOptions(op.Options):
 
     def __init__(self, *args, **kwds) -> None:
         self.topology = TopologyOptions(serial=True)
-        self._layout_fn = linear_layout
-        self.layout_args = ({},)
+        self._layout = linear_layout
         self.rad = [-0.7, 0.35]
         self.judge = good_direction
         self.node_style = StyleOptions(cmap='coolwarm', mult=600)
@@ -185,7 +182,7 @@ class GraphOptions(op.Options):
             good_drn = self.judge(graph, self.topology)
         return np.where(good_drn, *self.rad)
 
-    def set_layout(self, value) -> None:
+    def set_layout(self, value: Layout, *args, **kwds) -> None:
         """Set the layout function.
 
         Does nothing if `value` is `None`.
@@ -193,16 +190,12 @@ class GraphOptions(op.Options):
         if value is None:
             pass
         else:
-            self._layout_fn = value
+            self._layout = op.Partial(value, *args, **kwds)
 
     @property
     def layout(self) -> Layout:
         "The layout function, with other arguments bound"
-        @wraps(self._layout_fn)
-        def layout_fn(graph: nx.Graph) -> NodePos:
-            *args, kwds = self.layout_args
-            return self._layout_fn(graph, *args, **kwds)
-        return layout_fn
+        return self._layout
 # pylint: enable=too-many-ancestors
 
 
@@ -336,6 +329,11 @@ class NodeCollection:
                     edgecolors='k')
         self._nodes = nx.draw_networkx_nodes(graph, self.node_pos, **kwds)
 
+    @property
+    def collection(self) -> NodePlots:
+        """The underlying matplotlib objects"""
+        return self._nodes
+
     def set_color(self, col_vals: gt.ArrayLike) -> None:
         """Set node colour valuess"""
         cols = self.style.val_to_colour(col_vals)
@@ -403,7 +401,7 @@ class DiEdgeCollection:
         return self._edges.keys()
 
     def values(self) -> ty.Iterable[EdgePlot]:
-        """A view of edge dictionary values"""
+        """An iterable view the underlying matplotlib objects"""
         return self._edges.values()
 
     def items(self) -> ty.Iterable[Tuple[Edge, EdgePlot]]:
@@ -426,7 +424,7 @@ class DiEdgeCollection:
         edge_vals = np.broadcast_to(edge_vals, (len(self),), True)
         for edge, wid in zip(self.values(), edge_vals * self.style.mult):
             edge.set_linewidth(wid)
-            edge.set_mutation_scale(self.style.mut_scale * wid)
+            edge.set_mutation_scale(max(self.style.mut_scale * wid, 1e-3))
 
     def set_node_sizes(self, node_siz: ArrayLike) -> None:
         """Set sizes of nodes

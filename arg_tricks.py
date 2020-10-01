@@ -196,22 +196,44 @@ def dummy(*args) -> None:  # pylint: disable=unused-argument
 # Class and instance attributes
 # =============================================================================
 
+def _my_dir_keys(obj: _ty.Any) -> _ty.Dict[str, None]:
+    """Get the dictionary keys of a class/instance
+    """
+    return dict.fromkeys(getattr(obj, '__dict__',
+                                 getattr(obj, '__slots__', ())))
 
-def _dir_dict(obj: _ty.Any) -> _ty.Dict[str, None]:
-    """Get the unsorted dictionary keys of a class/instance (like dir())
+
+def _my_dir(obj: _ty.Any) -> _ty.Dict[str, _ty.Any]:
+    """Get the dictionary of a class/instance (like dir())
+    """
+    my_dir = getattr(obj, '__dict__', getattr(obj, '__slots__', ()))
+    if isinstance(my_dir, dict):
+        return my_dir
+    return {key: getattr(obj, key) for key in my_dir}
+
+
+def dir_dict(obj: _ty.Any) -> _ty.Dict[str, _ty.Any]:
+    """Get the dictionary of a class/instance, including the full mro.
     """
     my_dir = {}
-    for base in getattr(obj, '__bases__', ()):
-        my_dir.update(_dir_dict(base))
+    mro = getattr(obj, '__mro__', obj.__class__.__mro__)
+    for base in reversed(mro):
+        my_dir.update(_my_dir(base))
     # could use cls.__dir__() or dir(cls)
-    my_dir.update((k, None) for k in obj.__dict__)
+    my_dir.update(_my_dir(obj))
     return my_dir
 
 
 def dir_nosort(obj: _ty.Any) -> _ty.List[str]:
     """Get the unsorted directory of a class/instance (like dir())
     """
-    return list(_dir_dict(obj))
+    my_dir = {}
+    mro = getattr(obj, '__mro__', obj.__class__.__mro__)
+    for base in reversed(mro):
+        my_dir.update(_my_dir_keys(base))
+    # could use cls.__dir__() or dir(cls)
+    my_dir.update(_my_dir_keys(obj))
+    return list(my_dir)
 
 
 def inst_attrs(obj: _ty.Any) -> _ty.List[str]:
