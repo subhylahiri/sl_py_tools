@@ -671,8 +671,8 @@ def param_to_graph(param: np.ndarray, node_values: Optional[np.ndarray] = None,
 
     Parameters
     ----------
-    param : np.ndarray (PQ,), Q in [M(M-1), M, M-1, 1]
-        Independent parameters of model - a `(P,M,M)` array.
+    param : np.ndarray (P,Q), Q in [M(M-1), 2M, 2(M-1), 2]
+        Independent parameters of model - from a `(P,M,M)` array.
     node_values : np.ndarray (M,), optional
         Value associated with each node. By default `ma.calc_peq(...)`.
     node_keys : np.ndarray (M,), optional

@@ -18,7 +18,7 @@ import sl_py_tools.options_classes as op
 # =============================================================================
 
 
-def rc_fonts(family: str = 'serif'):
+def rc_fonts(family: str = 'serif') -> None:
     """Global font options, use LaTeX.
     """
     mpl.rcParams['pdf.fonttype'] = 42
@@ -28,11 +28,12 @@ def rc_fonts(family: str = 'serif'):
     mpl.rcParams['text.latex.preamble'] = "\\usepackage{amsmath,amssymb}"
     if family == 'sans-serif':
         mpl.rcParams['text.latex.preamble'] += r"\usepackage{euler}"
-        mpl.rcParams['text.latex.preamble'] += r"\usepackage{sansmath}\sansmath"
+        mpl.rcParams['text.latex.preamble'] += r"\usepackage{sansmath}"
+        mpl.rcParams['text.latex.preamble'] += r"\sansmath"
 
 
 def rc_colours(cset: str = 'bright', cmap: str = 'YlOrBr',
-               reg: _ty.Tuple[str, ...] = ()):
+               reg: _ty.Tuple[str, ...] = ()) -> None:
     """Global line colour options.
     """
     prop_cycle = mpl.cycler(color=list(tol.tol_cset(cset)))
@@ -53,7 +54,7 @@ def rc_colours(cset: str = 'bright', cmap: str = 'YlOrBr',
 # =============================================================================
 
 
-def fig_square(fig: mpl.figure.Figure):
+def fig_square(fig: mpl.figure.Figure) -> None:
     """Adjust figure width so that it is square, and tight layout
 
     Parameters
@@ -70,7 +71,7 @@ def fig_square(fig: mpl.figure.Figure):
 # =============================================================================
 
 
-def equal_axlim(axs: mpl.axes.Axes, mode: str = 'union'):
+def equal_axlim(axs: mpl.axes.Axes, mode: str = 'union') -> None:
     """Make x/y axes limits the same
 
     Parameters
@@ -105,7 +106,9 @@ def equal_axlim(axs: mpl.axes.Axes, mode: str = 'union'):
     axs.set_ylim(new_lim)
 
 
-def calc_axlim(data, err=None, log=False, buffer=0.05):
+def calc_axlim(data: np.ndarray, err: _ty.Optional[np.ndarray] = None,
+               log: bool = False, buffer: float = 0.05,
+               ) -> _ty.Tuple[float, float]:
     """Calculate axes limits that will show all data
 
     Parameters
@@ -113,11 +116,11 @@ def calc_axlim(data, err=None, log=False, buffer=0.05):
     data : np.ndarray (n)
         array of numbers plotted along the axis
     err : None or np.ndarray (n) or (2,n), optional
-        error bars for data, default: None
+        error bars for data, by default: `None`
     log : bool, optional
-        is it a log scale? default: False
+        is it a log scale? By default: `False`
     buffer : float, optional
-        fractional padding around data
+        fractional padding around data, by default: `0.05`.
     """
     errs = np.broadcast_to(_ag.default(err, 0.), (2,) + data.shape)
     lim = np.array([np.nanmin(data - errs[0]), np.nanmax(data + errs[1])])
@@ -133,7 +136,7 @@ def set_new_axlim(axs: plt.Axes,
                   data: np.ndarray, err: _ty.Optional[np.ndarray] = None, *,
                   yaxis: bool = True, reset: bool = False, log: bool = False,
                   buffer: float = 0.05):
-    """Calculate axes limits that will show all data, including existing
+    """Set axes limits that will show all data, including existing
 
     Parameters
     ----------
@@ -142,15 +145,15 @@ def set_new_axlim(axs: plt.Axes,
     data : np.ndarray (n)
         array of numbers plotted along the axis
     err : None or np.ndarray (n) or (2,n), optional
-        error bars for data, default: None
+        error bars for data, by default: `None`.
     yaxis : bool, optional keyword
-        are we modifying the y axis? default: True
+        are we modifying the y axis? By default: `True`.
     reset : bool, optional keyword
-        do we ignore the existing axis limits? default: False
+        do we ignore the existing axis limits? By default: `False`.
     log : bool, optional keyword
-        is it a log scale? default: False
+        is it a log scale? By default: `False`.
     buffer : float, optional keyword
-        fractional padding around data
+        fractional padding around data, by default `0.05`.
     """
     lim = calc_axlim(data, err, log, buffer)
     if not reset:
@@ -207,9 +210,9 @@ def clean_axes(axs: plt.Axes, fontsize: _ty.Union[int, str] = 20,
         Font size for tick-labels, default: `fontsize * tickfontscale`.
     titlefontscale : number
         Multiplier of `fontsize` (if numeric) for title, default: 1.2.
-    legendfontsize : number
+    legendfontscale : number
         Multiplier of `fontsize` (if numeric) for legend entries, default: 1.
-    tickfontsize : number
+    tickfontscale : number
         Multiplier of `fontsize` (if numeric) for tick-labels, default: 0.694.
     """
     clean_kws = clean_axes_keys(kwds, fontsize)
@@ -293,7 +296,7 @@ def adjust_legend_font(leg: mpl.legend.Legend, **kwds):
 
 
 def centre_spines(axs: _ty.Optional[plt.Axes] = None,
-                  centrex=0, centrey=0, **kwds):
+                  centrex: float = 0, centrey: float = 0, **kwds) -> None:
     """Centres the axis spines at <centrex, centrey> on the axis "axs", and
     places arrows at the end of the axis spines.
 
@@ -513,16 +516,14 @@ def common_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
 def centre_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
                 centre: float = 0.):  # set all clims equal
     """
-    Make the color limits for each image in sequence the same
+    Make the color limits for each image in sequence the samesymmetrical.
 
     Parameters
     ----------
-    imh : Sequence[pcolormesh]
-        sequence of pcolormesh objects with heatmaps
-    cmin : optional
-        Fixed lower end of clim. If `None`, use min of `imh.clim[0]`.
-    cmax : optional
-        fixed upper end of clim. If `None`, use max of `imh.clim[1]`.
+    imh : Sequence[QuadMesh]
+        Sequence of pcolormesh objects with heatmaps.
+    centre : float, optional
+        Value to centre color climits around, by default 0.
     """
     imh = _cn.listify(imh)
     for img in imh:
@@ -666,6 +667,66 @@ class AnimationOptions(op.AnyOptions):
 
 
 # =============================================================================
+# Animation writers
+# =============================================================================
+
+
+@mpa.writers.register('file_seq')
+class FileSeqWriter(mpa.FileMovieWriter):
+    """Write an animation as a sequence of image files.
+    """
+    supported_formats: _ty.ClassVar[_ty.List[str]] = [
+        'pdf', 'svg', 'png', 'jpeg', 'ppm', 'tiff', 'sgi', 'bmp', 'pbm', 'raw',
+    ]
+    fname_format_str : str
+
+    def setup(self,  # pylint: disable=arguments-differ
+              fig: mpl.figure.Figure, outfile: str,
+              dpi: _ty.Optional[float] = None,
+              ndigit: _ty.Optional[int] = None,
+              ) -> None:
+        """Set the output file properties.
+
+        Parameters
+        ----------
+        fig : `~matplotlib.figure.Figure`
+            The figure to grab the rendered frames from.
+        outfile : str
+            The filename of the resulting movie file.
+        dpi : float, optional
+            The dpi of the output file. This, with the figure size,
+            controls the size in pixels of the resulting movie file.
+            Default is ``fig.dpi``.
+        ndigit : int, optional
+            Number of digits to leave space for in numbered file names.
+        """
+        if '.' in outfile:
+            frame_prefix, self.frame_format = outfile.rsplit('.', 1)
+        else:
+            frame_prefix = outfile
+        super().setup(fig, outfile, dpi, frame_prefix=frame_prefix)
+        # self._tmpdir = None
+        # self.temp_prefix = outfile
+        # self._clear_temp = False
+        if ndigit is not None:
+            self.fname_format_str = f'%s%%0{ndigit}d.%s'
+
+    def cleanup(self) -> None:
+        """Perform cleanup - nothing!"""
+
+    def _run(self) -> None:
+        """Perform post-processing - nothing!"""
+
+    def _args(self) -> _ty.List[str]:
+        """External command - nothing!"""
+        return []
+
+    @classmethod
+    def isAvailable(cls) -> bool:
+        return True
+
+
+# =============================================================================
 # Helper classes
 # =============================================================================
 
@@ -676,7 +737,7 @@ class CentredFormatter(mpl.ticker.ScalarFormatter):
 
     From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
     """
-    centre = 0
+    centre : float
 
     def __init__(self, centre=0, **kwds):
         super().__init__(**kwds)
