@@ -270,9 +270,9 @@ def centre_spines(axs: _ty.Optional[plt.Axes] = None,
     Keyword only
     ------------
     in_bounds : {bool, Sequence[bool]}
-        Ensure that spines are within axes limits? If it is a scalar, it
-        applies to both axes. If it is a sequence, `in_bounds[0/1]` applies to
-        x/y-axis respectively.
+        Ensure spines are within axes limits? If it is a scalar, it applies to
+        both axes. If it is a sequence, `in_bounds[0/1]` applies to x/y-axis
+        respectively.
     arrow : {bool, Sequence[bool]}
         Draw an arrow on splines? If it is a scalar, it applies to both axes.
         If it is a sequence, `arrow[0/1]` applies to x/y-axis respectively.
@@ -299,40 +299,32 @@ def centre_spines(axs: _ty.Optional[plt.Axes] = None,
         centrey = _cn.Interval(*axs.get_ylim()).clip(centrey)
 
     # Set the axis's spines to be centred at the given point
-    # (Setting all 4 spines so that the tick marks go in both directions)
+    axs.tick_params(direction='inout')
     axs.spines['left'].set_position(('data', centrex))
     axs.spines['bottom'].set_position(('data', centrey))
-    axs.spines['right'].set_position(('data', centrex - 1))
-    axs.spines['top'].set_position(('data', centrey - 1))
+    axs.spines['right'].set_visible(False)
+    axs.spines['top'].set_visible(False)
 
-    # Hide the line (but not ticks) for "extra" spines
-    for side in ['right', 'top']:
-        axs.spines[side].set_color('none')
+    # Remove tick labels at centre
+    xformatter = CentredFormatter(centrex, '')
+    yformatter = CentredFormatter(centrey, '')
+    axs.xaxis.set_major_formatter(xformatter)
+    axs.yaxis.set_major_formatter(yformatter)
+    lab = [xformatter.format_data(centrex), yformatter.format_data(centrey)]
 
-    arrow = _cn.tuplify(kwds.pop('arrow', False), 2)
-    # Draw an arrow at the end of the spines
-    add_axes_arrows(axs, *arrow)
-
-    # On both the x and y axes...
-    lab = []
-    for axis, centre in zip([axs.xaxis, axs.yaxis], [centrex, centrey]):
-        # Turn ticks
-        axis.set_ticks_position('both')
-
-        # Hide the ticklabels at <centrex, centrey>
-        formatter = CentredFormatter(centre)
-        axis.set_major_formatter(formatter)
-        lab.append(formatter.format_data(centre))
-
-    # Add offset ticklabels at <centrex, centrey> using annotation
-    # (Should probably make these update when the plot is redrawn...)
+    # Add offset ticklabels at <centrex, centrey>
     centre_tick = kwds.pop('centre_tick', 'both').lower()  # {both,x,y,none}
-    centre_labs = {'none': "", 'x': f"{lab[0]}", 'y': f"{lab[1]}",
-                   'both': ",".join(lab), 'paren': f"({lab[0]},{lab[1]})"}
-    centre_label = centre_labs.get(centre_tick, "")
-    if centre_label:
-        axs.annotate(centre_label, (centrex, centrey), xytext=(-4, -4),
-                     textcoords='offset points', ha='right', va='top')
+    centre_labs = {'none': "", 'x': "{} ", 'y': "{1} ", 'both': "{},{} ",
+                   'paren': "({},{}) "}
+    xformatter.label = centre_labs.get(centre_tick, "").format(*lab)
+    which, = (axs.get_xticks() == centrex).nonzero()
+    if which.size:
+        axs.get_xticklabels()[which[0]].set_ha('right')
+        # also shift position by (-yaxis.get_tick_padding(), 0) in pt
+
+    # Draw an arrow at the end of the spines
+    arrow = _cn.tuplify(kwds.pop('arrow', False), 2)
+    add_axes_arrows(axs, *arrow)
 
 
 def add_axes_arrows(axs: _ty.Optional[mpl.axes.Axes] = None,
@@ -900,7 +892,7 @@ class FileSeqWriter(mpa.FileMovieWriter):
 
 
 # =============================================================================
-# Helper classes
+# Helper classes for axes
 # =============================================================================
 
 
@@ -911,14 +903,16 @@ class CentredFormatter(mpl.ticker.ScalarFormatter):
     From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
     """
     centre : float
+    label: str
 
-    def __init__(self, centre=0, **kwds):
+    def __init__(self, centre: float = 0, label: str = '', **kwds):
         super().__init__(**kwds)
         self.centre = centre
+        self.label = label
 
-    def __call__(self, value, pos=None):
+    def __call__(self, value: float, pos=None):
         if value == self.centre:
-            return ''
+            return self.label
         return super().__call__(value, pos)
 
 
