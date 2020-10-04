@@ -6,7 +6,8 @@ import typing as _ty
 import functools as _ft
 
 import matplotlib as mpl
-import matplotlib.patheffects as mpf
+import matplotlib.animation as mpa
+import matplotlib.backends.backend_pdf as pdf
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -488,13 +489,6 @@ class FontSize:
     _bool_default: bool
     _scale_default: float
 
-    def __new__(cls, func: _ty.Optional[TextGetter] = None, *,
-                 boolean: bool = True, scale: float = 1.,
-                 doc: _ty.Optional[str] = None) -> FontSize:
-        if func is None:
-            return _ft.partial(FontSize, boolean=boolean, scale=scale, doc=doc)
-        return super().__new__(cls)
-
     def __init__(self, func: _ty.Optional[TextGetter] = None, *,
                  boolean: bool = True, scale: float = 1.,
                  doc: _ty.Optional[str] = None) -> None:
@@ -565,6 +559,15 @@ class FontSize:
             fdo.__qualname__ = self.func.__qualname__ + name
 
 
+def fontsize_manager(func: _ty.Optional[TextGetter] = None, *,
+                     boolean: bool = True, scale: float = 1.,
+                     doc: _ty.Optional[str] = None) -> FontSize:
+    """decorate a method to turn it into a FontSize descriptor"""
+    if func is None:
+        return _ft.partial(FontSize, boolean=boolean, scale=scale, doc=doc)
+    return FontSize(func, boolean=boolean, scale=scale, doc=doc)
+
+
 # pylint: disable=too-many-ancestors,too-many-instance-attributes
 class AxesOptions(op.AnyOptions):
     """Options for `clean_axes`.
@@ -631,7 +634,7 @@ class AxesOptions(op.AnyOptions):
         self.tight = True
         super().__init__(*args, **kwds)
 
-    @FontSize(scale=1.)
+    @fontsize_manager(scale=1.)
     def axis(self, axs: mpl.axes.Axes) -> None:
         """Modify font of axis-labels"""
         if not self.axisfont:
@@ -641,7 +644,7 @@ class AxesOptions(op.AnyOptions):
     axis = _ty.cast(FontSize, axis)
     axisfont, axisfontsize, axisfontscale = axis.props()
 
-    @FontSize(scale=1.2)
+    @fontsize_manager(scale=1.2)
     def title(self, axs: mpl.axes.Axes) -> None:
         """Modify font of axis-labels"""
         if not self.titlefont:
@@ -651,7 +654,7 @@ class AxesOptions(op.AnyOptions):
     title = _ty.cast(FontSize, title)
     titlefont, titlefontsize, titlefontscale = title.props()
 
-    @FontSize(scale=1.)
+    @fontsize_manager(scale=1.)
     def legend(self, axs: mpl.axes.Axes) -> None:
         """Modify font of legend-labels"""
         if axs.legend_ is None or not self.legendfont:
@@ -661,7 +664,7 @@ class AxesOptions(op.AnyOptions):
     legend = _ty.cast(FontSize, legend)
     legendfont, legendfontsize, legendfontscale = legend.props()
 
-    @FontSize(scale=1.)
+    @fontsize_manager(scale=1.)
     def tick(self, axs: mpl.axes.Axes) -> None:
         """Modify font of tick-labels"""
         if not self.tickfont:
@@ -687,6 +690,7 @@ class AxesOptions(op.AnyOptions):
             self.legendfont = value
             self.tickfont = value
 # pylint: enable=too-many-ancestors
+
 
 # pylint: disable=too-many-ancestors
 class ImageOptions(op.AnyOptions):
@@ -830,6 +834,7 @@ class FileSeqWriter(mpa.FileMovieWriter):
         'pdf', 'svg', 'png', 'jpeg', 'ppm', 'tiff', 'sgi', 'bmp', 'pbm', 'raw',
     ]
     fname_format_str : str
+    _ndigit: int = 7
 
     def setup(self,  # pylint: disable=arguments-differ
               fig: mpl.figure.Figure, outfile: str,
@@ -856,11 +861,9 @@ class FileSeqWriter(mpa.FileMovieWriter):
         else:
             frame_prefix = outfile
         super().setup(fig, outfile, dpi, frame_prefix=frame_prefix)
-        # self._tmpdir = None
-        # self.temp_prefix = outfile
-        # self._clear_temp = False
         if ndigit is not None:
-            self.fname_format_str = f'%s%%0{ndigit}d.%s'
+            self._ndigit = ndigit
+        self.fname_format_str = f'%s%%0{ndigit}d.%s'
 
     def cleanup(self) -> None:
         """Perform cleanup - nothing!"""
@@ -874,6 +877,69 @@ class FileSeqWriter(mpa.FileMovieWriter):
 
     @classmethod
     def isAvailable(cls) -> bool:
+        return True
+
+
+@mpa.writers.register('pdf_pages')
+class PdfPagesWriter(mpa.AbstractMovieWriter):
+    """Write animation as a multi-page pdf file"""
+    supported_formats: _ty.ClassVar[_ty.List[str]] = ['pdf']
+    _file: _ty.Optional[pdf.PdfPages]
+
+    def __init__(self, fps=5, codec=None, bitrate=None, metadata=None) -> None:
+        """
+        Parameters
+        ----------
+        fps : int, default: 5
+            Movie frame rate (per second).
+        codec : str or None, default: :rc:`animation.codec`
+            The codec to use.
+        bitrate : int, default: :rc:`animation.bitrate`
+            The bitrate of the movie, in kilobits per second.  Higher values
+            means higher quality movies, but increase the file size.  A value
+            of -1 lets the underlying movie encoder select the bitrate.
+        metadata : Dict[str, str], default: {}
+            A dictionary of keys and values for metadata to include in the
+            output file. Some keys that may be of use include:
+            title, artist, genre, subject, copyright, srcform, comment.
+        """
+        super().__init__(fps=fps, metadata=metadata, codec=codec,
+                         bitrate=bitrate)
+        self.frame_format = 'pdf'
+        self._file = None
+
+    def setup(self, fig, outfile, dpi=None):
+        """Setup for writing the movie file.
+
+        Parameters
+        ----------
+        fig : `~matplotlib.figure.Figure`
+            The figure object that contains the information for frames.
+        outfile : str
+            The filename of the resulting movie file.
+        dpi : float, default: ``fig.dpi``
+            The DPI (or resolution) for the file.  This controls the size
+            in pixels of the resulting movie file.
+        """
+        super().setup(fig, outfile, dpi=dpi)
+        self._file = pdf.PdfPages(outfile, metadata=self.metadata)
+
+    def grab_frame(self, **savefig_kwargs):
+        """
+        Grab the image information from the figure and save as a movie frame.
+
+        All keyword arguments in *savefig_kwargs* are passed on to the
+        `~.Figure.savefig` call that saves the figure.
+        """
+        self._file.savefig(self.fig, **savefig_kwargs)
+
+    def finish(self):
+        """Finish any processing for writing the movie."""
+        self._file.close()
+
+    @classmethod
+    def isAvailable(cls) -> bool:  # pylint: disable=invalid-name
+        """Make sure the registry knows we're available"""
         return True
 
 
