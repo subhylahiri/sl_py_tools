@@ -328,7 +328,7 @@ def centre_spines(axs: _ty.Optional[plt.Axes] = None,
 
 
 def add_axes_arrows(axs: _ty.Optional[mpl.axes.Axes] = None,
-                    to_xaxis: bool = True, to_yaxis: bool = True):
+                    to_xaxis: bool = True, to_yaxis: bool = True, **kwds):
     """Add arrows to axes.
 
     From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
@@ -342,13 +342,12 @@ def add_axes_arrows(axs: _ty.Optional[mpl.axes.Axes] = None,
     to_yaxis : bool, optional
         Whether we add arrow to y-axis, default: True.
     """
-    if axs is None:
-        axs = plt.gca()
+    axs = axs or plt.gca()
     # Draw an arrow at the end of the spines
     if to_xaxis:
-        axs.spines['left'].set_path_effects([EndArrow()])
+        axs.spines['bottom'] = FancyArrowSpine(axs.spines['bottom'], **kwds)
     if to_yaxis:
-        axs.spines['bottom'].set_path_effects([EndArrow()])
+        axs.spines['left'] = FancyArrowSpine(axs.spines['left'], **kwds)
 
 
 # =============================================================================
@@ -916,47 +915,27 @@ class CentredFormatter(mpl.ticker.ScalarFormatter):
         return super().__call__(value, pos)
 
 
-# Note: I'm implementing the arrows as a path effect rather than a custom
-#       Spines class. In the long run, a custom Spines class would be a better
-#       way to go. One of the side effects of this is that the arrows aren't
-#       reversed when the axes are reversed! (Joe Kington)
-
-
-class EndArrow(mpf.AbstractPathEffect):
-    """A matplotlib patheffect to add arrows at the end of a path.
-
-    From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
+class FancyArrowSpine(mpl.spines.Spine, mpl.patches.FancyArrowPatch):
+    """Spine with an arrow
     """
 
-    def __init__(self, headwidth=5, headheight=5, facecolor=(0, 0, 0), **kwds):
-        super().__init__()
-        self.width, self.height = headwidth, headheight
-        self._gc_args = kwds
-        self.facecolor = facecolor
+    def __init__(self, other: mpl.spines.Spine, **kwds) -> None:
+        kwds.update(posA=[0, 0], posB=[1, 1])
+        kwds.setdefault('arrowstyle', "-|>")
+        kwds.setdefault('mutation_scale', 10)
+        path = other.get_path()
+        super().__init__(other.axes, other.spine_type, path, **kwds)
+        self.update_from(other)
+        self._path_original = path
+        self._posA_posB = None
+        self.register_axis(other.axis)
+        self.set_position(other.get_position())
 
-        self.trans = mpl.transforms.Affine2D()
+    def draw(self, renderer):
+        """Make sure we call the right draw"""
+        self._adjust_location()
+        return mpl.patches.FancyArrowPatch.draw(self, renderer)
 
-        self.arrowpath = mpl.path.Path(
-            np.array([[-0.5, -0.2], [0.0, 0.0], [0.5, -0.2],
-                      [0.0, 1.0], [-0.5, -0.2]]),
-            np.array([1, 2, 2, 2, 79]))
-
-    def draw_path(self, renderer, gc, tpath, affine, rgbFace=None):
-        scalex = renderer.points_to_pixels(self.width)
-        scaley = renderer.points_to_pixels(self.height)
-
-        x_0, y_0 = tpath.vertices[-1]
-        d_x, d_y = tpath.vertices[-1] - tpath.vertices[-2]
-        azi = np.arctan2(d_y, d_x) - np.pi / 2.0
-        trans = affine + self.trans.clear(
-                        ).scale(scalex, scaley).rotate(azi).translate(x_0, y_0)
-
-        gc0 = renderer.new_gc()
-        gc0.copy_properties(gc)
-        self._update_gc(gc0, self._gc_args)
-
-        if self.facecolor is not None:
-            rgbFace = self.facecolor
 
 # =============================================================================
 # Aliases
