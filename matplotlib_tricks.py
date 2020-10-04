@@ -355,39 +355,26 @@ def add_axes_arrows(axs: _ty.Optional[mpl.axes.Axes] = None,
 # =============================================================================
 
 
-def plot_equality(axs: mpl.axes.Axes,
-                  line: _ty.Optional[mpl.lines.Line2D] = None,
-                  npt=2, **kwds):
+def plot_equality(axs: mpl.axes.Axes, **kwds) -> mpl.lines.Line2D:
     """Plot the equality line on Axes
 
     Parameters
     ----------
     axs : mpl.axes.Axes
         Axes on which we draw the equality line
-    line : mpl.lines.Line2D or None, optional
-        Previous line object, default: None
-    npt : int, optional
-        number of points to use for equality line
     **kwds
-        Passed to `plt.plot`.
+        Passed to `Axes.axline`.
+
+    Returns
+    -------
+    line : mpl.lines.Line2D
+        The reulting line object
 
     See Also
     --------
-    matplotlib.axes.Axes.axline([0, 0], [1, 1])
+    matplotlib.axes.Axes.axline([0, 0], [1, 1], **kwds)
     """
-    xlim = axs.get_xlim()
-    ylim = axs.get_ylim()
-    eq_vals = np.linspace(max(xlim[0], ylim[0]), min(xlim[1], ylim[1]), npt)
-    if line is None:
-        kwds.setdefault('label', "equality")
-        kwds.setdefault('color', "k")
-        kwds.setdefault('linestyle', "-")
-        line = axs.plot(eq_vals, eq_vals, **kwds)[0]
-    else:
-        line.set_xdata(eq_vals)
-        line.set_ydata(eq_vals)
-        line.update(kwds)
-    return line
+    return axs.axline([0, 0], [1, 1], **kwds)
 
 
 def stepify_data(boundaries: np.ndarray, values: np.ndarray,
