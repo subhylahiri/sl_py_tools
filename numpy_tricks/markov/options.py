@@ -43,7 +43,7 @@ class TopologyOptions(_opt.Options):
     parameters will be popped for the relevant items. Keyword parameters must
     be valid keys, otherwise a `KeyError` is raised.
     """
-    key_order: _opt.Attrs = ('directions', 'npl')
+    key_last: _opt.Attrs = ('directions', 'npl')
     serial: bool
     ring: bool
     uniform: bool

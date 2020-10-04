@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """Tools for making matplotlib nicer
 """
+from __future__ import annotations
 import typing as _ty
+import functools as _ft
 
 import matplotlib as mpl
 import matplotlib.patheffects as mpf
@@ -215,69 +217,23 @@ def clean_axes(axs: plt.Axes, fontsize: _ty.Union[int, str] = 20,
     tickfontscale : number
         Multiplier of `fontsize` (if numeric) for tick-labels, default: 0.694.
     """
-    clean_kws = clean_axes_keys(kwds, fontsize)
+    clean_kws = AxesOptions(kwds, fontsize=fontsize, fontfamily=fontfamily)
+    clean_kws.pop_my_args(kwds)
     if axs is None:
         axs = plt.gca()
     if clean_kws['box']:
         axs.spines['top'].set_visible(False)
         axs.spines['right'].set_visible(False)
-    if clean_kws['titlefont']:
-        axs.title.set_fontsize(clean_kws['titlefontsize'])
-        axs.title.set_fontfamily(fontfamily)
-    if clean_kws['axisfont']:
-        axs.get_xaxis().get_label().set_fontsize(fontsize)
-        axs.get_yaxis().get_label().set_fontsize(fontsize)
-        axs.get_xaxis().get_label().set_fontfamily(fontfamily)
-        axs.get_yaxis().get_label().set_fontfamily(fontfamily)
-    if clean_kws['tickfont']:
-        axs.tick_params(labelsize=clean_kws['tickfontsize'])
-        for tkl in axs.get_xticklabels() + axs.get_yticklabels():
-            tkl.set_fontfamily(fontfamily)
+    clean_kws.title(axs)
+    clean_kws.axis(axs)
+    clean_kws.tick(axs)
     if axs.legend_ is not None:
         if clean_kws['legendbox']:
             axs.legend_.set_frame_on(False)
-        if clean_kws['legendfont']:
-            adjust_legend_font(axs.legend_, size=clean_kws['legendfontsize'],
-                               family=fontfamily)
+        clean_kws.legend(axs)
     axs.set(**kwds)
     if clean_kws['tight']:
         axs.figure.tight_layout()
-
-
-def clean_axes_keys(kwargs: _ty.Dict[str, _ty.Any],
-                    fontsize: _ty.Union[int, str] = 20
-                    ) -> _ty.Dict[str, _ty.Union[bool, int]]:
-    """Extract keywords applicable to clean_axes
-
-    Parameters
-    ----------
-    kwargs : Dict[str, _ty.Any]
-        Dictionary of keyword options. Those applicable to `clean_axes` will
-        be popped.
-
-    Returns
-    -------
-    clean_kws: Dict[str, Union[bool, int]]
-        Dictionary of keyword options used by `clean_axes`
-    """
-    clean_kws = {}
-    if isinstance(fontsize, (int, float)):
-        clean_kws['titlefontsize'] = kwargs.pop(
-            'titlefontsize', round(fontsize * kwargs.pop('titlefontscale', 1.2)))
-        clean_kws['legendfontsize'] = kwargs.pop(
-            'legendfontsize', round(fontsize * kwargs.pop('legendfontscale', 1)))
-        clean_kws['tickfontsize'] = kwargs.pop(
-            'tickfontsize', round(fontsize * kwargs.pop('tickfontscale', .694)))
-    else:
-        clean_kws['titlefontsize'] = kwargs.pop('titlefontsize', fontsize)
-        clean_kws['legendfontsize'] = kwargs.pop('legendfontsize', fontsize)
-        clean_kws['tickfontsize'] = kwargs.pop('tickfontsize', fontsize)
-
-    allopts = kwargs.pop('all', True)
-    for key in ('box', 'axisfont', 'titlefont', 'tickfont', 'legendbox',
-                'legendfont', 'tight'):
-        clean_kws[key] = kwargs.pop(key, allopts)
-    return clean_kws
 
 
 def adjust_legend_font(leg: mpl.legend.Legend, **kwds):
@@ -520,7 +476,7 @@ def centre_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
 
     Parameters
     ----------
-    imh : Sequence[QuadMesh]
+    imh : QuadMesh|Sequence[QuadMesh]
         Sequence of pcolormesh objects with heatmaps.
     centre : float, optional
         Value to centre color climits around, by default 0.
@@ -536,6 +492,223 @@ def centre_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
 # Options classes
 # =============================================================================
 
+
+class FontSize:
+    """Font size property.
+
+    Parameters
+    ----------
+    boolean : bool, optional
+        Default value for boolean property, by default `True`.
+    scale : float, optional
+        Default value for scale property, by default `1`.
+    doc : str|None, optional
+        Docstring, by default `None`
+    """
+    name: str
+    _name: str
+    _bool_default: bool
+    _scale_default: float
+
+    def __new__(cls, func: _ty.Optional[TextGetter] = None, *,
+                 boolean: bool = True, scale: float = 1.,
+                 doc: _ty.Optional[str] = None) -> FontSize:
+        if func is None:
+            return _ft.partial(FontSize, boolean=boolean, scale=scale, doc=doc)
+        return super().__new__(cls)
+
+    def __init__(self, func: _ty.Optional[TextGetter] = None, *,
+                 boolean: bool = True, scale: float = 1.,
+                 doc: _ty.Optional[str] = None) -> None:
+        self.func = func
+        self.__doc__ = doc or func.__doc__
+        self.name = func.__name__
+        self._name = '_' + func.__name__
+        self._bool_default = boolean
+        self._scale_default = scale
+
+    def prepare(self, obj: AxesOptions) -> None:
+        """Call in __new__ of owner"""
+        obj[self._name] = {'bool': self._bool_default,
+                           'scale': self._scale_default, 'size': None}
+
+    def __get__(self, obj: AxesOptions, objtype: OwnerType = None) -> bool:
+        if obj is None:
+            return self
+
+        @_ft.wraps(self.func)
+        def method(axs: mpl.axes.Axes) -> None:
+            """modify fonts"""
+            for txt in self.func(obj, axs):
+                txt.set_fontsize(obj[self.name + 'fontsize'])
+                txt.set_fontfamily(obj.fontfamily)
+        return method
+
+    def prop(self, field: str, name: _ty.Optional[str] = None) -> property:
+        """Accessor property for `field``"""
+
+        def fget(obj: AxesOptions) -> float:
+            return obj[self._name][field]
+
+        def fset(obj: AxesOptions, value: float) -> None:
+            obj[self._name][field] = value
+
+        self._set_propname(name or 'font' + field, fget, fset)
+        return property(fget, fset, None, self.__doc__)
+
+    def size(self) -> property:
+        """Accessor property for _size"""
+
+        def fget(obj: AxesOptions) -> Size:
+            if obj[self._name]['size'] is not None:
+                return obj[self._name]['size']
+            if isinstance(obj.fontsize, str):
+                return obj.fontsize
+            return obj.fontsize * obj[self._name]['scale']
+
+        def fset(obj: AxesOptions, value: Size) -> None:
+            if isinstance(value, str):
+                obj[self._name]['size'] = value
+            else:
+                obj[self._name]['size'] = None
+                obj[self._name]['scale'] = value / obj.fontsize
+
+        self._set_propname('fontsize', fget, fset)
+        return property(fget, fset, None, self.__doc__)
+
+    def props(self) -> _ty.Tuple[property, ...]:
+        """The properties for access"""
+        return self.prop('bool', 'font'), self.size(), self.prop('scale')
+
+    def _set_propname(self, name: str, *fns) -> None:
+        """Set the __name__ and __qualname__ of a property"""
+        for fdo in fns:
+            fdo.__name__ = self.func.__name__ + name
+            fdo.__qualname__ = self.func.__qualname__ + name
+
+
+# pylint: disable=too-many-ancestors,too-many-instance-attributes
+class AxesOptions(op.AnyOptions):
+    """Options for `clean_axes`.
+
+    The individual options can be accessed as object instance attributes
+    (e.g. `obj.name`) or as dictionary items (e.g. `obj['name']`) for both
+    getting and setting.
+
+    Parameters
+    ----------
+    box : bool, keyword
+        Remove axes box?
+    legendbox : bool, keyword only
+        Remove legend box?
+    tight : bool, keyword only
+        Apply tight_layout to figure?
+    <element>font : bool, keyword only
+        Change <element> font size? Where <element> is:-
+            `axis`: Axis labels, by default `True`, default `scale`: `1`.
+            `title`: Axes title, by default `True`, default `scale`: `1.2`.
+            `legend`: Legend entries, by default `True`, default `scale`: `1`.
+            `tick`: Tick labels, by default `True`, default `scale`: `0.694`.
+    all : bool, keyword only
+        Choice for any of the above that is unspecified, default: True
+    <element>fontsize : number, str
+        Font size for <element>, default: `fontsize * <element>fontscale`.
+    <element>fontscale : number
+        Multiplier of `fontsize` (if numeric) for <element>.
+    fontsize : number, str, default: 20
+        Base font size for axes labels, ticks, legends & title.
+    fontfamily : str, default: sans-serif
+        Font family for axes labels, ticks, legends & title.
+
+    All parameters are optional keywords. Any dictionary passed as positional
+    parameters will be popped for the relevant items. Keyword parameters must
+    be valid keys, otherwise a `KeyError` is raised.
+    """
+    prop_attributes: op.Attrs = ('axisfont', 'titlefont', 'legendfont',
+                                 'tickfont', 'axisfontsize', 'titlefontsize',
+                                 'legendfontsize', 'tickfontsize')
+    key_first: op.Attrs = ('all', 'fontsize')
+
+    fontsize : Size
+    fontfamily : str
+    box : bool
+    legendbox : bool
+    tight : bool
+
+    def __new__(cls, *args, **kwds) -> AxesOptions:
+        obj = super().__new__(cls)
+        # pylint: disable=no-member
+        cls.axis.prepare(obj)
+        cls.title.prepare(obj)
+        cls.legend.prepare(obj)
+        cls.tick.prepare(obj)
+        assert any((True, args, kwds))
+        return obj
+
+    def __init__(self, *args, **kwds) -> None:
+        self.fontsize = 20
+        self.fontfamily = "sans-serif"
+        self.box = True
+        self.legendbox = True
+        self.tight = True
+        super().__init__(*args, **kwds)
+
+    @FontSize(scale=1.)
+    def axis(self, axs: mpl.axes.Axes) -> None:
+        """Modify font of axis-labels"""
+        if not self.axisfont:
+            return ()
+        return (axs.get_xaxis().get_label(), axs.get_yaxis().get_label())
+
+    axis = _ty.cast(FontSize, axis)
+    axisfont, axisfontsize, axisfontscale = axis.props()
+
+    @FontSize(scale=1.2)
+    def title(self, axs: mpl.axes.Axes) -> None:
+        """Modify font of axis-labels"""
+        if not self.titlefont:
+            return ()
+        return (axs.title,)
+
+    title = _ty.cast(FontSize, title)
+    titlefont, titlefontsize, titlefontscale = title.props()
+
+    @FontSize(scale=1.)
+    def legend(self, axs: mpl.axes.Axes) -> None:
+        """Modify font of legend-labels"""
+        if axs.legend_ is None or not self.legendfont:
+            return ()
+        return axs.legend_.get_texts()
+
+    legend = _ty.cast(FontSize, legend)
+    legendfont, legendfontsize, legendfontscale = legend.props()
+
+    @FontSize(scale=1.)
+    def tick(self, axs: mpl.axes.Axes) -> None:
+        """Modify font of tick-labels"""
+        if not self.tickfont:
+            return ()
+        return axs.get_xticklabels() + axs.get_yticklabels()
+
+    tick = _ty.cast(FontSize, tick)
+    tickfont, tickfontsize, tickfontscale = tick.props()
+
+    def set_all(self, value: bool) -> None:
+        """Set all boolean options.
+
+        Does nothing if `value` is `None`.
+        """
+        if value is None:
+            pass
+        else:
+            self.box =value
+            self.legendbox = value
+            self.tight = value
+            self.axisfont = value
+            self.titlefont = value
+            self.legendfont = value
+            self.tickfont = value
+# pylint: enable=too-many-ancestors
 
 # pylint: disable=too-many-ancestors
 class ImageOptions(op.AnyOptions):
@@ -791,6 +964,13 @@ class EndArrow(mpf.AbstractPathEffect):
         if self.facecolor is not None:
             rgbFace = self.facecolor
 
-        renderer.draw_path(gc0, self.arrowpath, trans, rgbFace)
-        renderer.draw_path(gc, tpath, affine, rgbFace)
-        gc0.restore()
+# =============================================================================
+# Aliases
+# =============================================================================
+Var = _ty.TypeVar('Var')
+Val = _ty.TypeVar('Val')
+Owner = _ty.TypeVar('Owner')
+Size = _ty.Union[int, float, str]
+OwnerType = _ty.Optional[_ty.Type[Owner]]
+TextGetter = _ty.Callable[[AxesOptions, mpl.axes.Axes],
+                          _ty.Iterable[mpl.text.Text]]

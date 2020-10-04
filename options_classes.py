@@ -119,7 +119,8 @@ class Options(collections.abc.MutableMapping):
     """
     map_attributes: _ty.ClassVar[_ty.Tuple[str, ...]] = ()
     prop_attributes: _ty.ClassVar[_ty.Tuple[str, ...]] = ()
-    key_order: _ty.ClassVar[_ty.Tuple[str, ...]] = ()
+    key_last: _ty.ClassVar[_ty.Tuple[str, ...]] = ()
+    key_first: _ty.ClassVar[_ty.Tuple[str, ...]] = ()
 
     def __init__(self, *args, **kwds) -> None:
         """The recommended approach to a subclass constructor is
@@ -138,8 +139,10 @@ class Options(collections.abc.MutableMapping):
         relevant items.
         """
         # put kwds in order
-        args = _dt.sort_dicts(args, self.key_order, -1)
-        kwds = _dt.sort_dict(kwds, self.key_order, -1)
+        key_first = self.key_first + self.map_attributes
+        key_last = self.prop_attributes + self.key_last
+        args = _dt.sort_ends_dicts(args, key_first, key_last)
+        kwds = _dt.sort_ends_dict(kwds, key_first, key_last)
         for mapping in args:
             self.pop_my_args(mapping)
         self.update(kwds)
@@ -272,8 +275,8 @@ class Options(collections.abc.MutableMapping):
     def update(self, __m: StrDictable = (), /, **kwargs) -> None:
         """Update from mappings/iterables"""
         # put kwds in order
-        __m = _dt.sort_dict(__m, self.key_order, -1)
-        kwargs = _dt.sort_dict(kwargs, self.key_order, -1)
+        __m = _dt.sort_dict(__m, self.key_last, -1)
+        kwargs = _dt.sort_dict(kwargs, self.key_last, -1)
         super().update(__m, **kwargs)
 
     def copy(self) -> Options:
@@ -336,6 +339,8 @@ class MasterOptions(Options):
         does not turn anything up. Any empty string indacates using `self` as
         the fallback storage, `None` indicates raising a `KeyError`.
     """
+    _fallback_mapping: _ty.ClassVar[str]
+
     def __init_subclass__(cls, fallback: _ty.Optional[str] = None) -> None:
         cls._fallback_mapping = fallback
 
