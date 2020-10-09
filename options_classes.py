@@ -139,10 +139,6 @@ class Options(collections.abc.MutableMapping):
         relevant items.
         """
         # put kwds in order
-        key_first = self.key_first + self.map_attributes
-        key_last = self.prop_attributes + self.key_last
-        args = _dt.sort_ends_dicts(args, key_first, key_last)
-        kwds = _dt.sort_ends_dict(kwds, key_first, key_last)
         for mapping in args:
             self.pop_my_args(mapping)
         self.update(kwds)
@@ -275,8 +271,7 @@ class Options(collections.abc.MutableMapping):
     def update(self, __m: StrDictable = (), /, **kwargs) -> None:
         """Update from mappings/iterables"""
         # put kwds in order
-        __m = _dt.sort_dict(__m, self.key_last, -1)
-        kwargs = _dt.sort_dict(kwargs, self.key_last, -1)
+        __m, kwargs = self.order_keys(__m, kwargs)
         super().update(__m, **kwargs)
 
     def copy(self) -> Options:
@@ -289,16 +284,27 @@ class Options(collections.abc.MutableMapping):
     def pop_my_args(self, kwds: StrDict) -> None:
         """Pop any key from dict that can be set and use the value to set.
         """
+        # put kwds in order
+        sorted_kwds, = self.order_keys(kwds)
         to_pop = []
-        for key, val in kwds.items():
+        # update what we can
+        for key, val in sorted_kwds.items():
             try:
                 self[key] = val
             except KeyError:
                 pass
             else:
                 to_pop.append(key)
+        # pop the ones we used
         for key in to_pop:
             del kwds[key]
+
+    @classmethod
+    def order_keys(cls, *kwds: StrDict) -> _ty.List[StrDict]:
+        """Lists of keys in order for start and end"""
+        key_first = cls.key_first + cls.map_attributes
+        key_last = cls.prop_attributes + cls.key_last
+        return _dt.sort_ends_dicts(kwds, key_first, key_last)
 # pylint: enable=too-many-ancestors
 
 
@@ -358,94 +364,74 @@ class MasterOptions(Options):
 
 
 # =============================================================================
-# Helpers
+# Helpers (don't work)
 # =============================================================================
 
 
-class Delayed:
-    """Stores factory and arguments for the default of a mutable attribute.
-    """
-    _factory: _ty.Callable[..., Mutable]
-    _args: _ty.Tuple[_ty.Any, ...]
-    _kwargs: _ty.Tuple[_ty.Tuple[str, _ty.Any], ...]
+def list_to_be(*args: Immutable) -> Saved[_ty.List[Immutable]]:
+    """Delayed list creation.
 
-    def __init__(self, factory: _ty.Callable[..., Mutable], *args, **kwargs
-                 ) -> None:
-        self._factory = factory
-        self._args = args
-        self._kwargs = tuple(kwargs.items())
-
-    def __repr__(self) -> str:
-        return (self._factory.__name__ + repr(self._args)[:-1]
-                + f", **{self._kwargs!r})")
-
-    def exec(self, *args: _ty.Any, **kwds: _ty.Any) -> Mutable:
-        """Execute the factory
-        """
-        return self._factory(*args, *self._args, **kwds, **dict(self._kwargs))
-
-
-class Partial:
-    """Stores factory and arguments for the default of a mutable attribute.
-    """
-    _factory: _ty.Callable[..., Mutable]
-    _args: _ty.Tuple[_ty.Any, ...]
-    _kwargs: _ty.Tuple[_ty.Tuple[str, _ty.Any], ...]
-
-    def __init__(self, factory: _ty.Callable[..., Mutable], *args, **kwargs
-                 ) -> None:
-        self._factory = factory
-        self._args = args
-        self._kwargs = tuple(kwargs.items())
-
-    def __repr__(self) -> str:
-        return (self._factory.__name__ + repr(self._args)[:-1]
-                + f", **{self._kwargs!r})")
-
-    def __call__(self, *args: _ty.Any, **kwds: _ty.Any) -> Mutable:
-        """Execute the factory
-        """
-        return self._factory(*args, *self._args, **kwds, **dict(self._kwargs))
-
-
-def list_to_be(*args: Immutable) -> Delayed:
-    """Delayed list creation
-
-    The returned object will, upon being called with no parameters, return a
+    The returned tuple will, upon passing unpacked to `get_now`, return a
     `list` containing `args`.
     """
-    return Delayed(list, args)
+    return (list, (args,), ())
 
 
-def dict_to_be(**kws: Immutable) -> Delayed:
-    """Delayed dict creation
+def dict_to_be(**kwds: Immutable) -> Saved[Kwds[Immutable]]:
+    """Delayed dict creation.
 
-    The returned object will, upon being called with no parameters, return a
-    `dict` containing `kws`.
+    The returned tuple will, upon passing unpacked to `get_now`, return a
+    `dict` containing `kwds`.
     """
-    return Delayed(dict, **kws)
+    return (dict, _dict_iter(kwds))
 
 
-# Thess aren't really useful - you could just call the Field.__init__
+# Thess aren't really useful - you could just call the Delayed.__init__
 # but hopefully the names are more evocative
-def to_be(clss: _ty.Type[Mutable], *args: Immutable, **kwds: Immutable
-          ) -> Delayed:
+def to_be(cls: _ty.Type[Mutable], *args: Immutable, **kwds: Immutable
+          ) -> Saved[Mutable]:
     """Delayed class instance creation
 
-    The returned object will, upon being called with no parameters, return an
-    instance of `clss` with `args` and `kwds` as parameters.
+    The returned tuple will, upon passing unpacked to `get_now`, return an
+    instance of `cls` with `args` and `kwds` as parameters.
     """
-    return Delayed(clss, *args, **kwds)
+    return (cls, args, _dict_iter(kwds))
 
 
 def later(func: _ty.Callable[..., Mutable], *args: Immutable, **kwds: Immutable
-          ) -> Delayed:
-    """Delayed cfunction calling
+          ) -> Saved[Mutable]:
+    """Delayed function calling
 
     The returned object will, upon being called with new parameters, call the
     function `func` with `args` and `kwds` inserted after the new parameters.
     """
-    return Delayed(func, *args, **kwds)
+    return (func, args, _dict_iter(kwds))
+
+
+def _dict_iter(to_store: _ty.Dict) -> _ty.Tuple[_ty.Tuple, ...]:
+    """Convert dict ti tuple of items"""
+    return tuple(to_store.items())
+
+
+def get_now(func: _ty.Callable[..., Mutable], args: Args[_ty.Any] = (),
+            kwds: Kwds[_ty.Any] = ()) -> Mutable:
+    """Reconstruct a mutable value from saved parameters
+
+    Parameters
+    ----------
+    func : Callable[..., Mutable]
+        Function that returns the mutable value.
+    args : Tuple[Any]
+        Tuple of saved positional arguments.
+    kwds : Tuple[Tuple[str, Any], ...]
+        Saved keyword parameters.
+
+    Returns
+    -------
+    value : Mutable
+        The reconstructed value.
+    """
+    return func(*args, **dict(kwds))
 
 
 # =============================================================================
@@ -456,3 +442,6 @@ StrDictable = _dt.Dictable[str, _ty.Any]
 Attrs = _ty.ClassVar[_ty.Tuple[str, ...]]
 Mutable = _ty.TypeVar('Mutable')
 Immutable = _ty.TypeVar('Immutable')
+Args = _ty.Tuple[Immutable, ...]
+Kwds = _ty.Tuple[_ty.Tuple[str, Immutable], ...]
+Saved = _ty.Tuple[_ty.Callable[..., Mutable], Args[_ty.Any], Kwds[_ty.Any]]

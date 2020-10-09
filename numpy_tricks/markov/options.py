@@ -44,18 +44,18 @@ class TopologyOptions(_opt.Options):
     be valid keys, otherwise a `KeyError` is raised.
     """
     key_last: _opt.Attrs = ('directions', 'npl')
-    serial: bool
-    ring: bool
-    uniform: bool
-    directions: Tuple[int, ...]
-    discrete: bool
+    serial: bool = False
+    ring: bool = False
+    uniform: bool = False
+    directions: Tuple[int, ...] = (0, 0)
+    discrete: bool = False
 
     def __init__(self, *args, **kwds) -> None:
-        self.serial = False
-        self.ring = False
-        self.uniform = False
-        self.directions = (0, 0)
-        self.discrete = False
+        self.serial = self.serial
+        self.ring = self.ring
+        self.uniform = self.uniform
+        self.directions = self.directions
+        self.discrete = self.discrete
         super().__init__(*args, **kwds)
         if self.constrained and 'directions' not in kwds:
             # different default if any(serial, ring, uniform)

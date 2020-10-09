@@ -3,8 +3,10 @@
 """
 from __future__ import annotations
 
-import functools as _ft
-import typing as _ty
+from functools import partial, wraps
+from typing import Callable, Iterable, Literal, Optional
+import typing as ty
+import contextlib as cx
 
 import matplotlib as mpl
 
@@ -28,6 +30,13 @@ class FontSize:
         Default value for scale property, by default `1`.
     doc : str|None, optional
         Docstring, by default `None`
+
+    The owner class's `__new__` must contain a call to `self.prepare()` with
+    the new instance as the parameter.
+
+    See Also
+    --------
+    `fontsize_manager` - a decorator to implement this class.
     """
     func: TextGetter
     name: str
@@ -36,7 +45,7 @@ class FontSize:
     _scale_default: float
 
     def __init__(self, func: TextGetter, *, boolean: bool = True,
-                 scale: float = 1., doc: _ty.Optional[str] = None) -> None:
+                 scale: float = 1., doc: Optional[str] = None) -> None:
         self.func = func
         self.__doc__ = doc or func.__doc__
         self.name = func.__name__
@@ -45,35 +54,59 @@ class FontSize:
         self._scale_default = scale
 
     def prepare(self, obj: op.Options) -> None:
-        """Call in __new__ of owner"""
-        setattr(obj, self._name, {'bool': self._bool_default, 'size': None,
+        """Call in __new__ of owner - essential."""
+        setattr(obj, self._name, {'': self._bool_default, 'size': None,
                                   'scale': self._scale_default})
 
     def __get__(self, obj: op.Options, objtype: OwnerType = None) -> Modifier:
         if obj is None:
             return self
 
-        @_ft.wraps(self.func)
+        @self._catch_new()
+        @wraps(self.func)
         def method(axs: mpl.axes.Axes) -> None:
             """modify fonts"""
-            for txt in self.func(obj, axs):
-                txt.set_fontsize(obj[self.name + 'fontsize'])
-                txt.set_fontfamily(obj.fontfamily)
+            if obj[self._name]['']:
+                for txt in self.func(obj, axs):
+                    txt.set_fontsize(obj[self.name + 'fontsize'])
+                    txt.set_fontfamily(obj.fontfamily)
         return method
 
-    def prop(self, field: str, name: _ty.Optional[str] = None) -> property:
-        """Accessor property for `...<name>` or `...font<field>`"""
+    def prop(self, key: Literal['', 'scale', 'size']) -> property:
+        """Property for `<name>font<key>`.
+
+        Parameters
+        ----------
+        key : ''|'scale'|'size'
+            Which property to return.
+
+        Returns
+        -------
+        `<name>font<key>` : property[float]
+            Either the font size, the multiplier to get it from `obj.fontsize`
+            or the flag which controls whether the elements returned by `func`
+            will have their fonts modified.
+        Where `<name> == func.__name__`. The class variables that are assigned
+        the properties must have these names if the `<name>` method is to work.
+        """
+        @self._catch_new()
         def fget(obj: op.Options) -> float:
-            return obj[self._name][field]
+            return obj[self._name][key]
 
+        @self._catch_new()
         def fset(obj: op.Options, value: float) -> None:
-            obj[self._name][field] = value
+            obj[self._name][key] = value
 
-        self._set_propname(name or 'font' + field, fget, fset)
+        if key == 'size':
+            fget, fset = self._size()
+
+        self._set_propname(key, fget, fset)
         return property(fget, fset, None, self.__doc__)
 
-    def size(self) -> property:
-        """Accessor property for `...fontsize`"""
+    def _size(self) -> property:
+        """Functions for property for `...fontsize`
+        """
+        @self._catch_new()
         def fget(obj: op.Options) -> Size:
             if obj[self._name]['size'] is not None:
                 return obj[self._name]['size']
@@ -81,6 +114,7 @@ class FontSize:
                 return obj.fontsize
             return obj.fontsize * obj[self._name]['scale']
 
+        @self._catch_new()
         def fset(obj: op.Options, value: Size) -> None:
             if isinstance(value, str):
                 obj[self._name]['size'] = value
@@ -88,28 +122,98 @@ class FontSize:
                 obj[self._name]['size'] = None
                 obj[self._name]['scale'] = value / obj.fontsize
 
-        self._set_propname('fontsize', fget, fset)
-        return property(fget, fset, None, self.__doc__)
 
-    def props(self) -> _ty.Tuple[property, ...]:
-        """The properties for access"""
-        return self.prop('bool', 'font'), self.size(), self.prop('scale')
+        return fget, fset
+
+    def props(self) -> ty.Tuple[property, ...]:
+        """The properties for read/write access to font size control.
+
+        Returns
+        -------
+        <name>font : property[bool]
+            Flag which controls whether the elements returned by `func` will
+            have their fonts modified.
+        <name>fontsize : property[float|str]
+            The fontsize to use for the elements returned by `func`. Whenever
+            `obj.fontsize` changes, this property changes proportionally
+            (provided both are numeric).
+        <name>fontscale : property[float]
+            The multiplier to get `<name>fontsize` from `obj.fontsize`. If one
+            of this property and `<name>fontsize` is modified, the other is
+            modified accordingly.
+        Where `<name> == func.__name__`. The class variables that are assigned
+        the properties must have these names if the `<name>` method is to work.
+        """
+        return self.prop(''), self.prop('size'), self.prop('scale')
 
     def _set_propname(self, name: str, *fns) -> None:
         """Set the __name__, __qualname__ & __doc__ of a property"""
+        name = 'font' + name
         for fdo in fns:
             fdo.__name__ = self.func.__name__ + name
             fdo.__qualname__ = self.func.__qualname__ + name
             fdo.__doc__ = self.__doc__
 
+    @cx.contextmanager
+    def _catch_new(self) -> None:
+        """Raise error if not initialised properly"""
+        try:
+            yield
+        except KeyError as exc:
+            name = self.name
+            raise NotImplementedError(
+                f"Property '{name}' has not been set up properly. The "
+                f"`__new__` method should call `{name}.prepare(obj)` and the "
+                f"properties '{name}font', '{name}fontsize' and "
+                f"'{name}fontscale' should be defined as {name}.props()."
+            ) from exc
+        finally:
+            pass
 
-def fontsize_manager(func: _ty.Optional[TextGetter] = None, *,
+
+def fontsize_manager(func: Optional[TextGetter] = None, *,
                      boolean: bool = True, scale: float = 1.,
-                     doc: _ty.Optional[str] = None) -> FontSize:
+                     doc: Optional[str] = None) -> FontSize:
     """Decorate a method to turn it into a FontSize descriptor.
+
+    Parameters
+    ----------
+    func : Callable[Options, Axes -> Iterable[Text]]
+        Function being decorated. It should return a list/tuple of the `Text`
+        instances that need to be modified. The resulting decorated method
+        takes an `Axes` as input and modifies it in-place.
+    boolean : bool, optional
+        Default value for boolean property, by default `True`.
+    scale : float, optional
+        Default value for scale property, by default `1`.
+    doc : str|None, optional
+        Docstring, by default `None`.
+
+    If `func` is omitted, it returns a parameterised decorator.
+
+    The decorated object has methods `prop(key)` and `props()` that return
+    read-writable `properties`.
+
+    See Also
+    --------
+    `FontSize` - the descriptor resulting from this function.
+
+    Example
+    -------
+    class AxesOptions(options_classes.AnyOptions):
+
+        @fontsize_manager(scale=1.)
+        def axis(self, axs: mpl.axes.Axes) -> None:
+            '''Modify font of axis-labels.'''
+            if not self.axisfont:
+                return ()
+            return (axs.get_xaxis().get_label(), axs.get_yaxis().get_label())
+
+        axis = typing.cast(FontSize, axis)  # to help the linter
+        axisfont, axisfontsize, axisfontscale = axis.props()
     """
     if func is None:
-        return _ft.partial(FontSize, boolean=boolean, scale=scale, doc=doc)
+        return partial(FontSize, boolean=boolean, scale=scale, doc=doc)
     return FontSize(func, boolean=boolean, scale=scale, doc=doc)
 
 
@@ -119,10 +223,17 @@ def fontsize_manager(func: _ty.Optional[TextGetter] = None, *,
 
 
 class CentredFormatter(mpl.ticker.ScalarFormatter):
-    """Acts exactly like the default Scalar Formatter, but yields an empty
+    """Acts exactly like the default Scalar Formatter, but yields an specified
     label for ticks at "centre".
 
     From: https://stackoverflow.com/a/4718438/9151228 by Joe Kington
+
+    Parameters
+    ----------
+    centre : float, optional
+        Position of the tick to treat specially, by default 0
+    label : str, optional
+        Text to use for the special tick-label, by default ''
     """
     centre : float
     label: str
@@ -139,7 +250,16 @@ class CentredFormatter(mpl.ticker.ScalarFormatter):
 
 
 class FancyArrowSpine(mpl.spines.Spine, mpl.patches.FancyArrowPatch):
-    """Spine with an arrow
+    """Spine with an arrow.
+
+    Parameters
+    ----------
+    other : mpl.spines.Spine
+        The spine being replaced. Several attributes are copied from it,
+        possibly overwriting some keyword parameters.
+    Keywords are passed to the `__init__`s of `FancyArrowPatch` and `Spine`.
+    The `FancyArrowPatch` parameters `path`, `posA`, `patchA`, `shrinkA` etc.
+    have no effect.
     """
 
     def __init__(self, other: mpl.spines.Spine, **kwds) -> None:
@@ -163,9 +283,8 @@ class FancyArrowSpine(mpl.spines.Spine, mpl.patches.FancyArrowPatch):
 # =============================================================================
 # Aliases
 # =============================================================================
-Owner = _ty.TypeVar('Owner')
-Size = _ty.Union[int, float, str]
-OwnerType = _ty.Optional[_ty.Type[Owner]]
-TextGetter = _ty.Callable[[op.Options, mpl.axes.Axes],
-                          _ty.Iterable[mpl.text.Text]]
-Modifier = _ty.Callable[[mpl.axes.Axes], None]
+Owner = ty.TypeVar('Owner')
+Size = ty.Union[int, float, str]
+OwnerType = Optional[ty.Type[Owner]]
+TextGetter = Callable[[op.Options, mpl.axes.Axes], Iterable[mpl.text.Text]]
+Modifier = Callable[[mpl.axes.Axes], None]

@@ -3,6 +3,8 @@
 """
 from __future__ import annotations
 import typing as _ty
+import logging
+import os
 
 import matplotlib as mpl
 import matplotlib.animation as mpa
@@ -16,6 +18,7 @@ import sl_py_tools.tol_colors as tol
 import sl_py_tools.options_classes as op
 import sl_py_tools._mpl_helpers as _mph
 
+_log = logging.getLogger(__name__)
 # =============================================================================
 # Global Options
 # =============================================================================
@@ -30,9 +33,9 @@ def rc_fonts(family: str = 'serif') -> None:
     mpl.rcParams['font.family'] = family
     mpl.rcParams['text.latex.preamble'] = "\\usepackage{amsmath,amssymb}"
     if family == 'sans-serif':
+        mpl.rcParams['text.latex.preamble'] += r"\usepackage[T1]{fontenc}"
         mpl.rcParams['text.latex.preamble'] += r"\usepackage{euler}"
-        mpl.rcParams['text.latex.preamble'] += r"\usepackage{sansmath}"
-        mpl.rcParams['text.latex.preamble'] += r"\sansmath"
+        mpl.rcParams['text.latex.preamble'] += r"\usepackage{mathastext}"
 
 
 def rc_colours(cset: str = 'bright', cmap: str = 'YlOrBr',
@@ -58,12 +61,12 @@ def rc_colours(cset: str = 'bright', cmap: str = 'YlOrBr',
 
 
 def fig_square(fig: mpl.figure.Figure) -> None:
-    """Adjust figure width so that it is square, and tight layout
+    """Adjust figure width so that it is square, and tight layout.
 
     Parameters
     ----------
-    fig
-        instance of matplotlib.figure.Figure
+    fig : mpl.figure.Figure
+        `Figure` instance.
     """
     fig.set_size_inches(mpl.figure.figaspect(1))
     fig.tight_layout()
@@ -75,12 +78,12 @@ def fig_square(fig: mpl.figure.Figure) -> None:
 
 
 def equal_axlim(axs: mpl.axes.Axes, mode: str = 'union') -> None:
-    """Make x/y axes limits the same
+    """Make x/y axes limits the same.
 
     Parameters
     ----------
     axs : mpl.axes.Axes
-        axes instance whose limits are to be adjusted
+        `Axes` instance whose limits are to be adjusted.
     mode : str
         How do we adjust the limits? Options:
             'union'
@@ -137,27 +140,26 @@ def calc_axlim(data: np.ndarray, err: _ty.Optional[np.ndarray] = None,
 
 def set_new_axlim(axs: plt.Axes,
                   data: np.ndarray, err: _ty.Optional[np.ndarray] = None, *,
-                  yaxis: bool = True, reset: bool = False, log: bool = False,
-                  buffer: float = 0.05):
-    """Set axes limits that will show all data, including existing
+                  yaxis: bool = True, reset: bool = False, buffer: float = 0.05
+                  ) -> None:
+    """Set axes limits that will show all data, including existing.
 
     Parameters
     ----------
     axs : mpl.axes.Axes
-        axes instance whose limits are to be adjusted
+        `Axes` instance whose limits are to be adjusted.
     data : np.ndarray (n)
-        array of numbers plotted along the axis
-    err : None or np.ndarray (n) or (2,n), optional
-        error bars for data, by default: `None`.
-    yaxis : bool, optional keyword
-        are we modifying the y axis? By default: `True`.
-    reset : bool, optional keyword
-        do we ignore the existing axis limits? By default: `False`.
-    log : bool, optional keyword
-        is it a log scale? By default: `False`.
-    buffer : float, optional keyword
-        fractional padding around data, by default `0.05`.
+        Array of numbers plotted along the axis.
+    err : None|np.ndarray (n,)|(2,n), optional
+        Error bars for data, by default: `None`.
+    yaxis : bool, optional
+        Are we modifying the y axis? By default: `True`.
+    reset : bool, optional
+        Do we ignore the existing axis limits? By default: `False`.
+    buffer : float, optional
+        Fractional padding around data, by default `0.05`.
     """
+    log = (axs.get_yscale() if yaxis else axs.get_xscale()) == 'log'
     lim = calc_axlim(data, err, log, buffer)
     if not reset:
         if yaxis:
@@ -173,7 +175,7 @@ def set_new_axlim(axs: plt.Axes,
 
 def clean_axes(axs: plt.Axes, fontsize: _ty.Union[int, str] = 20,
                fontfamily: str = "sans-serif", **kwds):
-    """Make axes look prettier
+    """Make axes look prettier.
 
     All non-font size kewwords default to `True`.
     This can be changed with the keyword `all`.
@@ -181,42 +183,46 @@ def clean_axes(axs: plt.Axes, fontsize: _ty.Union[int, str] = 20,
     Parameters
     ----------
     axs : plt.Axes
-        Axes object to modify
-    fontsize : number, str, default: 20
-        Font size for axes labels, ticks & title.
-    fontfamily : str, default: sans-serif
-        Font family for axes labels, ticks & title.
+        `Axes` object to modify.
+    fontsize : float|str
+        Font size for axes labels, ticks & title. By default `20`.
+    fontfamily : str
+        Font family for axes labels, ticks & title. By default `'sans-serif'`.
 
     Keyword only
     ------------
-    box : bool, keyword
+    box : bool
         Remove axes box?
-    axisfont : bool, keyword only
+    axisfont : bool
         Change axes font size?
-    titlefont : bool, keyword only
+    titlefont : bool
         Change title font size?
-    legendbox : bool, keyword only
+    legendbox : bool
         Remove legend box?
-    legendfont : bool, keyword only
+    legendfont : bool
         Change legend font size?
-    tickfont : bool, keyword only
+    tickfont : bool
         Change tick-label font size?
-    tight : bool, keyword only
+    tight : bool
         Apply tight_layout to figure?
-    all : bool, keyword only
+    all : bool
         Choice for any of the above that is unspecified, default: True
-    titlefontsize : number, str
-        Font size for title, default: `fontsize * titlefontscale`.
-    legendfontsize : number, str
+    axisfontsize : float|str
+        Font size for axis-labels, default: `fontsize * titlefontscale`.
+    titlefontsize : float|str
+        Font size for title, default: `fontsize * axisfontscale`.
+    legendfontsize : float|str
         Font size for legend entries, default: `fontsize * legendfontscale`.
-    tickfontsize : number, str
+    tickfontsize : float|str
         Font size for tick-labels, default: `fontsize * tickfontscale`.
+    axisfontscale : number
+        Multiplies `fontsize` (if numeric) for axis-labels, by default `1`.
     titlefontscale : number
-        Multiplier of `fontsize` (if numeric) for title, default: 1.2.
+        Multiplies `fontsize` (if numeric) for the title, by default `1.2`.
     legendfontscale : number
-        Multiplier of `fontsize` (if numeric) for legend entries, default: 1.
+        Multiplies `fontsize` (if numeric) for legend entries, by default `1`.
     tickfontscale : number
-        Multiplier of `fontsize` (if numeric) for tick-labels, default: 0.694.
+        Multiplies `fontsize` (if numeric) for tick-labels, by default `0.694`.
     """
     clean_kws = AxesOptions(kwds, fontsize=fontsize, fontfamily=fontfamily)
     clean_kws.pop_my_args(kwds)
@@ -346,9 +352,23 @@ def add_axes_arrows(axs: _ty.Optional[mpl.axes.Axes] = None,
     axs = axs or plt.gca()
     # Draw an arrow at the end of the spines
     if to_xaxis:
-        axs.spines['bottom'] = _mph.FancyArrowSpine(axs.spines['bottom'], **kwds)
+        spine_arrow(axs, 'bottom', **kwds)
     if to_yaxis:
-        axs.spines['left'] = _mph.FancyArrowSpine(axs.spines['left'], **kwds)
+        spine_arrow(axs, 'left', **kwds)
+
+
+def spine_arrow(axs: mpl.axes.Axes, spine: str, **kwds) -> None:
+    """Add an arrow to a spine
+
+    Parameters
+    ----------
+    axs : mpl.axes.Axes
+        Axes holding the spine.
+    spine : str
+        Name of the spine to change.
+    """
+    axs.spines[spine] = _mph.FancyArrowSpine(axs.spines[spine], **kwds)
+
 
 
 # =============================================================================
@@ -485,7 +505,7 @@ class AxesOptions(op.AnyOptions):
     fontsize : float|str
         Base font size for axes labels, ticks, legends & title. By default 20.
     fontfamily : str
-        Font family for axis/tick labels, legend & title. By default: 'sans-serif'.
+        Font family for axis/tick-labels/legend/title. By default 'sans-serif'.
     all : bool
         Choice for any `bool` below that is unspecified, by default `True`.
     box : bool
@@ -495,20 +515,20 @@ class AxesOptions(op.AnyOptions):
     tight : bool
         Apply tight_layout to figure?
     <element>font : bool
-        Change <element> font?
+        Change <element> font? By default `True`.
     <element>fontsize : float|str
-        Font size for <element>, default: `fontsize * <element>fontscale`.
+        Font size for <element>, by default `fontsize * <element>fontscale`.
     <element>fontscale : float
-        Multiplier of `fontsize` (if numeric) for <element>.
+        Multiplier of `fontsize` (if numeric) for <element>, defaults below.
     Where <element> is:-
         `axis`:
-            Axis labels, by default `True`, default `scale`: `1`.
+            Axis labels, default `axisfontscale`: `1`.
         `title`:
-            Axes title, by default `True`, default `scale`: `1.2`.
+            Axes title, default `titlefontscale`: `1.2`.
         `legend`:
-            Legend entries, by default `True`, default `scale`: `1`.
+            Legend entries, default `legendfontscale`: `1`.
         `tick`:
-            Tick labels, by default `True`, default `scale`: `0.694`.
+            Tick labels, default `tickfontscale`: `0.694`.
 
     All parameters are optional keywords. Any dictionary passed as positional
     parameters will be popped for the relevant items. Keyword parameters must
@@ -519,11 +539,11 @@ class AxesOptions(op.AnyOptions):
                                  'legendfontsize', 'tickfontsize')
     key_first: op.Attrs = ('all', 'fontsize')
 
-    fontsize : _ty.Union[int, float, str]
-    fontfamily : str
-    box : bool
-    legendbox : bool
-    tight : bool
+    fontsize : _ty.Union[int, float, str] = 20
+    fontfamily : str = 'sans-serif'
+    box : bool = True
+    legendbox : bool = True
+    tight : bool = True
 
     def __new__(cls, *args, **kwds) -> AxesOptions:
         obj = super().__new__(cls)
@@ -545,7 +565,7 @@ class AxesOptions(op.AnyOptions):
 
     @_mph.fontsize_manager(scale=1.)
     def axis(self, axs: mpl.axes.Axes) -> None:
-        """Modify font of axis-labels"""
+        """Modify font of axis-labels."""
         if not self.axisfont:
             return ()
         return (axs.get_xaxis().get_label(), axs.get_yaxis().get_label())
@@ -555,7 +575,7 @@ class AxesOptions(op.AnyOptions):
 
     @_mph.fontsize_manager(scale=1.2)
     def title(self, axs: mpl.axes.Axes) -> None:
-        """Modify font of axis-labels"""
+        """Modify font of the title."""
         if not self.titlefont:
             return ()
         return (axs.title,)
@@ -565,7 +585,7 @@ class AxesOptions(op.AnyOptions):
 
     @_mph.fontsize_manager(scale=1.)
     def legend(self, axs: mpl.axes.Axes) -> None:
-        """Modify font of legend-labels"""
+        """Modify font of legend entries"""
         if axs.legend_ is None or not self.legendfont:
             return ()
         return axs.legend_.get_texts()
@@ -573,9 +593,9 @@ class AxesOptions(op.AnyOptions):
     legend = _ty.cast(_mph.FontSize, legend)
     legendfont, legendfontsize, legendfontscale = legend.props()
 
-    @_mph.fontsize_manager(scale=1.)
+    @_mph.fontsize_manager(scale=0.694)
     def tick(self, axs: mpl.axes.Axes) -> None:
-        """Modify font of tick-labels"""
+        """Modify font of tick-labels."""
         if not self.tickfont:
             return ()
         return axs.get_xticklabels() + axs.get_yticklabels()
@@ -626,12 +646,12 @@ class ImageOptions(op.AnyOptions):
     be valid keys, otherwise a `KeyError` is raised.
     """
     prop_attributes: op.Attrs = ('cmap',)
-    _cmap: mpl.colors.Colormap
-    norm: mpl.colors.Normalize
+    _cmap: mpl.colors.Colormap = op.later(mpl.cm.get_cmap, 'YlOrBr')
+    norm: mpl.colors.Normalize = op.to_be(mpl.colors.Normalize, 0., 1.)
 
     def __init__(self, *args, **kwds) -> None:
-        self._cmap = mpl.cm.get_cmap('YlOrBr')
-        self.norm = mpl.colors.Normalize(0., 1.)
+        self._cmap = op.get_now(*self._cmap)
+        self.norm = op.get_now(*self.norm)
         super().__init__(*args, **kwds)
 
     @property
@@ -716,16 +736,16 @@ class AnimationOptions(op.AnyOptions):
     parameters will be popped for the relevant items. Keyword parameters must
     be valid keys, otherwise a `KeyError` is raised.
     """
-    interval: float
-    repeat_delay: float
-    repeat: bool
-    blit: bool
+    interval: float = 500
+    repeat_delay: float = 1000
+    repeat: bool = True
+    blit: bool = False
 
     def __init__(self, *args, **kwds) -> None:
-        self.interval = 500
-        self.repeat_delay = 1000
-        self.repeat = True
-        self.blit = False
+        self.interval = self.interval
+        self.repeat_delay = self.repeat_delay
+        self.repeat = self.repeat
+        self.blit = self.blit
         super().__init__(*args, **kwds)
 # pylint: enable=too-many-ancestors
 
@@ -745,8 +765,12 @@ class FileSeqWriter(mpa.FileMovieWriter):
     fname_format_str : str
     _ndigit: int = 7
 
+    def __init__(self, *args, ndigit: int = 7, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._ndigit = ndigit
+
     def setup(self,  # pylint: disable=arguments-differ
-              fig: mpl.figure.Figure, outfile: str,
+              fig: mpl.figure.Figure, outfile: os.PathLike,
               dpi: _ty.Optional[float] = None,
               ndigit: _ty.Optional[int] = None,
               ) -> None:
@@ -765,6 +789,7 @@ class FileSeqWriter(mpa.FileMovieWriter):
         ndigit : int, optional
             Number of digits to leave space for in numbered file names.
         """
+        outfile = os.fsdecode(outfile)
         if '.' in outfile:
             frame_prefix, self.frame_format = outfile.rsplit('.', 1)
         else:
@@ -772,17 +797,13 @@ class FileSeqWriter(mpa.FileMovieWriter):
         super().setup(fig, outfile, dpi, frame_prefix=frame_prefix)
         if ndigit is not None:
             self._ndigit = ndigit
-        self.fname_format_str = f'%s%%0{ndigit}d.%s'
+        self.fname_format_str = f'%s%%0{self._ndigit}d.%s'
+
+    def finish(self) -> None:
+        """Perform cleanup - nothing!"""
 
     def cleanup(self) -> None:
         """Perform cleanup - nothing!"""
-
-    def _run(self) -> None:
-        """Perform post-processing - nothing!"""
-
-    def _args(self) -> _ty.List[str]:
-        """External command - nothing!"""
-        return []
 
     @classmethod
     def isAvailable(cls) -> bool:
@@ -791,27 +812,27 @@ class FileSeqWriter(mpa.FileMovieWriter):
 
 @mpa.writers.register('pdf_pages')
 class PdfPagesWriter(mpa.AbstractMovieWriter):
-    """Write animation as a multi-page pdf file"""
+    """Write animation as a multi-page pdf file
+
+    Parameters
+    ----------
+    fps : int, default: 5
+        Movie frame rate (per second).
+    codec : str or None, default: :rc:`animation.codec`
+        The codec to use.
+    bitrate : int, default: :rc:`animation.bitrate`
+        The bitrate of the movie, in kilobits per second.  Higher values
+        means higher quality movies, but increase the file size.  A value
+        of -1 lets the underlying movie encoder select the bitrate.
+    metadata : Dict[str, str], default: {}
+        A dictionary of keys and values for metadata to include in the
+        output file. Some keys that may be of use include:
+        title, artist, genre, subject, copyright, srcform, comment.
+    """
     supported_formats: _ty.ClassVar[_ty.List[str]] = ['pdf']
     _file: _ty.Optional[pdf.PdfPages]
 
     def __init__(self, fps=5, codec=None, bitrate=None, metadata=None) -> None:
-        """
-        Parameters
-        ----------
-        fps : int, default: 5
-            Movie frame rate (per second).
-        codec : str or None, default: :rc:`animation.codec`
-            The codec to use.
-        bitrate : int, default: :rc:`animation.bitrate`
-            The bitrate of the movie, in kilobits per second.  Higher values
-            means higher quality movies, but increase the file size.  A value
-            of -1 lets the underlying movie encoder select the bitrate.
-        metadata : Dict[str, str], default: {}
-            A dictionary of keys and values for metadata to include in the
-            output file. Some keys that may be of use include:
-            title, artist, genre, subject, copyright, srcform, comment.
-        """
         super().__init__(fps=fps, metadata=metadata, codec=codec,
                          bitrate=bitrate)
         self.frame_format = 'pdf'
@@ -830,7 +851,9 @@ class PdfPagesWriter(mpa.AbstractMovieWriter):
             The DPI (or resolution) for the file.  This controls the size
             in pixels of the resulting movie file.
         """
+        _log.info('Call AbstractMovieWriter.setup')
         super().setup(fig, outfile, dpi=dpi)
+        _log.info('Open PDF file')
         self._file = pdf.PdfPages(outfile, metadata=self.metadata)
 
     def grab_frame(self, **savefig_kwargs):
@@ -840,10 +863,12 @@ class PdfPagesWriter(mpa.AbstractMovieWriter):
         All keyword arguments in *savefig_kwargs* are passed on to the
         `~.Figure.savefig` call that saves the figure.
         """
+        _log.debug('Save to PDF file')
         self._file.savefig(self.fig, **savefig_kwargs)
 
     def finish(self):
         """Finish any processing for writing the movie."""
+        _log.info('Close PDF file')
         self._file.close()
 
     @classmethod
