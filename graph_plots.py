@@ -137,9 +137,9 @@ class GraphOptions(op.Options):
     layout : Callable[DiGraph -> Dict[Node, ArrayLike]]
         Function to compute node positions. Keywords passed to `set_layout`
         are saved.
-    node_style : ImageOptions
+    nodes : ImageOptions
         Options for mapping `node[attr]` to node colour/area.
-    edge_style : ImageOptions
+    edges : ImageOptions
         Options for mapping `edge[attr]` to edge colour/thickness.
     rad : List[float]
         Curvature of edges: aspect ratio of the (isoceles) Bezier triangle for
@@ -151,7 +151,7 @@ class GraphOptions(op.Options):
     parameters will be popped for the relevant items. Keyword parameters must
     be valid keys, otherwise a `KeyError` is raised.
     """
-    map_attributes: op.Attrs = ('topology', 'node_style', 'edge_style')
+    map_attributes: op.Attrs = ('topology', 'nodes', 'edges')
     prop_attributes: op.Attrs = ('layout',)
     # topology specifying options
     topology: TopologyOptions = op.to_be(TopologyOptions, serial=True)

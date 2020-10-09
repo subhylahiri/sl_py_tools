@@ -122,7 +122,6 @@ class FontSize:
                 obj[self._name]['size'] = None
                 obj[self._name]['scale'] = value / obj.fontsize
 
-
         return fget, fset
 
     def props(self) -> ty.Tuple[property, ...]:
@@ -163,8 +162,8 @@ class FontSize:
             name = self.name
             raise NotImplementedError(
                 f"Property '{name}' has not been set up properly. The "
-                f"`__new__` method should call `{name}.prepare(obj)` and the "
-                f"properties '{name}font', '{name}fontsize' and "
+                f"`__new__` method should call `cls.{name}.prepare(obj)` "
+                f"and the properties '{name}font', '{name}fontsize' and "
                 f"'{name}fontscale' should be defined as {name}.props()."
             ) from exc
         finally:

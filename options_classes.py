@@ -7,6 +7,7 @@ import operator
 import collections.abc
 import re
 import typing as _ty
+from typing import Any, Tuple
 
 import matplotlib as mpl
 
@@ -33,7 +34,7 @@ _FIX_STR = {mpl.colors.Colormap: operator.attrgetter('name'),
             collections.abc.Callable: operator.attrgetter('__name__')}
 
 
-def _fmt_sep(format_spec: str) -> _ty.Tuple[str, str, str]:
+def _fmt_sep(format_spec: str) -> Tuple[str, str, str]:
     """helper for Options.__format__: process `format_spec`."""
     if '#' not in format_spec:
         conv, next_spec = '', format_spec
@@ -44,7 +45,7 @@ def _fmt_sep(format_spec: str) -> _ty.Tuple[str, str, str]:
     return sep, conv, next_spec
 
 
-def _fmt_help(key: str, val: _ty.Any, conv: str, next_spec: str) -> str:
+def _fmt_help(key: str, val: Any, conv: str, next_spec: str) -> str:
     """helper for Options.__format__: entry for one item"""
     for cls, fun in _FIX_STR.items():
         if isinstance(val, cls):
@@ -117,10 +118,10 @@ class Options(collections.abc.MutableMapping):
         If an invalid key is used when subscripting. This does not apply to use
         as attributes (either `obj.name` or `getattr(obj, 'name')`).
     """
-    map_attributes: _ty.ClassVar[_ty.Tuple[str, ...]] = ()
-    prop_attributes: _ty.ClassVar[_ty.Tuple[str, ...]] = ()
-    key_last: _ty.ClassVar[_ty.Tuple[str, ...]] = ()
-    key_first: _ty.ClassVar[_ty.Tuple[str, ...]] = ()
+    map_attributes: _ty.ClassVar[Tuple[str, ...]] = ()
+    prop_attributes: _ty.ClassVar[Tuple[str, ...]] = ()
+    key_last: _ty.ClassVar[Tuple[str, ...]] = ()
+    key_first: _ty.ClassVar[Tuple[str, ...]] = ()
 
     def __init__(self, *args, **kwds) -> None:
         """The recommended approach to a subclass constructor is
@@ -177,7 +178,7 @@ class Options(collections.abc.MutableMapping):
     def __repr__(self) -> str:
         return self.__format__('r#\n    ')
 
-    # def __getattr__(self, name: str) -> _ty.Any:
+    # def __getattr__(self, name: str) -> Any:
     #     for attr in self.map_attributes:
     #         try:
     #             return getattr(getattr(self, attr), name)
@@ -186,7 +187,7 @@ class Options(collections.abc.MutableMapping):
     #     raise AttributeError(s
     #         f"{type(self).__name__} has no item named {name}")
 
-    def __getitem__(self, key: str) -> _ty.Any:
+    def __getitem__(self, key: str) -> Any:
         """Get an attribute"""
         if '.' in key:
             *args, attr = key.split('.')
@@ -204,7 +205,7 @@ class Options(collections.abc.MutableMapping):
                     pass
         raise KeyError(f"Unknown key: {key}.")
 
-    def __setitem__(self, key: str, value: _ty.Any) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         """Set an existing attribute"""
         if '.' in key:
             *args, attr = key.split('.')
@@ -319,7 +320,7 @@ class AnyOptions(Options):
 
     This can be used as a default place to store unknown items.
     """
-    def __setitem__(self, key: str, val: _ty.Any) -> None:
+    def __setitem__(self, key: str, val: Any) -> None:
         try:
             super().__setitem__(key, val)
         except KeyError:
@@ -350,7 +351,7 @@ class MasterOptions(Options):
     def __init_subclass__(cls, fallback: _ty.Optional[str] = None) -> None:
         cls._fallback_mapping = fallback
 
-    def __setitem__(self, key: str, val: _ty.Any) -> None:
+    def __setitem__(self, key: str, val: Any) -> None:
         try:
             super().__setitem__(key, val)
         except KeyError:
@@ -374,19 +375,19 @@ def list_to_be(*args: Immutable) -> Saved[_ty.List[Immutable]]:
     The returned tuple will, upon passing unpacked to `get_now`, return a
     `list` containing `args`.
     """
-    return (list, (args,), ())
+    return (list, (args,))
 
 
-def dict_to_be(**kwds: Immutable) -> Saved[Kwds[Immutable]]:
+def dict_to_be(**kwds: _dt.Val) -> Saved[StrDict[_dt.Val]]:
     """Delayed dict creation.
 
     The returned tuple will, upon passing unpacked to `get_now`, return a
     `dict` containing `kwds`.
     """
-    return (dict, _dict_iter(kwds))
+    return (dict, _dict_iter(kwds))  # we'll pass dict kwds positionally
 
 
-# Thess aren't really useful - you could just call the Delayed.__init__
+# These are really the same
 # but hopefully the names are more evocative
 def to_be(cls: _ty.Type[Mutable], *args: Immutable, **kwds: Immutable
           ) -> Saved[Mutable]:
@@ -398,7 +399,7 @@ def to_be(cls: _ty.Type[Mutable], *args: Immutable, **kwds: Immutable
     return (cls, args, _dict_iter(kwds))
 
 
-def later(func: _ty.Callable[..., Mutable], *args: Immutable, **kwds: Immutable
+def later(func: Factory[Mutable], *args: Immutable, **kwds: Immutable
           ) -> Saved[Mutable]:
     """Delayed function calling
 
@@ -408,13 +409,13 @@ def later(func: _ty.Callable[..., Mutable], *args: Immutable, **kwds: Immutable
     return (func, args, _dict_iter(kwds))
 
 
-def _dict_iter(to_store: _ty.Dict) -> _ty.Tuple[_ty.Tuple, ...]:
-    """Convert dict ti tuple of items"""
+def _dict_iter(to_store: _ty.Mapping[str, _dt.Val]) -> Kwds[_dt.Val]:
+    """Convert dict to tuple of items"""
     return tuple(to_store.items())
 
 
-def get_now(func: _ty.Callable[..., Mutable], args: Args[_ty.Any] = (),
-            kwds: Kwds[_ty.Any] = ()) -> Mutable:
+def get_now(func: Factory[Mutable], args: Args[Any] = (), kwds: Kwds[Any] = ()
+            ) -> Mutable:
     """Reconstruct a mutable value from saved parameters
 
     Parameters
@@ -437,11 +438,12 @@ def get_now(func: _ty.Callable[..., Mutable], args: Args[_ty.Any] = (),
 # =============================================================================
 # Hinting aliases
 # =============================================================================
-StrDict = _ty.Dict[str, _ty.Any]
-StrDictable = _dt.Dictable[str, _ty.Any]
-Attrs = _ty.ClassVar[_ty.Tuple[str, ...]]
+StrDict = _ty.Dict[str, _dt.Val]
+StrDictable = _dt.Dictable[str, _dt.Val]
+Attrs = _ty.ClassVar[Tuple[str, ...]]
 Mutable = _ty.TypeVar('Mutable')
 Immutable = _ty.TypeVar('Immutable')
-Args = _ty.Tuple[Immutable, ...]
-Kwds = _ty.Tuple[_ty.Tuple[str, Immutable], ...]
-Saved = _ty.Tuple[_ty.Callable[..., Mutable], Args[_ty.Any], Kwds[_ty.Any]]
+Factory = _ty.Callable[..., Mutable]
+Args = Tuple[Immutable, ...]
+Kwds = Tuple[Tuple[str, Immutable], ...]
+Saved = Tuple[Factory[Mutable], Args[Any], Kwds[Any]]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import typing as _ty
 import logging
 import os
+from typing import Optional
 
 import matplotlib as mpl
 import matplotlib.animation as mpa
@@ -34,6 +35,8 @@ def rc_fonts(family: str = 'serif') -> None:
     mpl.rcParams['text.latex.preamble'] = "\\usepackage{amsmath,amssymb}"
     if family == 'sans-serif':
         mpl.rcParams['text.latex.preamble'] += r"\usepackage[T1]{fontenc}"
+        mpl.rcParams['text.latex.preamble'
+                     ] += r"\renewcommand\familydefault\sfdefault"
         mpl.rcParams['text.latex.preamble'] += r"\usepackage{euler}"
         mpl.rcParams['text.latex.preamble'] += r"\usepackage{mathastext}"
 
@@ -541,9 +544,9 @@ class AxesOptions(op.AnyOptions):
 
     fontsize : _ty.Union[int, float, str] = 20
     fontfamily : str = 'sans-serif'
+    tight : bool = True
     box : bool = True
     legendbox : bool = True
-    tight : bool = True
 
     def __new__(cls, *args, **kwds) -> AxesOptions:
         obj = super().__new__(cls)
@@ -556,11 +559,11 @@ class AxesOptions(op.AnyOptions):
         return obj
 
     def __init__(self, *args, **kwds) -> None:
-        self.fontsize = 20
-        self.fontfamily = "sans-serif"
-        self.box = True
-        self.legendbox = True
-        self.tight = True
+        self.fontsize = self.fontsize
+        self.fontfamily = self.fontfamily
+        self.tight = self.tight
+        self.box = self.box
+        self.legendbox = self.legendbox
         super().__init__(*args, **kwds)
 
     @_mph.fontsize_manager(scale=1.)
@@ -758,6 +761,23 @@ class AnimationOptions(op.AnyOptions):
 @mpa.writers.register('file_seq')
 class FileSeqWriter(mpa.FileMovieWriter):
     """Write an animation as a sequence of image files.
+
+    Parameters
+    ----------
+    fps : int
+        Movie frame rate (per second), by default `5`.
+    codec : str|None
+        The codec to use, by default `None` -> :rc:`animation.codec`.
+    bitrate : int|None
+        The bitrate of the movie, in kilobits per second.  Higher values
+        means higher quality movies, but increase the file size.  A value
+        of -1 lets the underlying movie encoder select the bitrate.
+        By default `None` -> :rc:`animation.bitrate`
+    metadata : Dict[str, str]|None
+        A dictionary of keys and values for metadata to include in the
+        output file. Some keys that may be of use include:
+        title, artist, genre, subject, copyright, srcform, comment.
+        By default `None -> {}`.
     """
     supported_formats: _ty.ClassVar[_ty.List[str]] = [
         'pdf', 'svg', 'png', 'jpeg', 'ppm', 'tiff', 'sgi', 'bmp', 'pbm', 'raw',
@@ -812,27 +832,31 @@ class FileSeqWriter(mpa.FileMovieWriter):
 
 @mpa.writers.register('pdf_pages')
 class PdfPagesWriter(mpa.AbstractMovieWriter):
-    """Write animation as a multi-page pdf file
+    """Write animation as a multi-page pdf file.
 
     Parameters
     ----------
-    fps : int, default: 5
-        Movie frame rate (per second).
-    codec : str or None, default: :rc:`animation.codec`
-        The codec to use.
-    bitrate : int, default: :rc:`animation.bitrate`
+    fps : int
+        Movie frame rate (per second), by default `5`.
+    codec : str|None
+        The codec to use, by default `None` -> :rc:`animation.codec`.
+    bitrate : int|None
         The bitrate of the movie, in kilobits per second.  Higher values
         means higher quality movies, but increase the file size.  A value
         of -1 lets the underlying movie encoder select the bitrate.
-    metadata : Dict[str, str], default: {}
+        By default `None` -> :rc:`animation.bitrate`
+    metadata : Dict[str, str]|None
         A dictionary of keys and values for metadata to include in the
         output file. Some keys that may be of use include:
         title, artist, genre, subject, copyright, srcform, comment.
+        By default `None -> {}`.
     """
     supported_formats: _ty.ClassVar[_ty.List[str]] = ['pdf']
     _file: _ty.Optional[pdf.PdfPages]
 
-    def __init__(self, fps=5, codec=None, bitrate=None, metadata=None) -> None:
+    def __init__(self, fps: int = 5, codec: Optional[str] = None,
+                 bitrate: Optional[int] = None,
+                 metadata: Optional[_ty.Dict[str, str]]=None) -> None:
         super().__init__(fps=fps, metadata=metadata, codec=codec,
                          bitrate=bitrate)
         self.frame_format = 'pdf'
@@ -843,13 +867,13 @@ class PdfPagesWriter(mpa.AbstractMovieWriter):
 
         Parameters
         ----------
-        fig : `~matplotlib.figure.Figure`
+        fig : matplotlib.figure.Figure
             The figure object that contains the information for frames.
         outfile : str
             The filename of the resulting movie file.
-        dpi : float, default: ``fig.dpi``
+        dpi : float
             The DPI (or resolution) for the file.  This controls the size
-            in pixels of the resulting movie file.
+            in pixels of the resulting movie file. By default ``fig.dpi``.
         """
         _log.info('Call AbstractMovieWriter.setup')
         super().setup(fig, outfile, dpi=dpi)

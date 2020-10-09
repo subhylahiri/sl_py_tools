@@ -181,6 +181,23 @@ def updated(base: Dict[Key, Val], extra: Dictable[Key, Val] = (), **kwds
         base.update(original)
 
 
+def subdict(mapping: Mapping[Key, Val], keys: _ty.Sequence[Key]) -> Dict[Key, Val]:
+    """Pick out some items from a dictionary
+
+    Parameters
+    ----------
+    mapping : Mapping[Key, Val]
+        The dictionary with a superset of the keys we want.
+    keys : Sequence[Key]
+        List of keys we want.
+
+    Returns
+    -------
+    subdict : Dict[Key, Val]
+        Dictionary with just the keys we want, a subset of `mapping`.
+    """
+    return {key: mapping[key] for key in keys}
+
 # =============================================================================
 # Sorting
 # =============================================================================
