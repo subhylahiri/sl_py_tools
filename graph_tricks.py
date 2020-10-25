@@ -615,7 +615,7 @@ class MultiDiGraph(nx.MultiDiGraph, GraphAttrs):
         -------
         mat : np.ndarray (K,N,N)
             Matrices of edge attribute values. Each matrix in the array
-            corresponds to a value of `list_edge_keys(self`, in that order.
+            corresponds to a value of `list_edge_keys(self)`, in that order.
         """
         nodes = list(self.nodes)
         _, keys = list_edge_keys(self, get_inv=True)
@@ -678,7 +678,7 @@ def param_to_graph(param: np.ndarray, node_values: Optional[np.ndarray] = None,
     node_keys : np.ndarray (M,), optional
         Node type. By default `np.zeros(nstate)`.
     edge_keys : np.ndarray (P,), optional
-        Edge type. By default `topology.directions`.
+        Edge type. By default `topology.directions` or `[P:0:-1]`.
     topology : TopologyOptions, optional
         Encapsulation of model class. By default `TopologyOptions()`.
 
@@ -687,21 +687,52 @@ def param_to_graph(param: np.ndarray, node_values: Optional[np.ndarray] = None,
     graph : DiGraph
         Graph describing model.
     """
-    topology = ag.default_eval(topology, TopologyOptions)
-    param = np.asanyarray(param)
+    topology = topology or TopologyOptions()
+    param = np.atleast_2d(param)
     nstate = ma.params.num_state(param, **topology.directed())
     node_keys = ag.default(node_keys, np.zeros(nstate))
-    edge_keys = ag.default(edge_keys, topology.directions)
+    if topology.constrained:
+        edge_keys = ag.default(edge_keys, topology.directions)
+    else:
+        npl = param.shape[-2]
+        edge_keys = ag.default(edge_keys, np.arange(npl, 0, -1))
     if node_values is None:
         mat = ma.params.params_to_mat(param, **topology.directed())
         axis = tuple(range(mat.ndim-2))
         node_values = ma.calc_peq(mat.sum(axis))
+    # (3,)(PQ)
+    inds = ma.indices.param_subs(nstate, ravel=True, **topology.directed())
+    return make_graph(node_keys, node_values, edge_keys, param.ravel(), inds)
+
+
+def make_graph(node_keys: np.ndarray, node_values: np.ndarray,
+               edge_keys: np.ndarray, edge_values: np.ndarray,
+               edge_inds: ty.Tuple[np.ndarray, ...]) -> MultiDiGraph:
+    """Create a MultiDiGraph form node/edge data
+
+    Parameters
+    ----------
+    node_keys : np.ndarray (M,)
+        The `key` values in the nodes' dictionaries.
+    node_values : np.ndarray (M,)
+        The `value` values in the nodes' dictionaries.
+    edge_keys : np.ndarray (P,)
+        The choices for the `key` values in the edges' dictionaries.
+    edge_values : np.ndarray (E,)
+        The `value` values in the edges' dictionaries.
+    edge_inds : Tuple[np.ndarray, ...] (3,)(E,)
+        The indices of: the `key` in `edge_keys`, the from-node and the
+        to-node for each edge.
+
+    Returns
+    -------
+    graph : MultiDiGraph
+        The graph object carrying all the data.
+    """
     graph = MultiDiGraph()
     for node in it.zenumerate(node_keys, node_values):
         graph.add_node(node[0], key=node[1], value=node[2])
-    # (3,)(P,Q)
-    inds = ma.indices.param_subs(nstate, ravel=True, **topology.directed())
-    for i, j, k, val in zip(*inds, param.ravel()):
+    for i, j, k, val in zip(*edge_inds, edge_values):
         graph.add_edge(j, k, key=edge_keys[i], value=val)
     return graph
 

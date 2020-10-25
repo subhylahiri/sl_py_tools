@@ -496,7 +496,7 @@ def centre_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
 
 
 # pylint: disable=too-many-ancestors,too-many-instance-attributes
-class AxesOptions(op.AnyOptions):
+class AxesOptions(op.Options):
     """Options for `clean_axes`.
 
     The individual options can be accessed as object instance attributes

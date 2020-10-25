@@ -168,7 +168,7 @@ class Options(collections.abc.MutableMapping):
         Returns
         -------
         str
-            String reoesentation of object.
+            String representation of object.
         """
         sep, conv, next_spec = _fmt_sep(format_spec)
         attrs = sep.join(_fmt_help(key, val, conv, next_spec)
@@ -181,10 +181,10 @@ class Options(collections.abc.MutableMapping):
     # def __getattr__(self, name: str) -> Any:
     #     for attr in self.map_attributes:
     #         try:
-    #             return getattr(getattr(self, attr), name)
+    #             return getattr(self, attr)[name]
     #         except AttributeError:
     #             pass
-    #     raise AttributeError(s
+    #     raise AttributeError(
     #         f"{type(self).__name__} has no item named {name}")
 
     def __getitem__(self, key: str) -> Any:
@@ -290,19 +290,20 @@ class Options(collections.abc.MutableMapping):
         to_pop = []
         # update what we can
         for key, val in sorted_kwds.items():
-            try:
-                self[key] = val
-            except KeyError:
-                pass
-            else:
-                to_pop.append(key)
+            if key in self:
+                try:
+                    self[key] = val
+                except KeyError:
+                    pass
+                else:
+                    to_pop.append(key)
         # pop the ones we used
         for key in to_pop:
             del kwds[key]
 
     @classmethod
     def order_keys(cls, *kwds: StrDict) -> _ty.List[StrDict]:
-        """Lists of keys in order for start and end"""
+        """Sort dicts given keys in order for start and end"""
         key_first = cls.key_first + cls.map_attributes
         key_last = cls.prop_attributes + cls.key_last
         return _dt.sort_ends_dicts(kwds, key_first, key_last)

@@ -375,7 +375,7 @@ class Interval(cn.abc.Container):
     inclusive: _ty.List[bool]
 
     def __init__(self, start: _num.Real, stop: _num.Real,
-                 inclusive: InstanceOrIter[bool] = (True, False)):
+                 inclusive: InstanceOrIter[bool] = (True, False)) -> None:
         if start > stop:
             raise ValueError(f"start={start} > stop={stop}")
         self.start = start
@@ -387,7 +387,7 @@ class Interval(cn.abc.Container):
                 or (self.inclusive[0] and x == self.start)
                 or (self.inclusive[1] and x == self.stop))
 
-    def clip(self, val: _num.Real):
+    def clip(self, val: _num.Real) -> _num.Real:
         """Clip value to lie in interval
         """
         return min(max(val, self.start), self.stop)
@@ -493,6 +493,54 @@ class ShapeTuple(tuple):
 
     def __eq__(self, other):
         return same_shape(self, other)
+
+
+# =============================================================================
+# Subscriptable functions
+# =============================================================================
+
+
+class SubscriptFunction:
+    """Decorate a function so that it can be subscripted to call.
+    """
+    func: _ty.Callable[..., _ty.Any]
+
+    def __init__(self, func: _ty.Callable[..., _ty.Any]) -> None:
+        self.func = func
+        _ft.update_wrapper(self, func)
+
+    def __getitem__(self, key: _ty.Any) -> _ty.Any:
+        return self.func(*tuplify(key))
+
+    def __call__(self, *args: _ty.Any, **kwds: _ty.Any) -> _ty.Any:
+        return self.func(*args, **kwds)
+
+
+def subscriptable(func: _ty.Callable[..., _ty.Any]) -> SubscriptFunction:
+    """Decorate a function so that it can be subscripted to call.
+
+    Parameters
+    ----------
+    func : Callable[..., Any]
+        The function being wrapped. There are no restrictions on its signature.
+
+    Returns
+    -------
+    obj : SubscriptFunction
+        Subscriptable and callable object. `obj(...)` will return `func(...)`.
+        `obj[a, b, c]` will return `func(a, b, c)` (so tuples are unpacked),
+        but with slice and ellipsis notation (`a:b:c` and `...`) converted to
+        `slice` and `Ellipsis` objects.
+
+    Example
+    -------
+    ```
+    @subscriptable
+    def index_exp(*args):
+        return args
+    ```
+    """
+    return SubscriptFunction(func)
 
 
 # =============================================================================
