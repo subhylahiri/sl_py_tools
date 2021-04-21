@@ -107,7 +107,13 @@ class StyleOptions(mpt.ImageOptions):
         """
         return getattr(graph, self._method)(self.val_attr) * self.mult
 
-    def set_entity(self, value: str) -> None:
+    @property
+    def entity(self) -> str:
+        """Type of graph element, 'node' or 'edge'."""
+        return self._method[4:-5]
+
+    @entity.setter
+    def entity(self, value: str) -> None:
         """Set the type of graph element, 'node' or 'edge'.
 
         Does nothing if `value` is `None`.
@@ -118,11 +124,6 @@ class StyleOptions(mpt.ImageOptions):
             self._method = f"get_{value}_attr"
         else:
             raise ValueError(f"Entity must be 'node' or 'edge', not {value}")
-
-    @property
-    def entity(self) -> str:
-        """Type of graph element, 'node' or 'edge'."""
-        return self._method[4:-5]
 # pylint: enable=too-many-ancestors
 
 
@@ -159,17 +160,17 @@ class GraphOptions(op.Options):
     edges: StyleOptions = op.to_be(StyleOptions, cmap='seismic', mult=5)
     rad: ty.List[float] = op.list_to_be(-0.7, 0.35)
     judge: Optional[Judger]
-    _layout: Layout
+    layout: Layout
 
     def __init__(self, *args, **kwds) -> None:
         self.topology = op.get_now(*self.topology)
         self.nodes = op.get_now(*self.nodes)
-        self.nodes.set_entity('node')
+        self.nodes.entity = 'node'
         self.edges = op.get_now(*self.edges)
-        self.edges.set_entity('edge')
+        self.edges.entity = 'edge'
         self.rad = op.get_now(*self.rad)
         self.judge = good_direction
-        self._layout = linear_layout
+        self.layout = linear_layout
         super().__init__(*args, **kwds)
 
     def choose_rads(self, graph: gt.MultiDiGraph) -> np.ndarray:
@@ -199,12 +200,7 @@ class GraphOptions(op.Options):
         if value is None:
             pass
         else:
-            self._layout = ft.partial(value, **kwds)
-
-    @property
-    def layout(self) -> Layout:
-        "The layout function, with other arguments bound"
-        return self._layout
+            self.layout = ft.partial(value, **kwds)
 # pylint: enable=too-many-ancestors
 
 
@@ -345,8 +341,8 @@ class NodeCollection:
 
         self.node_size = self.style.to_size(graph)
         node_col = self.style.to_colour(graph)
-        self.style.set_vmin(node_col.min())
-        self.style.set_vmax(node_col.max())
+        self.style.vmin = node_col.min()
+        self.style.vmax = node_col.max()
 
         kwds.update(ax=axs, node_color=node_col, node_size=self.node_size,
                     edgecolors='k')
@@ -443,8 +439,8 @@ class DiEdgeCollection:
 
         edge_wid = self.style.to_size(graph)
         edge_col = self.style.to_colour(graph)
-        self.style.set_vmin(edge_col.min())
-        self.style.set_vmax(edge_col.max())
+        self.style.vmin = edge_col.min()
+        self.style.vmax = edge_col.max()
 
         kwds.update(ax=axs, edge_color=edge_col, width=edge_wid,
                     node_size=nodes.get_sizes(),

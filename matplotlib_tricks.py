@@ -15,8 +15,8 @@ import numpy as np
 
 import sl_py_tools.arg_tricks as _ag
 import sl_py_tools.containers as _cn
-import sl_py_tools.tol_colors as tol
-import sl_py_tools.options_classes as op
+import sl_py_tools.tol_colors as _tc
+import sl_py_tools.options_classes as _op
 import sl_py_tools._mpl_helpers as _mph
 
 _log = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ def rc_fonts(family: str = 'serif') -> None:
     mpl.rcParams['text.usetex'] = True
 #    mpl.rcParams['text.latex.unicode'] = True
     mpl.rcParams['font.family'] = family
-    mpl.rcParams['text.latex.preamble'] = "\\usepackage{amsmath,amssymb}"
+    mpl.rcParams['text.latex.preamble'] = r"\usepackage{amsmath,amssymb}"
     if family == 'sans-serif':
         mpl.rcParams['text.latex.preamble'] += r"\usepackage[T1]{fontenc}"
         mpl.rcParams['text.latex.preamble'
@@ -45,16 +45,16 @@ def rc_colours(cset: str = 'bright', cmap: str = 'YlOrBr',
                reg: _ty.Tuple[str, ...] = ()) -> None:
     """Global line colour options.
     """
-    prop_cycle = mpl.cycler(color=list(tol.tol_cset(cset)))
+    prop_cycle = mpl.cycler(color=list(_tc.tol_cset(cset)))
     mpl.rcParams['axes.prop_cycle'] = prop_cycle
     for cmp in reg:
-        if cmp in tol.tol_cmap():
-            mpl.cm.register_cmap(cmp, tol.tol_cmap(cmp))
-        elif cmp in tol.tol_cset():
-            mpl.cm.register_cmap(cmp, tol.tol_cset(cmp))
+        if cmp in _tc.tol_cmap():
+            mpl.cm.register_cmap(cmp, _tc.tol_cmap(cmp))
+        elif cmp in _tc.tol_cset():
+            mpl.cm.register_cmap(cmp, _tc.tol_cset(cmp))
         else:
             raise ValueError(f"Unknown colourmap {cmp}")
-    mpl.cm.register_cmap(cmap, tol.tol_cmap(cmap))
+    mpl.cm.register_cmap(cmap, _tc.tol_cmap(cmap))
     mpl.rcParams['image.cmap'] = cmap
 
 
@@ -496,7 +496,7 @@ def centre_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
 
 
 # pylint: disable=too-many-ancestors,too-many-instance-attributes
-class AxesOptions(op.Options):
+class AxesOptions(_op.Options):
     """Options for `clean_axes`.
 
     The individual options can be accessed as object instance attributes
@@ -537,10 +537,10 @@ class AxesOptions(op.Options):
     parameters will be popped for the relevant items. Keyword parameters must
     be valid keys, otherwise a `KeyError` is raised.
     """
-    prop_attributes: op.Attrs = ('axisfont', 'titlefont', 'legendfont',
-                                 'tickfont', 'axisfontsize', 'titlefontsize',
-                                 'legendfontsize', 'tickfontsize')
-    key_first: op.Attrs = ('all', 'fontsize')
+    prop_attributes: _op.Attrs = ('axisfont', 'titlefont', 'legendfont',
+                                  'tickfont', 'axisfontsize', 'titlefontsize',
+                                  'legendfontsize', 'tickfontsize')
+    key_first: _op.Attrs = ('all', 'fontsize')
 
     fontsize : _ty.Union[int, float, str] = 20
     fontfamily : str = 'sans-serif'
@@ -625,7 +625,7 @@ class AxesOptions(op.Options):
 
 
 # pylint: disable=too-many-ancestors
-class ImageOptions(op.AnyOptions):
+class ImageOptions(_op.AnyOptions):
     """Options for heatmaps
 
     The individual options can be accessed as object instance attributes
@@ -648,13 +648,13 @@ class ImageOptions(op.AnyOptions):
     parameters will be popped for the relevant items. Keyword parameters must
     be valid keys, otherwise a `KeyError` is raised.
     """
-    prop_attributes: op.Attrs = ('cmap',)
-    _cmap: mpl.colors.Colormap = op.later(mpl.cm.get_cmap, 'YlOrBr')
-    norm: mpl.colors.Normalize = op.to_be(mpl.colors.Normalize, 0., 1.)
+    prop_attributes: _op.Attrs = ('cmap',)
+    _cmap: mpl.colors.Colormap = _op.later(mpl.cm.get_cmap, 'YlOrBr')
+    norm: mpl.colors.Normalize = _op.to_be(mpl.colors.Normalize, 0., 1.)
 
     def __init__(self, *args, **kwds) -> None:
-        self._cmap = op.get_now(*self._cmap)
-        self.norm = op.get_now(*self.norm)
+        self._cmap = _op.get_now(*self._cmap)
+        self.norm = _op.get_now(*self.norm)
         super().__init__(*args, **kwds)
 
     @property
@@ -663,7 +663,8 @@ class ImageOptions(op.AnyOptions):
         """
         return self._cmap
 
-    def set_cmap(self, value: _ty.Union[str, mpl.colors.Colormap]) -> None:
+    @cmap.setter
+    def cmap(self, value: _ty.Union[str, mpl.colors.Colormap]) -> None:
         """Set the colour map.
 
         Does nothing if `value` is `None`. Converts to `Colormap` if `str`.
@@ -678,7 +679,14 @@ class ImageOptions(op.AnyOptions):
             raise TypeError("cmap must be `str` or `mpl.colors.Colormap`, not "
                             + type(value).__name__)
 
-    def set_vmin(self, value: float) -> None:
+    @property
+    def vmin(self) -> float:
+        """The lower bound for the colour map.
+        """
+        return self.norm.vmin
+
+    @vmin.setter
+    def vmin(self, value: float) -> None:
         """Set the lower bound for the colour map.
 
         Does nothing if `value` is `None`.
@@ -688,7 +696,14 @@ class ImageOptions(op.AnyOptions):
         else:
             self.norm.vmin = value
 
-    def set_vmax(self, value: float) -> None:
+    @property
+    def vmax(self) -> float:
+        """The upper bound for the colour map.
+        """
+        return self.norm.vmax
+
+    @vmax.setter
+    def vmax(self, value: float) -> None:
         """Set the upper bound for the colour map.
 
         Does nothing if `value` is `None`.
@@ -716,7 +731,7 @@ class ImageOptions(op.AnyOptions):
 
 
 # pylint: disable=too-many-ancestors
-class AnimationOptions(op.AnyOptions):
+class AnimationOptions(_op.AnyOptions):
     """Options for animations
 
     The individual options can be accessed as object instance attributes

@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple, Union
 
+from networkx.algorithms.structuralholes import constraint
+
 # import numpy as np
 
 # import numpy_linalg as la
@@ -61,7 +63,7 @@ class TopologyOptions(_opt.Options):
             # different default if any(serial, ring, uniform)
             self.directions = (1, -1)
             if 'npl' in kwds:
-                self.set_npl(kwds['npl'])
+                self.npl = kwds['npl']
 
     def directed(self, which: Union[int, slice, None] = slice(None), **kwds
                  ) -> Dict[str, Any]:
@@ -86,7 +88,14 @@ class TopologyOptions(_opt.Options):
             kwds['stochastifier'] = _mh.stochastify_pd
         return kwds
 
-    def set_constrained(self, value: Optional[bool]) -> None:
+    @property
+    def constrained(self) -> bool:
+        """Are there any constraints on the topology?
+        """
+        return any((self.serial, self.ring, self.uniform) + self.directions)
+
+    @constrained.setter
+    def constrained(self, value: Optional[bool]) -> None:
         """Remove all constraints on topology by setting it `False`.
 
         Does nothing if `value` is `None`. Raises `ValueError if it is `True`.
@@ -101,7 +110,14 @@ class TopologyOptions(_opt.Options):
         self.uniform = False
         self.directions = (0,) * self.npl
 
-    def set_npl(self, value: Optional[int]) -> None:
+    @property
+    def npl(self) -> int:
+        """Number of transition matrices
+        """
+        return len(self.directions)
+
+    @npl.setter
+    def npl(self, value: Optional[int]) -> None:
         """Set the number of transition matrices.
 
         Does nothing if `value` is `None`. Removes end elements of `directions`
@@ -110,15 +126,3 @@ class TopologyOptions(_opt.Options):
         if value is None:
             return
         self.directions = self.directions[:value] + (0,) * (value - self.npl)
-
-    @property
-    def constrained(self) -> bool:
-        """Are there any constraints on the topology?
-        """
-        return any((self.serial, self.ring, self.uniform) + self.directions)
-
-    @property
-    def npl(self) -> int:
-        """Number of transition matrices
-        """
-        return len(self.directions)

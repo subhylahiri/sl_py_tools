@@ -13,6 +13,8 @@ import typing as _ty
 
 import sl_py_tools.arg_tricks as _ag
 
+Var = _ty.TypeVar('Var')
+Val = _ty.TypeVar('Val')
 # =============================================================================
 # Function parameter/return helpers
 # =============================================================================
@@ -25,8 +27,17 @@ def _is_iter(arg: _ty.Any, exclude: Excludable = ()) -> bool:
             and not isinstance(arg, EXCLUDIFY + exclude))
 
 
-def tuplify(arg: InstanceOrIter[Var], num: int = 1, exclude: Excludable = ()
+@_ty.overload
+def tuplify(arg: _ty.Iterable[Var], num: int = 1, exclude: Excludable = ()
             ) -> _ty.Tuple[Var, ...]:
+    pass
+
+@_ty.overload
+def tuplify(arg: Var, num: int = 1, exclude: Excludable = ()
+            ) -> _ty.Tuple[Var, ...]:
+    pass
+
+def tuplify(arg, num=1, exclude=()):
     """Make argument a tuple.
 
     If it is an iterable (except `str`, `dict`), it is converted to a `tuple`.
@@ -34,7 +45,7 @@ def tuplify(arg: InstanceOrIter[Var], num: int = 1, exclude: Excludable = ()
 
     Parameters
     ----------
-    arg : Var or Iterable[Var]
+    arg : Var|Iterable[Var]
         Thing to be turned / put into a `tuple`.
     num : int, optional
         Number of times to put `arg` in `tuple`, default: 1. Not used for
@@ -50,8 +61,16 @@ def tuplify(arg: InstanceOrIter[Var], num: int = 1, exclude: Excludable = ()
     return tuple(arg) if _is_iter(arg, exclude) else (arg,) * num
 
 
-def listify(arg: InstanceOrIter[Var], num: int = 1, exclude: Excludable = ()
+@_ty.overload
+def listify(arg: _ty.Iterable[Var], num: int = 1, exclude: Excludable = ()
             ) -> _ty.List[Var]:
+    pass
+
+@_ty.overload
+def listify(arg: Var, num: int = 1, exclude: Excludable = ()) -> _ty.List[Var]:
+    pass
+
+def listify(arg, num=1, exclude=()):
     """Make argument a list.
 
     If it is an iterable (except `str`, `dict`), it is converted to a `list`.
@@ -59,7 +78,7 @@ def listify(arg: InstanceOrIter[Var], num: int = 1, exclude: Excludable = ()
 
     Parameters
     ----------
-    arg : Var or Iterable[Var]
+    arg : Var|Iterable[Var]
         Thing to be turned / put into a `list`.
     num : int, optional
         Number of times to put `arg` in `list`, default: 1. Not used for
@@ -75,7 +94,15 @@ def listify(arg: InstanceOrIter[Var], num: int = 1, exclude: Excludable = ()
     return list(arg) if _is_iter(arg, exclude) else [arg] * num
 
 
-def setify(arg: InstanceOrIter[Var], exclude: Excludable = ()) -> _ty.Set[Var]:
+@_ty.overload
+def setify(arg: _ty.Iterable[Var], exclude: Excludable = ()) -> _ty.Set[Var]:
+    pass
+
+@_ty.overload
+def setify(arg: Var, exclude: Excludable = ()) -> _ty.Set[Var]:
+    pass
+
+def setify(arg, exclude=()):
     """Make argument a set.
 
     If it is an iterable (except `str`, `dict`), it is converted to a `set`.
@@ -83,7 +110,7 @@ def setify(arg: InstanceOrIter[Var], exclude: Excludable = ()) -> _ty.Set[Var]:
 
     Parameters
     ----------
-    arg : Var or Iterable[Var]
+    arg : Var|Iterable[Var]
         Thing to be turned / put into a `set`.
     exclude : Tuple[Type, ...], optional
         Additional iterable types to exclude from conversion, by default `()`.
@@ -96,8 +123,17 @@ def setify(arg: InstanceOrIter[Var], exclude: Excludable = ()) -> _ty.Set[Var]:
     return set(arg) if _is_iter(arg, exclude) else {arg}
 
 
-def repeatify(arg: InstanceOrIter[Var], times: _ty.Optional[int] = None,
+@_ty.overload
+def repeatify(arg: _ty.Iterable[Var], times: _ty.Optional[int] = 1,
               exclude: Excludable = ()) -> _ty.Iterable[Var]:
+    pass
+
+@_ty.overload
+def repeatify(arg: Var, times: _ty.Optional[int] = 1, exclude: Excludable = ()
+              ) -> _ty.Iterable[Var]:
+    pass
+
+def repeatify(arg, times=None, exclude=()):
     """Repeat argument if not iterable
 
     Parameters
@@ -713,8 +749,6 @@ def _set_doc_name(prop: SubscriptProperty, fun: PropMethod) -> None:
 # =============================================================================
 untuplify = unseqify
 unlistify = unseqify
-Var = _ty.TypeVar('Var')
-Val = _ty.TypeVar('Val')
 Owner = _ty.TypeVar('Owner')
 InstanceOrIter = _ty.Union[Var, _ty.Iterable[Var]]
 InstanceOrSeq = _ty.Union[Var, _ty.Sequence[Var]]

@@ -72,7 +72,7 @@ class Options(collections.abc.MutableMapping):
     getting and setting.
 
     If the name is not found, it will search the attributes whose names are
-    listed in `map_attributes`. This does not apply to use as attributes
+    listed in `map_attributes`. This does not apply to using as attributes
     (either `obj.name` or `getattr(obj, 'name')`). Iterating and unpacking do
     not recurse through these attributes, nor include properties and private
     attributes, unless their names are included in `prop_attributes`.
@@ -242,6 +242,7 @@ class Options(collections.abc.MutableMapping):
             for arg in args:
                 obj = getattr(obj, arg)
             del obj[attr]
+            return
         try:
             delattr(self, key)
         except AttributeError:
@@ -344,7 +345,7 @@ class MasterOptions(Options):
     fallback : str|None
         Name of a mutable mapping attribute to store any completely unknown
         keys, i.e. if recursing through the mappings listed in `map_attributes`
-        does not turn anything up. Any empty string indacates using `self` as
+        does not turn anything up. Any empty string indicates using `self` as
         the fallback storage, `None` indicates raising a `KeyError`.
     """
     _fallback_mapping: _ty.ClassVar[str]
@@ -404,7 +405,7 @@ def later(func: Factory[Mutable], *args: Immutable, **kwds: Immutable
           ) -> Saved[Mutable]:
     """Delayed function calling
 
-    The returned object will, upon being called with new parameters, call the
+    The returned tuple will, upon passing unpacked to `get_now`, call the
     function `func` with `args` and `kwds` inserted after the new parameters.
     """
     return (func, args, _dict_iter(kwds))
