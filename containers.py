@@ -124,12 +124,13 @@ def setify(arg, exclude=()):
 
 
 @_ty.overload
-def repeatify(arg: _ty.Iterable[Var], times: _ty.Optional[int] = 1,
+def repeatify(arg: _ty.Iterable[Var], times: _ty.Optional[int] = None,
               exclude: Excludable = ()) -> _ty.Iterable[Var]:
     pass
 
 @_ty.overload
-def repeatify(arg: Var, times: _ty.Optional[int] = 1, exclude: Excludable = ()
+def repeatify(arg: Var, times: _ty.Optional[int] = None,
+              exclude: Excludable = ()
               ) -> _ty.Iterable[Var]:
     pass
 

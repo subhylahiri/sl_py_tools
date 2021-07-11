@@ -474,7 +474,7 @@ def common_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
 def centre_clim(imh: _ty.Sequence[mpl.collections.QuadMesh],
                 centre: float = 0.):  # set all clims equal
     """
-    Make the color limits for each image in sequence the samesymmetrical.
+    Make the color limits for each image in sequence symmetrical.
 
     Parameters
     ----------

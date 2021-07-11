@@ -5,8 +5,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Tuple, Union
 
-from networkx.algorithms.structuralholes import constraint
-
 # import numpy as np
 
 # import numpy_linalg as la
