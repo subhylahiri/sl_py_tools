@@ -54,7 +54,10 @@ def rc_colours(cset: str = 'bright', cmap: str = 'YlOrBr',
             mpl.cm.register_cmap(cmp, _tc.tol_cset(cmp))
         else:
             raise ValueError(f"Unknown colourmap {cmp}")
-    mpl.cm.register_cmap(cmap, _tc.tol_cmap(cmap))
+    try:
+        mpl.cm.register_cmap(cmap, _tc.tol_cmap(cmap))
+    except ValueError:
+        pass
     mpl.rcParams['image.cmap'] = cmap
 
 
