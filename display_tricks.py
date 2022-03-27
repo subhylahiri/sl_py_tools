@@ -290,7 +290,15 @@ class DisplayTemporary():
 
 
 class FormattedTempDisplay(DisplayTemporary):
-    """Display a temporary formatted message
+    """Display a temporary formatted message.
+
+    Call as `fdtmp(*args, **kwds)` to display/update.
+    Formats as `self.template.format(*args, **kwds)`
+
+    Parameters
+    ----------
+    template : str
+        Template string. Used as `template.format(*args, **kwds)`.
     """
     template: str
 
@@ -299,7 +307,10 @@ class FormattedTempDisplay(DisplayTemporary):
         super().__init__()
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
-        """Format and print arguments"""
+        """Format and print arguments
+
+        Formats as `self.template.format(*args, **kwds)`
+        """
         msg = self.template.format(*args, **kwds)
         if self.numchar:
             self.update(msg)
@@ -339,7 +350,7 @@ def dtemp(msg: str = ''):
 
 
 @contextmanager
-def dcontext(msg: str):
+def dcontext(msg: str) -> DisplayTemporary:
     """Display message during context.
 
     .. warning:: Displays improperly in some clients.
@@ -357,6 +368,11 @@ def dcontext(msg: str):
     >>> with dcontext('running...'):
     >>>     execute_fn(param1, param2)
 
+    >>> with dcontext('running...') as dtmp:
+    >>>     for i in range(num):
+    >>>         execute_fn(i)
+    >>>         dtmp.update(f'ran {i}')
+
     >>> @dcontext('running...')
     >>> def myfunc(param1, param2):
     >>>     smthng = do_something(param1, param2)
@@ -364,7 +380,7 @@ def dcontext(msg: str):
     """
     dtmp = DisplayTemporary.show(msg)
     try:
-        yield
+        yield dtmp
     finally:
         dtmp.end()
 
@@ -397,6 +413,36 @@ def dexpr(msg: str, lambda_expr: Callable[[], Any]):
     with dcontext(msg):
         out = lambda_expr()
     return out
+
+
+@contextmanager
+def fdcontext(template: str, *args, **kwds) -> FormattedTempDisplay:
+    """Display formatted message during context.
+
+    .. warning:: Displays improperly in some clients.
+    See warning in `display_tricks` module.
+
+    Prints formatted message before entering context and deletes after.
+    The display can be uodated by calling the context manager.
+
+    Parameters
+    ----------
+    template : str
+        Template string. Used as `template.format(*args, **kwds)`.
+
+    Example
+    -------
+    >>> with fdcontext('ran {:3d}', 0) as dtmp:
+    >>>     for i in range(num):
+    >>>         execute_fn(i)
+    >>>         dtmp(i)
+    """
+    dtmp = FormattedTempDisplay(template)
+    dtmp(*args, **kwds)
+    try:
+        yield dtmp
+    finally:
+        dtmp.end()
 
 
 def get_display_options() -> Dict[str, Union[bool, Optional[io.TextIOBase]]]:
