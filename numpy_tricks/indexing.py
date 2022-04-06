@@ -127,7 +127,7 @@ def slice_to_inds(the_slice: slice, size: int = 0):
                      default(the_slice.step, 1), int)
 
 
-def take_slice(array: np.ndarray, the_slice: slice, axis: int = None, **kwds):
+def take_slice(arr: np.ndarray, the_slice: slice, axis: int = None, **kwds):
     """Take a slice along a given axis.
 
     Equivalent to `np.take`, except it takes a `slice` object instead of an
@@ -137,8 +137,35 @@ def take_slice(array: np.ndarray, the_slice: slice, axis: int = None, **kwds):
     --------
     `np.take`
     """
-    size = eval_or_default(axis, lambda x: array.shape[x], array.size)
-    return np.take(array, slice_to_inds(the_slice, size), axis=axis, **kwds)
+    size = eval_or_default(axis, lambda x: arr.shape[x], arr.size)
+    return np.take(arr, slice_to_inds(the_slice, size), axis=axis, **kwds)
+
+
+def last_ind(arr: np.ndarray, axis: ty.Optional[int] = None,
+             out: ty.Optional[np.ndarray] = None,
+             **kwds) -> ty.Union[int, np.ndarray]:
+    """Last index where boolean array is true
+
+    Other keywords passed to `np.argmax`.
+
+    Parameters
+    ----------
+    arr : np.ndarray[(...,N), bool]
+        Boolean area to find last true value
+    axis : int|None, optional
+        Axis along which to find last true value, by default `None` -> use
+        flattened array.
+    out : np.ndarray[(...,), int]|None, optional
+        If provided, the result will be inserted into this array. It should be
+        of the appropriate shape and dtype.
+
+    Returns
+    -------
+    ind : int|np.ndarray[(...,), int]
+        Larges index such that `arr` is true.
+    """
+    size = arr.size if axis is None else arr.shape[axis]
+    return size - np.argmax(np.flip(arr.astype(bool), axis), axis, out, **kwds)
 
 
 def ravelaxes(arr: np.ndarray, start: int = 0, stop: int = None) -> np.ndarray:
@@ -205,7 +232,7 @@ def unravelaxis(arr: np.ndarray, axis: int, shape: ty.Tuple[int, ...]
         raise ValueError(f"Axis size {arr.shape[axis]} cannot fold to {shape}")
     if minus_one == 0 and np.prod(shape) != arr.shape[axis]:
         raise ValueError(f"Axis size {arr.shape[axis]} cannot fold to {shape}")
-    axis %= arr.ndim
+    axis = _posify(axis, arr.ndim)
     newshape = arr.shape[:axis] + shape + arr.shape[axis+1:]
     return np.reshape(arr, newshape)
 
