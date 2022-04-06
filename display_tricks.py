@@ -254,7 +254,7 @@ class DisplayTemporary():
 
         Can be overloaded in subclasses
         """
-        # raise error if msg isnon-empty
+        # raise error if msg is non-empty
         if self.nest_level != self.nactive:
             msg += self.name
             msg += f": used at {self.nactive}, nested at {self.nest_level}. "
@@ -363,6 +363,11 @@ def dcontext(msg: str) -> DisplayTemporary:
     msg : str
         message to display
 
+    Yields
+    ------
+    displayer : DisplayTemporary
+        The object that controls the display
+
     Example
     -------
     >>> with dcontext('running...'):
@@ -430,6 +435,11 @@ def fdcontext(template: str, *args, **kwds) -> FormattedTempDisplay:
     template : str
         Template string. Used as `template.format(*args, **kwds)`.
 
+    Yields
+    ------
+    displayer : FormattedTempDisplay
+        The object that controls the display
+
     Example
     -------
     >>> with fdcontext('ran {:3d}', 0) as dtmp:
@@ -443,6 +453,35 @@ def fdcontext(template: str, *args, **kwds) -> FormattedTempDisplay:
         yield dtmp
     finally:
         dtmp.end()
+
+
+@contextmanager
+def undcontext(*args, **kwds) -> Callable:
+    """Don't isplay anything during context.
+
+    Use to replace `dcontext` or `fdcontext` without changing anything else.
+
+    Parameters
+    ----------
+    template : str
+        Template string. Used as `template.format(*args, **kwds)`.
+
+    Yields
+    ------
+    displayer : Callable
+        Function that does nothing
+
+    Example
+    -------
+    >>> with undcontext('ran {:3d}', 0) as dtmp:
+    >>>     for i in range(num):
+    >>>         execute_fn(i)
+    >>>         dtmp(i)
+    """
+    try:
+        yield lambda *args, **kwds: None
+    finally:
+        pass
 
 
 def get_display_options() -> Dict[str, Union[bool, Optional[io.TextIOBase]]]:
@@ -485,6 +524,10 @@ def set_display_options(**new_options):
 @contextmanager
 def display_options(**new_options):
     """Control behaviour of DisplayTemporary
+
+    See Also
+    --------
+    set_display_options
     """
     old_options = set_display_options(**new_options)
     try:
@@ -494,7 +537,7 @@ def display_options(**new_options):
 
 
 @contextmanager
-def delay_warnings(collect=True, print_after=True):
+def delay_warnings(collect=True, print_after=True) -> Optional[io.StringIO]:
     """Context manager to temporarily suppress warnings
 
     Parameters
@@ -506,6 +549,11 @@ def delay_warnings(collect=True, print_after=True):
     print_after : bool, optional, default: True
         When it is `True`, the accumulated warnings are printed to `sys.stderr`
         when the context manager exits. Has no effect if `collect` is False.
+
+    Yields
+    ------
+    warn_log_stream : io.StringIO|None
+        The collected warnings
     """
     logging.captureWarnings(True)
     warn_log_stream, warnlogger, warn_handler = None, None, None
