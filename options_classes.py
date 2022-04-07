@@ -55,7 +55,7 @@ def _fmt_help(key: str, val: Any, conv: str, next_spec: str) -> str:
         item = "{}={" + conv + "}"
         return item.format(key, val)
     val = repr(val).replace('\n', next_spec)
-    return "{}={}".format(key, val)
+    return f"{key}={val}"
 
 
 # =============================================================================
@@ -279,7 +279,7 @@ class Options(collections.abc.MutableMapping):
     def copy(self) -> Options:
         """Get a shallow copy of the object.
 
-        Onlu copies those attributes that appear when iterating.
+        Only copies those attributes that appear when iterating.
         """
         return type(self)(**self)
 
@@ -318,7 +318,7 @@ class Options(collections.abc.MutableMapping):
 
 # pylint: disable=too-many-ancestors
 class AnyOptions(Options):
-    """Same to `Options`, except it stores unknown keys as attributes.
+    """Same as `Options`, except it stores unknown keys as attributes.
 
     This can be used as a default place to store unknown items.
     """
@@ -337,7 +337,7 @@ class AnyOptions(Options):
 
 # pylint: disable=too-many-ancestors
 class MasterOptions(Options):
-    """Same to `Options`, except ot stores unknown keys in a mapping attribute.
+    """Same as `Options`, except ot stores unknown keys in a mapping attribute.
 
     The name of the fallback mapping attribute is specified with the keyword
     `fallback` in the class definition.

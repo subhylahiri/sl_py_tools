@@ -74,12 +74,15 @@ import math
 import operator
 import typing
 from functools import wraps
-from numbers import Complex, Integral, Number, Real
+from numbers import Integral, Number, Real
 from types import new_class
 from typing import Any, Callable, Optional, Tuple, Type
 
 from .arg_tricks import default, eval_or_default
 from .containers import InstanceOrSeq, Val, Var, tuplify, unseqify
+from .numeric_protocols import (
+    Arithmetic, BitWise, Convertible, InplaceArithmetic, InplaceBitWise,
+    InplaceRoundable, Ordered, Roundable)
 
 # =============================================================================
 # Wrapper helpers
@@ -197,7 +200,7 @@ def _implement_iop(func: Func, args: Tuple[Other, ...], conv: Conv,
     return args[0]
 
 
-def _magic_name(func: Func, prefix: Optional[str] = None):
+def _magic_name(func: Func, prefix: Optional[str] = None) -> str:
     """convert function name into magic method format"""
     prefix = default(prefix, '')
     return '__' + prefix + func.__name__.strip('_') + '__'
@@ -521,8 +524,6 @@ def function_decorators(conv: Conv, class_out: Type[Obj], types: TypeArg = None
 # =============================================================================
 # Mixins
 # =============================================================================
-Convertible = typing.Union[typing.SupportsComplex, typing.SupportsFloat,
-                           typing.SupportsIndex, typing.SupportsInt]
 
 
 def convert_mixin(conv: Conv, names: Any = None) -> Type[Convertible]:
@@ -558,7 +559,7 @@ def convert_mixin(conv: Conv, names: Any = None) -> Type[Convertible]:
     return new_class('ConvertibleMixin', exec_body=exec_body)
 
 
-def ordered_mixin(conv: Conv, names: Any = None) -> Type[Real]:
+def ordered_mixin(conv: Conv, names: Any = None) -> Type[Ordered]:
     """Mixin class for arithmetic comparisons.
 
     Defines all of the comparison operators, `==`, `!=`, `<`, `<=`, `>`, `>=`.
@@ -595,7 +596,7 @@ def ordered_mixin(conv: Conv, names: Any = None) -> Type[Real]:
 
 
 def mathops_mixin(conv: Conv, types: TypeArg = None, names: Any = None
-                  ) -> Type[Complex]:
+                  ) -> Type[Arithmetic]:
     """Mixin class to mimic arithmetic number types.
 
     Defines the arithmetic operators `+`, `-`, `*`, `/`, `**`, `==`, `!=` and
@@ -641,7 +642,7 @@ def mathops_mixin(conv: Conv, types: TypeArg = None, names: Any = None
 
 
 def rounder_mixin(conv: Conv, types: TypeArg = None, names: Any = None
-                  ) -> Type[Real]:
+                  ) -> Type[Roundable]:
     """Mixin class for rounding/modular routines.
 
     Defines the operators `%`, `//`, and the functions  `divmod`, `round`,
@@ -688,7 +689,7 @@ def rounder_mixin(conv: Conv, types: TypeArg = None, names: Any = None
 
 
 def bitwise_mixin(conv: Conv, types: TypeArg = None, names: Any = None
-                  ) -> Type[Integral]:
+                  ) -> Type[BitWise]:
     """Mixin class to mimic bit-string types.
 
     Defines all of the bit-wise operators: `<<`, `>>`, `&`, `^`, `|`, `~`.
@@ -730,13 +731,13 @@ def bitwise_mixin(conv: Conv, types: TypeArg = None, names: Any = None
 # -----------------------------------------------------------------------------
 
 
-def imaths_mixin(conv: Conv, attr: str = '', names: Any = None) -> Type[Complex]:
-    """Mixin class to mimic arithmetic number types.
+def imaths_mixin(conv: Conv, attr: str = '', names: Any = None
+                 ) -> Type[InplaceArithmetic]:
+    """Mixin class for in-place updaters to mimic arithmetic number types.
 
-    Defines the arithmetic operators `+`, `-`, `*`, `/`, `**`, `==`, `!=` and
-    the functions `pow`, `abs`. Operators `//`, `%` are in `rounder_mixin`,
-    operators `<`, `<=`, `>`, `>=` are in `ordered_mixin` and `<<`, `>>`, `&`,
-    `^`, `|`, `~` are in `bit_twiddle_mixin`.
+    Defines the arithmetic operators `+=`, `-=`, `*=`, `/=`, `**=`.
+    Operators `//=`, `%=` are in `iround_mixin`,
+    and `<<=`, `>>=`, `&=`, `^=`, `|=` are in `ibitws_mixin`.
 
     Parameters
     ----------
@@ -773,11 +774,11 @@ def imaths_mixin(conv: Conv, attr: str = '', names: Any = None) -> Type[Complex]
     return new_class('IArithmeticMixin', exec_body=exec_body)
 
 
-def iround_mixin(conv: Conv, attr: str = '', names: Any = None) -> Type[Real]:
-    """Mixin class for rounding/modular routines.
+def iround_mixin(conv: Conv, attr: str = '', names: Any = None
+                 ) -> Type[InplaceRoundable]:
+    """Mixin class for in-place updaters with rounding/modular routines.
 
-    Defines the operators `%`, `//`, and the functions  `divmod`, 'round',
-    `math.floor,ceil,trunc`.
+    Defines the operators `%=` and `//=`.
 
     Parameters
     ----------
@@ -811,10 +812,11 @@ def iround_mixin(conv: Conv, attr: str = '', names: Any = None) -> Type[Real]:
     return new_class('IRoundableMixin', exec_body=exec_body)
 
 
-def ibitws_mixin(conv: Conv, attr: str = '', names: Any = None) -> Type[Integral]:
-    """Mixin class to mimic bit-string types.
+def ibitws_mixin(conv: Conv, attr: str = '', names: Any = None
+                 ) -> Type[InplaceBitWise]:
+    """Mixin class for in-place updaters to mimic bit-string types.
 
-    Defines all of the bit-wise operators: `<<`, `>>`, `&`, `^`, `|`, `~`.
+    Defines the bit-wise updaters: `<<=`, `>>=`, `&=`, `^=`, `|=`.
 
     Parameters
     ----------
