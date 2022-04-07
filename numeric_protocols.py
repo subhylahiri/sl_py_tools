@@ -7,11 +7,23 @@ from typing import (Protocol, SupportsComplex, SupportsFloat, SupportsIndex,
 # pylint: disable=abstract-method, too-few-public-methods
 
 @runtime_checkable
-class Convertible(SupportsComplex, SupportsFloat, SupportsIndex, SupportsInt):
+class Convertible(Protocol):
     """Types that can be converted to standard numeric types.
 
     Has methods `__complex__`, `__float_`, `__index__`, `__int__`.
     """
+    @abstractmethod
+    def __complex__(self) -> complex:
+        pass
+    @abstractmethod
+    def __float__(self) -> float:
+        pass
+    @abstractmethod
+    def __int__(self) -> int:
+        pass
+    @abstractmethod
+    def __index__(self) -> int:
+        pass
 
 
 @runtime_checkable
@@ -174,7 +186,7 @@ class BitWise(Protocol):
 
 
 @runtime_checkable
-class InplaceArithmetic(Arithmetic):
+class InplaceArithmetic(Arithmetic, Protocol):
     """Classes that can be used with arithmetic in-place updaters.
 
     Defines the arithmetic operators `+=`, `-=`, `*=`, `/=`, `**=`.
@@ -197,7 +209,7 @@ class InplaceArithmetic(Arithmetic):
 
 
 @runtime_checkable
-class InplaceRoundable(Roundable):
+class InplaceRoundable(Roundable, Protocol):
     """Classes that can be used with rounding/modular in-place updaters.
 
     Defines the operators `%=` and `//=`.
@@ -211,7 +223,7 @@ class InplaceRoundable(Roundable):
 
 
 @runtime_checkable
-class InplaceBitWise(BitWise):
+class InplaceBitWise(BitWise, Protocol):
     """Classes that can be used with bit-wise in-place updaters.
 
     Defines the bit-wise updaters: `<<=`, `>>=`, `&=`, `^=`, `|=`.
