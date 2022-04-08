@@ -9,10 +9,29 @@ import typing as ty
 import contextlib as cx
 
 import matplotlib as mpl
+import matplotlib.font_manager as fnt
 
 import sl_py_tools.options_classes as op
 
 # =============================================================================
+
+
+def size_name_value(size: Size) -> float:
+    """Convert a font size name to a value
+
+    Parameters
+    ----------
+    size : int|float|str
+        Description of font size
+
+    Returns
+    -------
+    value : float
+        Font size in points.
+    """
+    if not isinstance(size, str):
+        return size
+    return fnt.font_scalings.get(size, 1.0) * mpl.rcParams['font.size']
 
 
 class FontSize:
@@ -110,21 +129,18 @@ class FontSize:
         def fget(obj: op.Options) -> Size:
             if obj[self._name]['size'] is not None:
                 return obj[self._name]['size']
-            if isinstance(obj.fontsize, str):
-                return obj.fontsize
-            return obj.fontsize * obj[self._name]['scale']
+            return size_name_value(obj.fontsize) * obj[self._name]['scale']
 
         @self._catch_new()
         def fset(obj: op.Options, value: Size) -> None:
-            if isinstance(value, str):
-                obj[self._name]['size'] = value
-            else:
-                obj[self._name]['size'] = None
-                obj[self._name]['scale'] = value / obj.fontsize
+            base_size = size_name_value(obj.fontsize)
+            value = size_name_value(value)
+            obj[self._name]['scale'] = value / base_size
+            obj[self._name]['size'] = None
 
         return fget, fset
 
-    def props(self) -> ty.Tuple[property, ...]:
+    def props(self) -> ty.Tuple[property, property, property]:
         """The properties for read/write access to font size control.
 
         Returns
