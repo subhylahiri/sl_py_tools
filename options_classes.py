@@ -193,7 +193,7 @@ class Options(collections.abc.MutableMapping):
             *args, attr = key.split('.')
             obj = self
             for arg in args:
-                obj = getattr(obj, arg)
+                obj = obj[arg]
             return obj[attr]
         try:
             return getattr(self, key)
@@ -211,7 +211,7 @@ class Options(collections.abc.MutableMapping):
             *args, attr = key.split('.')
             obj = self
             for arg in args:
-                obj = getattr(obj, arg)
+                obj = obj[arg]
             obj[attr] = value
             return
         if hasattr(self, 'set_' + key):
@@ -260,11 +260,12 @@ class Options(collections.abc.MutableMapping):
         # len(self.__dict__) + len(self.prop_attributes) includes privates.
         # tuple(self) appears to call len(self) -> infinite recursion.
         # return len(tuple(x for x in self))
+        return sum(1 for _ in self)
         # barely any speed difference:
-        count = 0
-        for _ in self:
-            count += 1
-        return count
+        # count = 0
+        # for _ in self:
+        #     count += 1
+        # return count
 
     def __iter__(self) -> _ty.Iterator[str]:
         yield from filter(_public, self.__dict__)
