@@ -35,11 +35,21 @@ _FIX_STR = {mpl.colors.Colormap: operator.attrgetter('name'),
 
 
 def _fmt_sep(format_spec: str) -> Tuple[str, str, str]:
-    """helper for Options.__format__: process `format_spec`."""
-    if '#' not in format_spec:
-        conv, next_spec = '', format_spec
-    else:
+    """helper for Options.__format__: process `format_spec`.
+
+    Returns
+    -------
+    sep : str
+        used as separator in list of attributes
+    conv : str
+        used as the conversion string for all values, unless `r`.
+    next_spec : str
+        will be added after newlines in subattributes
+    """
+    if '#' in format_spec:
         conv, next_spec = format_spec.split('#', maxsplit=1)
+    else:
+        conv, next_spec = '', format_spec
     sep = ',' + next_spec if next_spec else ', '
     conv = "!" + conv if conv else conv
     return sep, conv, next_spec
@@ -51,11 +61,11 @@ def _fmt_help(key: str, val: Any, conv: str, next_spec: str) -> str:
         if isinstance(val, cls):
             val = fun(val)
             break
-    if conv != '!r' or _LINE_SEP.fullmatch(next_spec) is None:
-        item = "{}={" + conv + "}"
-        return item.format(key, val)
-    val = repr(val).replace('\n', next_spec)
-    return f"{key}={val}"
+    if conv == '!r' and _LINE_SEP.fullmatch(next_spec):
+        val = repr(val).replace('\n', next_spec)
+        return f"{key}={val}"
+    item = "{}={" + conv + "}"
+    return item.format(key, val)
 
 
 # =============================================================================
@@ -338,7 +348,7 @@ class AnyOptions(Options):
 
 # pylint: disable=too-many-ancestors
 class MasterOptions(Options):
-    """Same as `Options`, except ot stores unknown keys in a mapping attribute.
+    """Same as `Options`, except it stores unknown keys in a mapping attribute.
 
     The name of the fallback mapping attribute is specified with the keyword
     `fallback` in the class definition.
@@ -436,6 +446,26 @@ def get_now(func: Factory[Mutable], args: Args[Any] = (), kwds: Kwds[Any] = ()
         The reconstructed value.
     """
     return func(*args, **dict(kwds))
+
+
+def list_properties(obj: Any) -> list[str]:
+    """List attributes that are properties
+
+    Parameters
+    ----------
+    obj : Any
+        Object whose proerties we want.
+
+    Returns
+    -------
+    prop_list : list[str]
+        List of names of `obj` attributes that are properties.
+    """
+    prop_list = []
+    for attr in dir(type(obj)):
+        if isinstance(getattr(type(obj), attr, None), property):
+            prop_list.append(attr)
+    return prop_list
 
 
 # =============================================================================
